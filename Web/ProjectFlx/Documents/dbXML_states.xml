@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<states>
+        <state value="AL" text="Alabama"/>
+        <state value="AK" text="Alaska"/>
+        <state value="AZ" text="Arizona"/>
+        <state value="AR" text="Arkansas"/>
+        <state value="CA" text="California"/>
+        <state value="CO" text="Colorado"/>
+        <state value="CT" text="Connecticut"/>
+        <state value="DE" text="Delaware"/>
+        <state value="DC" text="District of Columbia"/>
+        <state value="FL" text="Florida"/>
+        <state value="GA" text="Georgia"/>
+        <state value="HI" text="Hawaii"/>
+        <state value="ID" text="Idaho"/>
+        <state value="IL" text="Illinois"/>
+        <state value="IN" text="Indiana"/>
+        <state value="IA" text="Iowa"/>
+        <state value="KS" text="Kansas"/>
+        <state value="KY" text="Kentucky"/>
+        <state value="LA" text="Louisiana"/>
+        <state value="ME" text="Maine"/>
+        <state value="MD" text="Maryland"/>
+        <state value="MA" text="Massachusetts"/>
+        <state value="MI" text="Michigan"/>
+        <state value="MN" text="Minnesota"/>
+        <state value="MS" text="Mississippi"/>
+        <state value="MO" text="Missouri"/>
+        <state value="MT" text="Montana"/>
+        <state value="NE" text="Nebraska"/>
+        <state value="NV" text="Nevada"/>
+        <state value="NH" text="New Hampshire"/>
+        <state value="NJ" text="New Jersey"/>
+        <state value="NM" text="New Mexico"/>
+        <state value="NY" text="New York"/>
+        <state value="NC" text="North Carolina"/>
+        <state value="ND" text="North Dakota"/>
+        <state value="OH" text="Ohio"/>
+        <state value="OK" text="Oklahoma"/>
+        <state value="OR" text="Oregon"/>
+        <state value="PA" text="Pennsylvania"/>
+        <state value="RI" text="Rhode Island"/>
+        <state value="SC" text="South Carolina"/>
+        <state value="SD" text="South Dakota"/>
+        <state value="TN" text="Tennessee"/>
+        <state value="TX" text="Texas"/>
+        <state value="UT" text="Utah"/>
+        <state value="VT" text="Vermont"/>
+        <state value="VA" text="Virginia"/>
+        <state value="WA" text="Washington"/>
+        <state value="WV" text="West Virginia"/>
+        <state value="WI" text="Wisconsin"/>
+        <state value="WY" text="Wyoming"/>
+</states>

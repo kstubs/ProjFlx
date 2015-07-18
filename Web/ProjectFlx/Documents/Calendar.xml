@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<calendar>
+	<days>
+		<day num="1" abv="Sun" char="U">Sunday</day>
+		<day num="2" abv="Mon" char="M">Monday</day>
+		<day num="3" abv="Tue" char="T">Tuesday</day>
+		<day num="4" abv="Wed" char="W">Wednesday</day>
+		<day num="5" abv="Thu" char="H">Thursday</day>
+		<day num="6" abv="Fri" char="F">Friday</day>
+		<day num="7" abv="Sat" char="S">Saturday</day>
+	</days>
+	<months>
+		<month num="1" abv="Jan">January</month>
+		<month num="2" abv="Feb">February</month>
+		<month num="3" abv="Mar">March</month>
+		<month num="4" abv="Apr">April</month>
+		<month num="5" abv="May">May</month>
+		<month num="6" abv="Jun">June</month>
+		<month num="7" abv="Jul">July</month>
+		<month num="8" abv="Aug">August</month>
+		<month num="9" abv="Sep">September</month>
+		<month num="10" abv="Oct">October</month>
+		<month num="11" abv="Nov">November</month>
+		<month num="12" abv="Dec">December</month>
+	</months>
+</calendar>

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="bootstrap_prototype">
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\transition_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\affix_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\alert_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\carousel_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\button_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\collapse_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\scrollspy_prototype.js</file>
+  <file>E:\Development\ProjectFLX\__Working\Web\Bootstrap\dropdown_prototype.js</file>
+</project>

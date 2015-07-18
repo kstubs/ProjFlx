@@ -1,0 +1,11 @@
+<data>
+    <series name="sample1" label="Sample 1 label">
+        <point index="1" name="one" y="25"/>
+    </series>
+    <series>
+        <point index="1" name="two" y="35"/>
+    </series>
+    <series>
+        <point index="1" name="two" y="15"/>
+    </series>
+</data>

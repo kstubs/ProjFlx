@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chart xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="file:/E:/Development/XPortability/__TaskRunner/Src/Schemas/AnyChart-Data.xsd" name="sample1" type="bar-chart-3d">
+    <Width>200</Width>
+    <Height>200</Height>
+    <Depth>20</Depth>
+    <Borders>false</Borders>
+    <Angle>0</Angle>
+    <StrokeWidth>1</StrokeWidth>
+    <StrokeColor>#000000</StrokeColor>
+    <Shade3D>false</Shade3D>
+    <ColumnGap>5</ColumnGap>
+    <ColumnGroupCount>0</ColumnGroupCount>
+    <ChartTemplate>E:\Websites\www40.meetscoresonline.com\ProjectFLX\Documents\Charts.xslt</ChartTemplate>    
+    <data>
+        <series name="sample1" label="Sample 1 label">
+            <point index="1" name="one" y="25"/>
+            <point index="1" name="two" y="35"/>
+        </series>
+    </data>
+</chart>

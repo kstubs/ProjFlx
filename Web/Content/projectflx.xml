@@ -1,0 +1,735 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<page name="projectflx" title="ProjectFlx">
+    <h2>The Basics</h2>
+    <p>The basics</p>
+    <a name="responsiveseo"/>
+    <h2>Responsive SEO</h2>
+    <p>Responsive SEO</p>
+    <a name="prototypejs"/>
+    <h2>Prototype JS</h2>
+    <p>Built in</p>
+    <p>It is recommended that you develop within your own namespace, for example "sbt" for "site"
+        "web" "template"</p>
+    <p>In the Project Utilities folder, there are a number of base objects and utilities including: <ul>
+            <li title="Base style formating">style/wbt_Style.css</li>
+            <li title="Common Javascript Function">jscript/wbt_jscript.js</li>
+        </ul> Each of the above objects work directly with WEB_DOCUMENT_TEMPLATE to enable pre-built
+        rich features for the WebFormTemplate object </p>
+
+    <h3>New Content Drive</h3>
+    <h2>ProjectFLX - Concepts</h2>
+    <h2>XML/XSLT</h2>
+    <ul>
+        <li>Xml by same name loaded as source</li>
+        <li>XSLT by same name loaded as XSLT source (default to WBT templates)</li>
+        <li>All coding on backend serialized to XML for XSLT processing</li>
+        <li>Alternatively, individual requests of same with .json extension will result in JSON
+            doc</li>
+    </ul>
+    <h2>Design Principles</h2>
+    <ul>
+        <li>Simple markup should reduce to legible and navigable text with no CSS or JavaScript -
+            with no impending limitation of final style</li>
+        <li>A style bootstrap used - such as Twitter (this uses Twitter bootstrap out of the
+            box)</li>
+    </ul>
+
+    <content name="bootstrap" title="Twitter Bootstrap">
+        <h2>Twitter Bootstrap</h2>
+        <p>Twitter bootstrap is built in</p>
+        <h2>Template Rules - FLX Main</h2>
+
+        <h2>Template Defaults - FLX Table Ouputs</h2>
+        <h2>Resources</h2>
+        <ul>
+            <li>
+                <a href="http://www.whatsmyuseragent.com">What's my user agent</a>
+            </li>
+            <li>
+                <a href="http://detectmobilebrowsers.com/">Detect Mobile Browsers</a>
+            </li>
+        </ul>
+        <content name="bootstrap_forms" title="Bootstrap Forms">
+            <a name="twitterbootstrap"/>
+            <h1>BootStrap Forms</h1>
+            <h2>Basic</h2>
+            <form>
+                <fieldset>
+                    <legend>Legend</legend>
+                    <label>Label name</label>
+                    <input type="text" placeholder="Type something…"/>
+                    <span class="help-block">Example block-level help text here.</span>
+                    <label class="checkbox">
+                        <input type="checkbox"/> Check me out </label>
+                    <button type="submit" class="btn">Submit</button>
+                </fieldset>
+            </form>
+            <h2>Search Form</h2>
+            <form class="form-search">
+                <input type="text" class="input-medium search-query"/>
+                <button type="submit" class="btn">Search</button>
+            </form>
+            <h2>Inline Form</h2>
+            <form class="form-inline">
+                <input type="text" class="input-small" placeholder="Email"/>
+                <input type="password" class="input-small" placeholder="Password"/>
+                <label class="checkbox">
+                    <input type="checkbox"/> Remember me </label>
+                <button type="submit" class="btn">Sign in</button>
+            </form>
+            <h2>Horizontal Form</h2>
+            <form class="form-horizontal">
+                <div class="control-group">
+                    <label class="control-label" for="inputEmail">Email</label>
+                    <div class="controls">
+                        <input type="text" id="inputEmail" placeholder="Email"/>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="inputPassword">Password</label>
+                    <div class="controls">
+                        <input type="password" id="inputPassword" placeholder="Password"/>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"/> Remember me </label>
+                        <button type="submit" class="btn">Sign in</button>
+                    </div>
+                </div>
+            </form>
+            <form>
+                <h2>Supported Form Controls</h2>
+                <legend>Inputs</legend>
+                <input type="text" placeholder="Text input"/>
+                <legend>Textarea</legend>
+                <textarea rows="3"/>
+                <legend>Default (stacked)</legend>
+                <label class="checkbox">
+                    <input type="checkbox" value=""/> Option one is this and that—be sure to include
+                    why it's great </label>
+
+                <label class="radio">
+                    <input type="radio" name="optionsRadios" id="optionsRadios1" value="option1"
+                        checked=""/> Option one is this and that—be sure to include why it's great </label>
+                <label class="radio">
+                    <input type="radio" name="optionsRadios" id="optionsRadios2" value="option2"/>
+                    Option two can be something else and selecting it will deselect option one </label>
+                <legend>Inline checkboxes</legend>
+                <label class="checkbox inline">
+                    <input type="checkbox" id="inlineCheckbox1" value="option1"/> 1 </label>
+                <label class="checkbox inline">
+                    <input type="checkbox" id="inlineCheckbox2" value="option2"/> 2 </label>
+                <label class="checkbox inline">
+                    <input type="checkbox" id="inlineCheckbox3" value="option3"/> 3 </label>
+                <legend>Selects</legend>
+                <select>
+                    <option>1</option>
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4</option>
+                    <option>5</option>
+                </select>
+
+                <select multiple="multiple">
+                    <option>1</option>
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4</option>
+                    <option>5</option>
+                </select>
+
+                <h2>Extending Form Controls</h2>
+                <legend>Prepend Default Options</legend>
+                <div class="input-prepend">
+                    <span class="add-on">@</span>
+                    <input class="col-md-2" id="prependedInput" type="text" placeholder="Username"/>
+                </div>
+                <div class="input-append">
+                    <input class="col-md-2" id="appendedInput" type="text"/>
+                    <span class="add-on">.00</span>
+                </div>
+                <legend>Prepend Combined</legend>
+                <div class="input-prepend input-append">
+                    <span class="add-on">$</span>
+                    <input class="col-md-2" id="appendedPrependedInput" type="text"/>
+                    <span class="add-on">.00</span>
+                </div>
+                <legend>Buttons Instead Of Text</legend>
+                <div class="input-append">
+                    <input class="col-md-2" id="appendedInputButton" type="text"/>
+                    <button class="btn" type="button">Go!</button>
+                </div>
+                <div class="input-append">
+                    <input class="col-md-2" id="appendedInputButtons" type="text"/>
+                    <button class="btn" type="button">Search</button>
+                    <button class="btn" type="button">Options</button>
+                </div>
+                <legend>Button Dropdowns</legend>
+                <div class="input-append">
+                    <input class="col-md-2" id="appendedDropdownButton" type="text"/>
+                    <div class="btn-group">
+                        <button class="btn dropdown-toggle" data-toggle="dropdown"> Action <span
+                                class="caret"/>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a href="#">Action</a>
+                            </li>
+                            <li>
+                                <a href="#">Another action</a>
+                            </li>
+                            <li>
+                                <a href="#">Something else here</a>
+                            </li>
+                            <li class="divider"/>
+                            <li>
+                                <a href="#">Separated link</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="input-prepend input-append">
+                    <div class="btn-group">
+                        <button class="btn dropdown-toggle" data-toggle="dropdown"> Action <span
+                                class="caret"/>
+                        </button>
+                        <ul class="dropdown-menu"> ... </ul>
+                    </div>
+                    <input class="col-md-2" id="appendedPrependedDropdownButton" type="text"/>
+                    <div class="btn-group">
+                        <button class="btn dropdown-toggle" data-toggle="dropdown"> Action <span
+                                class="caret"/>
+                        </button>
+                        <ul class="dropdown-menu"> ... </ul>
+                    </div>
+                </div>
+            </form>
+            <form>
+                <legend>Segmented Dropdown Groups</legend>
+                <div class="input-prepend">
+                    <div class="btn-group">
+                        <button class="btn" tabindex="-1">Action</button>
+                        <button class="btn dropdown-toggle" data-toggle="dropdown" tabindex="-1">
+                            <span class="caret"/>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a href="#">Action</a>
+                            </li>
+                            <li>
+                                <a href="#">Another action</a>
+                            </li>
+                            <li>
+                                <a href="#">Something else here</a>
+                            </li>
+                            <li class="divider"/>
+                            <li>
+                                <a href="#">Separated link</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <input type="text"/>
+                </div>
+                <div class="input-append">
+                    <input type="text"/>
+                    <div class="btn-group">
+                        <button class="btn" tabindex="-1">Action</button>
+                        <button class="btn dropdown-toggle" data-toggle="dropdown" tabindex="-1">
+                            <span class="caret"/>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a href="#">Action</a>
+                            </li>
+                            <li>
+                                <a href="#">Another action</a>
+                            </li>
+                            <li>
+                                <a href="#">Something else here</a>
+                            </li>
+                            <li class="divider"/>
+                            <li>
+                                <a href="#">Separated link</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </form>
+            <form>
+                <legend>Control Sizing</legend>
+                <input class="input-mini" type="text" placeholder=".input-mini"/>
+                <input class="input-small" type="text" placeholder=".input-small"/>
+                <input class="input-medium" type="text" placeholder=".input-medium"/>
+                <input class="input-large" type="text" placeholder=".input-large"/>
+                <input class="input-xlarge" type="text" placeholder=".input-xlarge"/>
+                <input class="input-xxlarge" type="text" placeholder=".input-xxlarge"/>
+                <legend>Grid Sizing</legend>
+                <input class="col-md-1" type="text" placeholder=".col-md-1"/>
+                <input class="col-md-2" type="text" placeholder=".col-md-2"/>
+                <input class="col-md-3" type="text" placeholder=".col-md-3"/>
+                <select class="col-md-1">
+                    <option/>
+                </select>
+                <select class="col-md-2">
+                    <option/>
+                </select>
+                <select class="col-md-3">
+                    <option/>
+                </select>
+                <legend>Control Row</legend>
+                <div class="controls">
+                    <input class="col-md-5" type="text" placeholder=".col-md-5"/>
+                </div>
+                <div class="controls controls-row">
+                    <input class="col-md-4" type="text" placeholder=".col-md-4"/>
+                    <input class="col-md-1" type="text" placeholder=".col-md-1"/>
+                </div>
+                <legend>Uneditable Inputs</legend>
+                <span class="input-xlarge uneditable-input">Some value here</span>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <button type="button" class="btn">Cancel</button>
+                </div>
+                <legend>Inline Help</legend>
+                <input type="text"/>
+                <span class="help-inline">Inline help text</span>
+                <legend>Block Help</legend>
+                <input type="text"/>
+                <span class="help-block">A longer block of help text that breaks onto a new line and
+                    may extend beyond one line.</span>
+                <legend>Input Focus</legend>
+                <input class="input-xlarge" id="focusedInput" type="text" value="This is focused..."/>
+                <legend>Invalid Inputs</legend>
+                <legend>Disable Inputs</legend>
+                <input class="input-xlarge" id="disabledInput" type="text"
+                    placeholder="Disabled input here..." disabled=""/>
+                <legend>Validation States</legend>
+                <div class="control-group warning">
+                    <label class="control-label" for="inputWarning">Input with warning</label>
+                    <div class="controls">
+                        <input type="text" id="inputWarning"/>
+                        <span class="help-inline">Something may have gone wrong</span>
+                    </div>
+                </div>
+
+                <div class="control-group error">
+                    <label class="control-label" for="inputError">Input with error</label>
+                    <div class="controls">
+                        <input type="text" id="inputError"/>
+                        <span class="help-inline">Please correct the error</span>
+                    </div>
+                </div>
+
+                <div class="control-group info">
+                    <label class="control-label" for="inputInfo">Input with info</label>
+                    <div class="controls">
+                        <input type="text" id="inputInfo"/>
+                        <span class="help-inline">Username is already taken</span>
+                    </div>
+                </div>
+
+                <div class="control-group success">
+                    <label class="control-label" for="inputSuccess">Input with success</label>
+                    <div class="controls">
+                        <input type="text" id="inputSuccess"/>
+                        <span class="help-inline">Woohoo!</span>
+                    </div>
+                </div>
+
+                <legend>Default Buttons</legend>
+                <button class="btn">Default</button>
+                <button class="btn btn-primary">Primary</button>
+                <button class="btn btn-info">Info</button>
+                <button class="btn btn-success">Success</button>
+                <button class="btn btn-warning">Warning</button>
+                <button class="btn btn-danger">Danger</button>
+                <button class="btn btn-inverse">Inverse</button>
+                <button class="btn btn-link">Link</button>
+
+                <legend>Button Sizes</legend>
+                <button class="btn btn-large">Large</button>
+                <button class="btn btn-primary btn-large">Large</button>
+                <button class="btn btn-small">Small</button>
+                <button class="btn btn-primary btn-small">Small</button>
+                <button class="btn btn-mini">Mini</button>
+                <button class="btn btn-primary btn-mini">Mini</button>
+            </form>
+        </content>
+        <content name="bootstrap_icons" title="Bootstrap Icons">
+            <h2>Bootstrap Icons</h2>
+            <ul class="the-icons clearfix">
+                <li>
+                    <i class="icon-glass"/> icon-glass </li>
+                <li>
+                    <i class="icon-music"/> icon-music </li>
+                <li>
+                    <i class="icon-search"/> icon-search </li>
+                <li>
+                    <i class="icon-envelope"/> icon-envelope </li>
+                <li>
+                    <i class="icon-heart"/> icon-heart </li>
+                <li>
+                    <i class="icon-star"/> icon-star </li>
+                <li>
+                    <i class="icon-star-empty"/> icon-star-empty </li>
+                <li>
+                    <i class="icon-user"/> icon-user </li>
+                <li>
+                    <i class="icon-film"/> icon-film </li>
+                <li>
+                    <i class="icon-th-large"/> icon-th-large </li>
+                <li>
+                    <i class="icon-th"/> icon-th </li>
+                <li>
+                    <i class="icon-th-list"/> icon-th-list </li>
+                <li>
+                    <i class="icon-ok"/> icon-ok </li>
+                <li>
+                    <i class="icon-remove"/> icon-remove </li>
+                <li>
+                    <i class="icon-zoom-in"/> icon-zoom-in </li>
+                <li>
+                    <i class="icon-zoom-out"/> icon-zoom-out </li>
+                <li>
+                    <i class="icon-off"/> icon-off </li>
+                <li>
+                    <i class="icon-signal"/> icon-signal </li>
+                <li>
+                    <i class="icon-cog"/> icon-cog </li>
+                <li>
+                    <i class="icon-trash"/> icon-trash </li>
+                <li>
+                    <i class="icon-home"/> icon-home </li>
+                <li>
+                    <i class="icon-file"/> icon-file </li>
+                <li>
+                    <i class="icon-time"/> icon-time </li>
+                <li>
+                    <i class="icon-road"/> icon-road </li>
+                <li>
+                    <i class="icon-download-alt"/> icon-download-alt </li>
+                <li>
+                    <i class="icon-download"/> icon-download </li>
+                <li>
+                    <i class="icon-upload"/> icon-upload </li>
+                <li>
+                    <i class="icon-inbox"/> icon-inbox </li>
+
+                <li>
+                    <i class="icon-play-circle"/> icon-play-circle </li>
+                <li>
+                    <i class="icon-repeat"/> icon-repeat </li>
+                <li>
+                    <i class="icon-refresh"/> icon-refresh </li>
+                <li>
+                    <i class="icon-list-alt"/> icon-list-alt </li>
+                <li>
+                    <i class="icon-lock"/> icon-lock </li>
+                <li>
+                    <i class="icon-flag"/> icon-flag </li>
+                <li>
+                    <i class="icon-headphones"/> icon-headphones </li>
+                <li>
+                    <i class="icon-volume-off"/> icon-volume-off </li>
+                <li>
+                    <i class="icon-volume-down"/> icon-volume-down </li>
+                <li>
+                    <i class="icon-volume-up"/> icon-volume-up </li>
+                <li>
+                    <i class="icon-qrcode"/> icon-qrcode </li>
+                <li>
+                    <i class="icon-barcode"/> icon-barcode </li>
+                <li>
+                    <i class="icon-tag"/> icon-tag </li>
+                <li>
+                    <i class="icon-tags"/> icon-tags </li>
+                <li>
+                    <i class="icon-book"/> icon-book </li>
+                <li>
+                    <i class="icon-bookmark"/> icon-bookmark </li>
+                <li>
+                    <i class="icon-print"/> icon-print </li>
+                <li>
+                    <i class="icon-camera"/> icon-camera </li>
+                <li>
+                    <i class="icon-font"/> icon-font </li>
+                <li>
+                    <i class="icon-bold"/> icon-bold </li>
+                <li>
+                    <i class="icon-italic"/> icon-italic </li>
+                <li>
+                    <i class="icon-text-height"/> icon-text-height </li>
+                <li>
+                    <i class="icon-text-width"/> icon-text-width </li>
+                <li>
+                    <i class="icon-align-left"/> icon-align-left </li>
+                <li>
+                    <i class="icon-align-center"/> icon-align-center </li>
+                <li>
+                    <i class="icon-align-right"/> icon-align-right </li>
+                <li>
+                    <i class="icon-align-justify"/> icon-align-justify </li>
+                <li>
+                    <i class="icon-list"/> icon-list </li>
+
+                <li>
+                    <i class="icon-indent-left"/> icon-indent-left </li>
+                <li>
+                    <i class="icon-indent-right"/> icon-indent-right </li>
+                <li>
+                    <i class="icon-facetime-video"/> icon-facetime-video </li>
+                <li>
+                    <i class="icon-picture"/> icon-picture </li>
+                <li>
+                    <i class="icon-pencil"/> icon-pencil </li>
+                <li>
+                    <i class="icon-map-marker"/> icon-map-marker </li>
+                <li>
+                    <i class="icon-adjust"/> icon-adjust </li>
+                <li>
+                    <i class="icon-tint"/> icon-tint </li>
+                <li>
+                    <i class="icon-edit"/> icon-edit </li>
+                <li>
+                    <i class="icon-share"/> icon-share </li>
+                <li>
+                    <i class="icon-check"/> icon-check </li>
+                <li>
+                    <i class="icon-move"/> icon-move </li>
+                <li>
+                    <i class="icon-step-backward"/> icon-step-backward </li>
+                <li>
+                    <i class="icon-fast-backward"/> icon-fast-backward </li>
+                <li>
+                    <i class="icon-backward"/> icon-backward </li>
+                <li>
+                    <i class="icon-play"/> icon-play </li>
+                <li>
+                    <i class="icon-pause"/> icon-pause </li>
+                <li>
+                    <i class="icon-stop"/> icon-stop </li>
+                <li>
+                    <i class="icon-forward"/> icon-forward </li>
+                <li>
+                    <i class="icon-fast-forward"/> icon-fast-forward </li>
+                <li>
+                    <i class="icon-step-forward"/> icon-step-forward </li>
+                <li>
+                    <i class="icon-eject"/> icon-eject </li>
+                <li>
+                    <i class="icon-chevron-left"/> icon-chevron-left </li>
+                <li>
+                    <i class="icon-chevron-right"/> icon-chevron-right </li>
+                <li>
+                    <i class="icon-plus-sign"/> icon-plus-sign </li>
+                <li>
+                    <i class="icon-minus-sign"/> icon-minus-sign </li>
+                <li>
+                    <i class="icon-remove-sign"/> icon-remove-sign </li>
+                <li>
+                    <i class="icon-ok-sign"/> icon-ok-sign </li>
+
+                <li>
+                    <i class="icon-question-sign"/> icon-question-sign </li>
+                <li>
+                    <i class="icon-info-sign"/> icon-info-sign </li>
+                <li>
+                    <i class="icon-screenshot"/> icon-screenshot </li>
+                <li>
+                    <i class="icon-remove-circle"/> icon-remove-circle </li>
+                <li>
+                    <i class="icon-ok-circle"/> icon-ok-circle </li>
+                <li>
+                    <i class="icon-ban-circle"/> icon-ban-circle </li>
+                <li>
+                    <i class="icon-arrow-left"/> icon-arrow-left </li>
+                <li>
+                    <i class="icon-arrow-right"/> icon-arrow-right </li>
+                <li>
+                    <i class="icon-arrow-up"/> icon-arrow-up </li>
+                <li>
+                    <i class="icon-arrow-down"/> icon-arrow-down </li>
+                <li>
+                    <i class="icon-share-alt"/> icon-share-alt </li>
+                <li>
+                    <i class="icon-resize-full"/> icon-resize-full </li>
+                <li>
+                    <i class="icon-resize-small"/> icon-resize-small </li>
+                <li>
+                    <i class="icon-plus"/> icon-plus </li>
+                <li>
+                    <i class="icon-minus"/> icon-minus </li>
+                <li>
+                    <i class="icon-asterisk"/> icon-asterisk </li>
+                <li>
+                    <i class="icon-exclamation-sign"/> icon-exclamation-sign </li>
+                <li>
+                    <i class="icon-gift"/> icon-gift </li>
+                <li>
+                    <i class="icon-leaf"/> icon-leaf </li>
+                <li>
+                    <i class="icon-fire"/> icon-fire </li>
+                <li>
+                    <i class="icon-eye-open"/> icon-eye-open </li>
+                <li>
+                    <i class="icon-eye-close"/> icon-eye-close </li>
+                <li>
+                    <i class="icon-warning-sign"/> icon-warning-sign </li>
+                <li>
+                    <i class="icon-plane"/> icon-plane </li>
+                <li>
+                    <i class="icon-calendar"/> icon-calendar </li>
+                <li>
+                    <i class="icon-random"/> icon-random </li>
+                <li>
+                    <i class="icon-comment"/> icon-comment </li>
+                <li>
+                    <i class="icon-magnet"/> icon-magnet </li>
+
+                <li>
+                    <i class="icon-chevron-up"/> icon-chevron-up </li>
+                <li>
+                    <i class="icon-chevron-down"/> icon-chevron-down </li>
+                <li>
+                    <i class="icon-retweet"/> icon-retweet </li>
+                <li>
+                    <i class="icon-shopping-cart"/> icon-shopping-cart </li>
+                <li>
+                    <i class="icon-folder-close"/> icon-folder-close </li>
+                <li>
+                    <i class="icon-folder-open"/> icon-folder-open </li>
+                <li>
+                    <i class="icon-resize-vertical"/> icon-resize-vertical </li>
+                <li>
+                    <i class="icon-resize-horizontal"/> icon-resize-horizontal </li>
+                <li>
+                    <i class="icon-hdd"/> icon-hdd </li>
+                <li>
+                    <i class="icon-bullhorn"/> icon-bullhorn </li>
+                <li>
+                    <i class="icon-bell"/> icon-bell </li>
+                <li>
+                    <i class="icon-certificate"/> icon-certificate </li>
+                <li>
+                    <i class="icon-thumbs-up"/> icon-thumbs-up </li>
+                <li>
+                    <i class="icon-thumbs-down"/> icon-thumbs-down </li>
+                <li>
+                    <i class="icon-hand-right"/> icon-hand-right </li>
+                <li>
+                    <i class="icon-hand-left"/> icon-hand-left </li>
+                <li>
+                    <i class="icon-hand-up"/> icon-hand-up </li>
+                <li>
+                    <i class="icon-hand-down"/> icon-hand-down </li>
+                <li>
+                    <i class="icon-circle-arrow-right"/> icon-circle-arrow-right </li>
+                <li>
+                    <i class="icon-circle-arrow-left"/> icon-circle-arrow-left </li>
+                <li>
+                    <i class="icon-circle-arrow-up"/> icon-circle-arrow-up </li>
+                <li>
+                    <i class="icon-circle-arrow-down"/> icon-circle-arrow-down </li>
+                <li>
+                    <i class="icon-globe"/> icon-globe </li>
+                <li>
+                    <i class="icon-wrench"/> icon-wrench </li>
+                <li>
+                    <i class="icon-tasks"/> icon-tasks </li>
+                <li>
+                    <i class="icon-filter"/> icon-filter </li>
+                <li>
+                    <i class="icon-briefcase"/> icon-briefcase </li>
+                <li>
+                    <i class="icon-fullscreen"/> icon-fullscreen </li>
+            </ul>
+            <legend>Button Toolbar Sample</legend>
+            <div class="btn-toolbar">
+                <div class="btn-group">
+                    <a class="btn" href="#">
+                        <i class="icon-align-left"/>
+                    </a>
+                    <a class="btn" href="#">
+                        <i class="icon-align-center"/>
+                    </a>
+                    <a class="btn" href="#">
+                        <i class="icon-align-right"/>
+                    </a>
+                    <a class="btn" href="#">
+                        <i class="icon-align-justify"/>
+                    </a>
+                </div>
+            </div>
+            <legend>Dropdown In a Button Group</legend>
+            <div class="btn-group">
+                <a class="btn btn-primary" href="#">
+                    <i class="icon-user icon-white"/> User </a>
+                <a class="btn btn-primary dropdown-toggle" data-toggle="dropdown" href="#">
+                    <span class="caret"/>
+                </a>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a href="#">
+                            <i class="icon-pencil"/> Edit </a>
+                    </li>
+                    <li>
+                        <a href="#">
+                            <i class="icon-trash"/> Delete </a>
+                    </li>
+                    <li>
+                        <a href="#">
+                            <i class="icon-ban-circle"/> Ban </a>
+                    </li>
+                    <li class="divider"/>
+                    <li>
+                        <a href="#">
+                            <i class="i"/> Make admin </a>
+                    </li>
+                </ul>
+            </div>
+            <legend>Navigation</legend>
+            <ul class="nav nav-list">
+                <li class="active">
+                    <a href="#">
+                        <i class="icon-home icon-white"/> Home </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="icon-book"/> Library </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="icon-pencil"/> Applications </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="i"/> Misc </a>
+                </li>
+            </ul>
+            <content name="form_fields">
+                <legend>Form Fields</legend>
+                <div class="control-group">
+                    <label class="control-label" for="inputIcon">Email address</label>
+                    <div class="controls">
+                        <div class="input-prepend">
+                            <span class="add-on">
+                                <i class="icon-envelope"/>
+                            </span>
+                            <input class="col-md-2" id="inputIcon" type="text"/>
+                        </div>
+                    </div>
+                </div>
+            </content>
+        </content>
+    </content>
+    <content name="selfdoc" nav="false">
+        <h2>ProjectFLX - Self Documenting Templates</h2>
+        <h2>WEB_DOCUMENT_TEMPLATE</h2>
+        <p>This is the <span>wbt:body</span> element. Please develop a SITE_DOCUMENT_TEMPLATE
+            stylesheet (.xsl) and override this element to develop a custom web page. Below are a
+            list of the elements which you can ovverride. </p>
+        <self_doc/>
+    </content>
+</page>

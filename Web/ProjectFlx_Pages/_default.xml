@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<page name="default">
+  <div class="container">
+      <div class="row">
+          <div class="col-md-12">
+            <h1>Sample 1</h1>  
+          </div>
+      </div>
+  </div>
+</page>

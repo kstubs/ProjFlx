@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<styles>
+    <style name="default">
+        <slices>
+            <colors>
+                <slice name="mso-green" color="rgb(31,161,10)" hex-color="#1FA10A" />
+                <slice name="mso-blue" color="rgb(52,101,161)" hex-color="#3465A1" />
+                <slice name="mso-orange" color="rgb(251,122,28)" hex-color="#FB7A1C" />
+                <slice name="mso-red" color="rgb(215,44,44)" hex-color="#D72C2C" />
+                <slice name="mso-grey" color="rgb(204,204,238)" hex-color="#CCCCEE" />
+                <slice name="light-gold" color="rgb(250,222,157)" hex-color="#FADE9D" />
+                <slice name="light-gold2" color="rgb(255,241,199)" hex-color="#FFF1C7" />
+            </colors>
+        </slices>
+        <slices>
+            <colors>
+                <slice name="mso-red" color="rgb(215,44,44)" hex-color="#D72C2C" />
+            </colors>
+        </slices>
+        <slices>
+            <colors>
+                <slice name="mso-green" color="rgb(31,161,13)" hex-color="#1FA10A" />
+            </colors>
+        </slices>
+        <slices>
+            <colors>
+                <slice name="mso-orange" color="rgb(251,122,28)" hex-color="#FB7A1C" />
+            </colors>
+        </slices>
+    </style>
+</styles>

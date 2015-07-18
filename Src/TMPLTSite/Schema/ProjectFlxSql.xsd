@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+	<xs:element name="projectSql">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:any minOccurs="1" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="projectResults">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="results" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="results">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="schema"/>
+				<xs:element ref="result"/>
+			</xs:sequence>
+			<xs:attribute name="name" type="xs:NCName"/>
+			<xs:attribute name="ProjectSqlFile" type="file"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="schema" type="SchemaType"/>
+
+	<xs:element name="result">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="row"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="row">
+		<xs:complexType>
+			<xs:sequence minOccurs="0">
+				<xs:any maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:anyAttribute/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="query" type="SchemaQueryType"/>
+
+	<xs:element name="command">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="name" type="mixedContent"/>
+				<xs:element name="type" type="commandType"/>
+				<xs:element name="action" type="actionType"/>
+				<xs:element name="text" type="mixedContent"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="parameters">
+		<xs:complexType>
+			<xs:sequence minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="parameter"/>
+			</xs:sequence>
+			<xs:attribute name="lookupref" type="xs:NCName"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="parameter">
+		<xs:complexType mixed="true">
+			<xs:attribute name="name" type="xs:NCName" use="required"/>
+			<xs:attribute name="type" type="fieldType" use="required"/>
+			<xs:attribute name="size" type="xs:int" use="optional"/>
+			<xs:attribute name="ForUpdate" type="xs:boolean" use="optional" default="true"/>
+			<xs:attribute name="ForDisplay" type="xs:boolean" use="optional" default="true"/>
+			<xs:attribute name="Locked" type="xs:boolean" use="optional" default="false"/>
+			<xs:attribute name="lookup" type="xs:NCName" use="optional"/>
+			<xs:attribute name="lookup_value" type="xs:NCName" use="optional"/>
+			<xs:attribute name="display" type="xs:string" use="optional"/>
+			<xs:attribute name="display_order" type="xs:int" use="optional"/>
+			<xs:attribute name="display_type" type="displayFieldType" use="optional"/>
+			<xs:attribute name="inout" type="inoutType" use="optional" default="in"/>
+			<xs:attribute name="regx" type="regxType" use="optional"/>
+			<xs:attribute name="ws_map" type="xs:NCName" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="subquery">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="fields" minOccurs="0"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="fields">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="field" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="name" type="mixedContent"/>
+
+	<xs:element name="field">
+		<xs:complexType mixed="true">
+			<xs:attribute name="name" type="xs:NCName" use="required"/>
+			<xs:attribute name="type" type="fieldType" use="required"/>
+			<xs:attribute name="size" type="xs:int" use="optional"/>
+			<xs:attribute name="display" type="xs:string" use="optional"/>
+			<xs:attribute name="ForView" type="xs:boolean" use="optional"/>
+			<xs:attribute name="ForUpdate" type="xs:boolean" use="optional"/>
+			<xs:attribute name="regx" type="regxType" use="optional"/>
+			<xs:attribute name="regx_replace" type="xs:string" use="optional"/>
+			<xs:attribute name="regx_field" type="xs:NCName" use="optional"/>
+			<xs:attribute name="encode" type="xs:NCName" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="paging">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="pages" type="pages" minOccurs="0"/>
+				<xs:element name="limit" type="xs:int" default="1000"/>
+				<xs:element name="direction" type="pagingDirectionType" default="none"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="page">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="from" type="xs:int"/>
+				<xs:element name="to" type="xs:int"/>
+			</xs:sequence>
+			<xs:attribute name="value" type="xs:int" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- complex type definitions -->
+	<xs:complexType name="SchemaType">
+		<xs:sequence>
+			<xs:element ref="query" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="SchemaQueryType">
+		<xs:complexContent>
+			<xs:extension base="QueryType">
+				<xs:attribute name="name" type="xs:NCName"/>
+				<xs:attribute name="project" type="xs:NCName"/>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+
+	<xs:complexType name="QueryType">
+		<xs:sequence>
+			<xs:element ref="command"/>
+			<xs:element ref="parameters"/>
+			<xs:element ref="fields" minOccurs="0"/>
+			<xs:element ref="paging" minOccurs="0"/>
+			<xs:element ref="subquery" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="parametersWebService">
+		<xs:sequence minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="parameter" type="parameterWebService" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="parameterWebService" mixed="true">
+		<xs:attribute name="name" type="xs:NCName" use="required"/>
+	</xs:complexType>
+
+	<xs:complexType name="mixedContent" mixed="true"/>
+
+	<xs:complexType name="type_CredentialWebService">
+		<xs:sequence>
+			<xs:element name="id" type="xs:int"/>
+			<xs:element name="password" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="pages">
+		<xs:sequence maxOccurs="unbounded">
+			<xs:element ref="page"/>
+		</xs:sequence>
+		<xs:attribute name="current" type="xs:int" use="required"/>
+		<xs:attribute name="totalrecords" type="xs:int" use="required"/>
+		<xs:attribute name="totalpages" type="xs:int" use="required"/>
+	</xs:complexType>
+
+	<xs:simpleType name="file">
+		<xs:restriction base="xs:string"/>
+	</xs:simpleType>
+
+	<xs:simpleType name="fieldType">
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="int"/>
+			<xs:enumeration value="text"/>
+			<xs:enumeration value="json"/>
+			<xs:enumeration value="tryjson"/>
+			<xs:enumeration value="date"/>
+			<xs:enumeration value="datetime"/>
+			<xs:enumeration value="decimal"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="displayFieldType">
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="normal"/>
+			<xs:enumeration value="password"/>
+			<xs:enumeration value="email"/>
+			<xs:enumeration value="select"/>
+			<xs:enumeration value="select-states"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="regxType">
+		<xs:list itemType="xs:NCName"/>
+	</xs:simpleType>
+
+	<xs:simpleType name="inoutType">
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="inout"/>
+			<xs:enumeration value="out"/>
+			<xs:enumeration value="in"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="pagingDirectionType">
+		<xs:restriction base="xs:NCName">
+			<xs:enumeration value="top"/>
+			<xs:enumeration value="last"/>
+			<xs:enumeration value="next"/>
+			<xs:enumeration value="previous"/>
+			<xs:enumeration value="none"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="commandType">
+		<xs:restriction base="xs:NCName">
+			<xs:enumeration value="StoredProcedure"/>
+			<xs:enumeration value="Select"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="actionType">
+		<xs:restriction base="xs:NCName">
+			<xs:enumeration value="Result"/>
+			<xs:enumeration value="NonQuery"/>
+			<xs:enumeration value="Scalar"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>
