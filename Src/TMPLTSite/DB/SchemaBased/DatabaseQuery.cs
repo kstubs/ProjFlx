@@ -114,6 +114,10 @@ namespace ProjectFlx.DB.SchemaBased
 
                         inoutparm = cmd.Parameters.AddWithValue(parm.name, dt);
                     }
+                    else if(parm.type == Schema.fieldType.json)
+                    {
+                        inoutparm = cmd.Parameters.AddWithValue(parm.name, value);
+                    }
                     else 
                         inoutparm = cmd.Parameters.AddWithValue(parm.name, value);
 

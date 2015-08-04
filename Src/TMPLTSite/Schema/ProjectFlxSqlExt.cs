@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
+using ProjectFlx.Exceptions;
 
 namespace ProjectFlx.Schema
 {
@@ -227,15 +229,34 @@ namespace ProjectFlx.Schema
             private ProjectFlx.Schema.SchemaQueryType _query = null;
             private XmlNode _catalog = null;
             private string _project = null;
+            private XmlDocument _regx = null;
 
             public commonProj(String ProjectSqlPath)
             {
+                _xm = new XmlDocument();
+                if(Regex.Match(ProjectSqlPath, "^http(s)?://").Success)
+                {
+                    _xm.Load(ProjectSqlPath);
+                }
+                else
+                {
+                    var ProjSql = Schema.projectSql.LoadFromFile(ProjectSqlPath);
+                    _xm.LoadXml(ProjSql.Serialize());
+                }
+
+                var xpath = @"projectSql/*[1]";
+                _catalog = _xm.SelectSingleNode(xpath);
+                _project = _catalog.LocalName;
+            }
+
+            public commonProj(String ProjectSqlPath, String Catalog)
+            {
                 var ProjSql = Schema.projectSql.LoadFromFile(ProjectSqlPath);
-                
+
                 _xm = new XmlDocument();
                 _xm.LoadXml(ProjSql.Serialize());
 
-                var xpath = @"projectSql/*[1]";
+                var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
                 _project = _catalog.LocalName;
             } 
@@ -245,16 +266,22 @@ namespace ProjectFlx.Schema
                 _xm = new XmlDocument();
                 _xm.LoadXml(ProjSql.Serialize());
 
-                var xpath = String.Format(@"/*[local-name()='{0}']", Catalog);
+                var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
                 _project = Catalog;
             }
 
             public void setProject(string Catalog)
             {
-                var xpath = String.Format(@"/*[local-name()='{0}']", Catalog);
+                var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
                 _project = _catalog.LocalName;
+            }
+
+            public void setRegX(String ValidationRegXPath)
+            {
+                _regx = new XmlDocument();
+                _regx.Load(ValidationRegXPath);
             }
 
             public ProjectFlx.Schema.SchemaQueryType SchemaQuery
@@ -273,12 +300,21 @@ namespace ProjectFlx.Schema
 
             public void fillParms(object someObject)
             {
+                fillParms(someObject, true);
+            }
+
+            public void fillParms(object someObject, bool BlankIsNull = true)
+            {
                 var nv = (NameValueCollection)someObject;
 
                 for (int i = 0; i < nv.Keys.Count; i++)
                 {
+                    var val = nv[nv.Keys[i]];
+                    if (BlankIsNull && String.IsNullOrEmpty(val))
+                        continue;
+
                     if (_query.parameters.parameter.Exists(p => { return p.name == nv.Keys[i]; }))
-                        this.setParameter(nv.Keys[i], HttpContext.Current.Server.HtmlEncode(nv[nv.Keys[i]]));
+                        this.setParameter(nv.Keys[i], HttpContext.Current.Server.HtmlEncode(val));
                 }
             }
 
@@ -311,6 +347,47 @@ namespace ProjectFlx.Schema
                 throw new NotImplementedException();
             }
 
+            public XmlNode ProjSqlNode
+            {
+                get
+                {
+                    if (_xm == null || _xm.DocumentElement == null)
+                        return null;
+
+                    return (XmlNode)_xm.DocumentElement;
+                }
+            }
+
+            public void checkInputParms()
+            {
+                var format_exception_required = "Value for input: {0} is required.";
+                var format_exception_regx = "Value for input: {0} does not match expected pattern.  Check your projSql settings.";
+
+                foreach(var parm in _query.parameters.parameter)
+                {
+                    string regxName = null;
+                    var val = Helper.FlattenList(parm.Text);
+                    var field_name = String.IsNullOrEmpty(parm.display) ? parm.name : parm.display;
+
+                    // is required
+                    if (String.IsNullOrEmpty(val) && parm.required)
+                        throw new ProjectException(String.Format(format_exception_required, field_name));
+
+                    // match regx
+                    if(!String.IsNullOrEmpty(val) && parm.regx != null && _regx != null && !String.IsNullOrEmpty(regxName = Helper.FlattenList(parm.regx)))
+                    {
+                        var xpath = String.Format("root/regx[@name='{0}']", regxName);
+                        var patternNode = _regx.SelectSingleNode(xpath);
+
+                        if (patternNode != null)
+                        {
+                            var pattern = patternNode.InnerText;
+                            if (!Regex.Match(val, pattern).Success)
+                                throw new ProjectException(String.Format(format_exception_regx, parm.name));
+                        }
+                    }
+                }
+            }
         }
     }
 }

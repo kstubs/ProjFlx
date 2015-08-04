@@ -103,6 +103,7 @@
     <Compile Include="Interfaces\FLXSiteInterface.cs" />
     <Compile Include="FlxWebSite.cs" />
     <Compile Include="Utility\hash.cs" />
+    <Compile Include="Utility\Paths.cs" />
     <Compile Include="WebTemplater.cs" />
     <Compile Include="XMLParser.cs" />
     <Compile Include="XMLTemplater.cs" />

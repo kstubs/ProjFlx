@@ -53,7 +53,7 @@ BootStrap.Collapse = Class.create({
 		}
 		
 		var dimension = this.dimension()
-  		this.dim_value = this.$element['get'+dimension.capitalize()]()
+		this.dim_value = this.$element['get'+dimension.capitalize()]()
 		this.dim_object = {}
 		this.dim_object[dimension] = this.dim_value+'px'
 		this.$element.setStyle(this.dim_object)
@@ -106,7 +106,7 @@ BootStrap.Collapse = Class.create({
 			this.$element.removeClassName('collapse').addClassName('collapsing')
 	
 			setTimeout(function(){
-			  this.$element.setStyle(this.dim_object)
+			this.$element.setStyle(this.dim_object)
 			}.bind(this),0)
 		}
 		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindDown !== 'undefined')
@@ -122,7 +122,7 @@ BootStrap.Collapse = Class.create({
 		else
 		{
 			setTimeout(function(){
-			  complete()
+			complete()
 			},350);
 		}
 	}
@@ -148,7 +148,7 @@ BootStrap.Collapse = Class.create({
 			this.$element.observe(BootStrap.transitionendevent, complete)
 			this.$element.addClassName('collapsing').removeClassName('in')
 			setTimeout(function(){
-			  this.$element.setStyle(this.clean_style)
+			this.$element.setStyle(this.clean_style)
 			}.bind(this),0)
 		}
 		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindUp !== 'undefined')

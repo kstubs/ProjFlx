@@ -24,6 +24,7 @@ namespace ProjectFlx
         protected bool wbtProcessPageScript = true;
         protected HttpResponse Response;
         protected HttpRequest Request;
+        protected System.Web.SessionState.HttpSessionState Session;
         protected HttpServerUtility Server;
         protected Cache Cache;
         private string clsCurrentPage;
@@ -408,6 +409,8 @@ namespace ProjectFlx
             newAtt.Value = (current.SelectSingleNode("ancestor-or-self::content[@authenticateduser='true'] | ancestor-or-self::Authenticated") != null).ToString().ToLower();
             current.Attributes.Append(newAtt);
 
+            wbtQuery(current, resourcecontentpath);
+
             TMPLT.AddXML("client", current);
             if (content == null)
                 throw new Exception("Project FLX Content not found!  Expecting ProjectFLX XmlDocument resource for the request - and/or - missing ProjectFLX default XmlDocument resource at: /ProjectFlx/ProjectFlx.Xml");
@@ -420,7 +423,7 @@ namespace ProjectFlx
                 if (pickup == "SKIP__RESOURCE")
                     continue;
 
-                if (_resources.Exists(Extensions.CombinePaths(pickup, "/script/required.txt")))
+                if (_resources.Exists(Utility.Paths.CombinePaths(pickup, "/script/required.txt")))
                 {
                     StringReader txtreader;
                     if (_useCdn)
@@ -459,10 +462,10 @@ namespace ProjectFlx
                             switch (node.LocalName)
                             {
                                 case "javascript":
-                                    TMPLT.AddBrowserPageItem("SCRIPT", Extensions.CombinePaths(node.Attributes["base"] == null ? "" : node.Attributes["base"].Value, srcNode.InnerText));
+                                    TMPLT.AddBrowserPageItem("SCRIPT", Utility.Paths.CombinePaths(node.Attributes["base"] == null ? "" : node.Attributes["base"].Value, srcNode.InnerText));
                                     break;
                                 case "style":
-                                    TMPLT.AddBrowserPageItem("STYLE", Extensions.CombinePaths(node.Attributes["base"] == null ? "" : node.Attributes["base"].Value, srcNode.InnerText));
+                                    TMPLT.AddBrowserPageItem("STYLE", Utility.Paths.CombinePaths(node.Attributes["base"] == null ? "" : node.Attributes["base"].Value, srcNode.InnerText));
                                     break;
                             }
                         }
@@ -474,24 +477,24 @@ namespace ProjectFlx
 
             // pickup style from local content
             foreach (string s in _resources.collectResources("style", ".css"))
-                TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Extensions.CombinePaths(_resources.Host, s) : s);
+                TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
-            foreach (string s in _resources.collectResources(Extensions.CombinePaths(resourcecontentpath,"style"), ".css"))
-                TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Extensions.CombinePaths(_resources.Host, s) : s);
+            foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(resourcecontentpath,"style"), ".css"))
+                TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
             // pickup script from local content
             foreach (string s in _resources.collectResources("script", ".js"))
-                TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Extensions.CombinePaths(_resources.Host, s) : s);
+                TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
-            foreach (string s in _resources.collectResources(Extensions.CombinePaths(resourcecontentpath, "script"), ".js"))
-                TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Extensions.CombinePaths(_resources.Host, s) : s);
+            foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(resourcecontentpath, "script"), ".js"))
+                TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
             // meta tags
             string[] meta = { "DESCRIPTION", "KEYWORDS", "TITLE" };
             foreach (var m in meta)
             {
                 var filename = m.ToLower() + ".txt";
-                if(_resources.Exists(Extensions.CombinePaths(resourcecontentpath, "meta",  filename)))
+                if(_resources.Exists(Utility.Paths.CombinePaths(resourcecontentpath, "meta",  filename)))
                 {
                     if (_useCdn)
                     {
@@ -505,7 +508,7 @@ namespace ProjectFlx
                         }
                     }
                 }
-                else if (_resources.Exists(Extensions.CombinePaths("meta", filename)))
+                else if (_resources.Exists(Utility.Paths.CombinePaths("meta", filename)))
                 {
                     if (_useCdn)
                     {
@@ -522,15 +525,177 @@ namespace ProjectFlx
                 }
 
             }
+        }
+
+        private void wbtProjSql(XmlNode current, Schema.Extra.commonProj projsql, XmlNamespaceManager NSMGR)
+        {
+            var proj = Request.QueryString["wbt_project"];
+            var query = Request.QueryString["wbt_query"];
+
+            if (proj == null || query == null)
+                return;
+
+            var node = current.SelectSingleNode("//wbt:ProjSql", NSMGR);
+            if (node == null)
+                return;
+
+            XmlNode testnode;
+            // check logged on user
+            if(!LoggedOnUser)
+            {
+                testnode = node.SelectSingleNode("@loggedonuser[.='true'] | ancestor-or-self::LoggedOn | ancestor-or-self::LoggedIn |  ancestor-or-self::LoggedOnUser", NSMGR);
+                if (testnode != null)
+                    return;
+            }
+
+            // check authenticated user
+            if (!AuthenticatedUser)
+            {
+                testnode = node.SelectSingleNode("@authenticateduser[.='true'] | ancestor-or-self::Authenticated | ancestor-or-self::AuthenticatedUser", NSMGR);
+                if (testnode != null)
+                    return;
+            }
+
+            var xpath = String.Format("*[local-name()='{0}']/query[@name='{1}']", proj, query);
+            var qnode = projsql.ProjSqlNode.SelectSingleNode(xpath);
+
+            if (qnode == null)
+                return;
+
+            var importnode = current.OwnerDocument.CreateNode(XmlNodeType.Element, "wbt", "query", NSMGR.LookupNamespace("wbt"));
+            for (int x = 0; x < qnode.Attributes.Count; x++)
+            {
+                var attimport = importnode.OwnerDocument.CreateAttribute(qnode.Attributes[x].LocalName);
+                attimport.Value = qnode.Attributes[x].Value;
+                importnode.Attributes.Append(attimport);
+            }
+
+            var att = importnode.OwnerDocument.CreateAttribute("project");
+            att.Value = proj;
+            importnode.Attributes.Append(att);
+            att = importnode.OwnerDocument.CreateAttribute("query");
+            att.Value = query;
+            importnode.Attributes.Append(att);
+            att = importnode.OwnerDocument.CreateAttribute("action");
+            att.Value = qnode.SelectSingleNode("command/action").InnerText;
+            importnode.Attributes.Append(att);
+
+            if(qnode.SelectSingleNode("parameters") != null)
+            {
+                var newnode = importnode.OwnerDocument.ImportNode(qnode.SelectSingleNode("parameters"), true);
+                importnode.AppendChild(newnode);
+            }
+
+            node.ParentNode.AppendChild(importnode);
+        }
+
+
+        private void wbtQuery(XmlNode current, String ResourceContentPath)
+        {
+            var nsmgr = new XmlNamespaceManager(current.OwnerDocument.NameTable);
+            nsmgr.AddNamespace("wbt", "myWebTemplater.1.0");
+            nsmgr.AddNamespace("sbt", "mySiteTemplater.1.0");
+            nsmgr.AddNamespace("pbt", "myPageTemplater.1.0");
 
             var ns = new XmlNamespaceManager(TMPLT.DOCxml.NameTable);
             ns.AddNamespace("wbt", "myWebTemplater.1.0");
+
+            if (current.SelectSingleNode("descendant-or-self::wbt:ProjSql | descendant-or-self::wbt:query", nsmgr) == null)
+                return;
 
             ProjectFlx.DB.DatabaseConnection db = new ProjectFlx.DB.DatabaseConnection();
             ProjectFlx.Schema.projectResults result;
             ProjectFlx.DB.SchemaBased.DatabaseQuery dbq = new ProjectFlx.DB.SchemaBased.DatabaseQuery(db, result = new ProjectFlx.Schema.projectResults());
 
-            var queries = TMPLT.DOCxml.SelectNodes("flx/client//wbt:query", ns);
+            // TODO: this become global and USECDN
+            var projsqlpath = (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, ConfigurationManager.AppSettings["project-sql-path"], "ProjectSql.xml") : Path.Combine(Server.MapPath(ConfigurationManager.AppSettings["project-sql-path"]), "ProjectSql.xml");
+            var projsql = new Schema.Extra.commonProj(projsqlpath);
+
+            if (projsql == null)
+                return;
+
+            if (ConfigurationManager.AppSettings["validation-regx"] != null)
+            {
+                projsql.setRegX(Server.MapPath(ConfigurationManager.AppSettings["validation-regx"]));
+            }
+
+            TMPLT.AddXslParameter("projSql", projsql.ProjSqlNode);
+
+            wbtProjSql(current, projsql, nsmgr);
+
+            bool isUpdateQuery = false;
+
+            // handle update, inserts, deletes
+            if (RequestType == enumRequestType.POST)
+            {
+                var qproj = Request.Form["wbt_execute_project"];
+                var qquery = Request.Form["wbt_execute_query"];
+
+                if(qproj == null)
+                    qproj = Request.Form["wbt_update_project"];
+
+                if (qquery == null)
+                    qquery = Request.Form["wbt_update_query"];
+
+                if (!(String.IsNullOrEmpty(qproj) || String.IsNullOrEmpty(qquery)))
+                {
+                    isUpdateQuery = true;
+
+                    projsql.setProject(qproj);
+                    projsql.setQuery(qquery);
+                    projsql.fillParms(Request.Form);
+
+                    try
+                    {
+                        projsql.checkInputParms();
+                        dbq.Query(projsql);
+                    }
+                    catch (Exception unhandled)
+                    {
+                        TMPLT.AddException(unhandled);
+                    }
+                }
+            }
+
+
+            // page queries
+            var qresources = _resources.collectResources("queries", ".xml");
+            qresources.AddRange(_resources.collectResources(Utility.Paths.CombinePaths(ResourceContentPath, "queries"), ".xml"));
+
+            foreach (string s in qresources)
+            {                
+                var xm = new XmlDocument();
+                xm.Load((_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : Server.MapPath(s));
+
+                XmlNode q = xm.SelectSingleNode("wbt:query", nsmgr);
+
+                projsql.setProject(q.Attributes["project"].Value);
+                projsql.setQuery(q.Attributes["query"].Value);
+
+                foreach (XmlNode parm in q.SelectNodes("parameters/parameter"))
+                    projsql.setParameter(parm.Attributes["name"].Value, getValueFromWbtParm(parm.InnerText));
+
+                projsql.fillParms(Request.QueryString);
+                if(!isUpdateQuery)      // form vars reserved for update query actions
+                    projsql.fillParms(Request.Form);
+
+                try
+                {
+                    projsql.checkInputParms();
+                    dbq.Query(projsql);
+                }
+                catch (Exception unhandled)
+                {
+                    TMPLT.AddException(unhandled);
+                }
+
+            }
+
+
+            // embeded queries (action result only)
+            var queries = current.SelectNodes("wbt:query[@action='Result' or not(@action)] | *//wbt:query[@action='Result' or not(@action)]", ns);
+            TMPLT.AddCookie("wbt_edits_token", Guid.NewGuid().ToString(), DateTime.Now.AddMinutes(3), true);
+
             foreach (XmlNode q in queries)
             {
                 var logOnNode = q.SelectSingleNode("ancestor-or-self::*[@loggedonuser = 'true'] | ancestor-or-self::*[@wbt:loggedonuser = 'true'] | ancestor-or-self::LoggedOnUser | ancestor-or-self::LoggedOn | ancestor-or-self::LoggedIn | ancestor-or-self::LoggedIn", nsmgr);
@@ -541,21 +706,59 @@ namespace ProjectFlx
                 if (authNode != null && !AuthenticatedUser)
                     continue;
 
-                // TODO: this become global
-                var projsql = new Schema.Extra.commonProj(Server.MapPath(Path.Combine(ConfigurationManager.AppSettings["project-sql-path"], "ProjectSql.xml")));
+                projsql.setProject(q.Attributes["project"].Value);
                 projsql.setQuery(q.Attributes["query"].Value);
 
                 foreach (XmlNode parm in q.SelectNodes("parameters/parameter"))
-                    projsql.setParameter(parm.Attributes["name"].Value, parm.InnerText);
+                    projsql.setParameter(parm.Attributes["name"].Value, getValueFromWbtParm(parm.InnerText));
 
                 projsql.fillParms(Request.QueryString);
-                projsql.fillParms(Request.Form);
+                if (!isUpdateQuery)      // form vars reserved for update query actions
+                    projsql.fillParms(Request.Form);
 
-                dbq.Query(projsql);
+                try
+                {
+                    projsql.checkInputParms();
+                    dbq.Query(projsql);
+                }
+                catch(Exception unhandled)
+                {
+                    TMPLT.AddException(unhandled);
+                }
             }
 
             if (result.results.Count > 0)
-                TMPLT.AddXML(result.Serialize());
+                TMPLT.AddWBTXml(result.Serialize());
+        }
+
+        private string getValueFromWbtParm(string parm)
+        {
+            string pattern = @"\A(?:\{(cookie|queryvar|querystring|query|form|session):(.+)\})\Z";
+            string val = parm;
+
+            if (Regex.IsMatch(parm, pattern))
+            {
+                var search = Regex.Match(parm, pattern).Groups[1].Value;
+                switch(search)
+                {
+                    case "form":
+                        val = TMPLT.LookupFormVars(Regex.Match(parm, pattern).Groups[2].Value);
+                        break;
+                    case "queryvar":
+                    case "querystring":
+                    case "query":
+                        val = TMPLT.LookupQueryVars(Regex.Match(parm, pattern).Groups[2].Value);
+                        break;
+                    case "cookie":
+                        val = TMPLT.LookupCookieVars(Regex.Match(parm, pattern).Groups[2].Value);
+                        break;
+                    case "session":
+                        val = Session[Regex.Match(parm, pattern).Groups[2].Value].ToString();
+                        break;
+                }
+            }
+
+            return val;
         }
 
         private XmlDocument getXmlContext(XmlDocument content)
@@ -820,13 +1023,19 @@ namespace ProjectFlx
 
             if(_SiteMap)
             {
-                TMPLT.setXslt(Path.Combine(Server.MapPath("/"), "ProjectFlx/Documents/WBT_SITE_MAP.xsl"));
-                DirectoryInfo projectFlx = new DirectoryInfo(Server.MapPath(_clientFlxpath));
 
                 if (_useCdn)
+                {
+                    TMPLT.setXslt(Utility.Paths.CombinePaths(_resources.Host, "ProjectFLX/Documents/WBT_SITE_MAP.xsl"));
                     recurseForSiteMap(_resources);
+                }
                 else
+                {
+
+                    TMPLT.setXslt(Path.Combine(Server.MapPath("/"), "ProjectFLX/Documents/WBT_SITE_MAP.xsl"));
+                    DirectoryInfo projectFlx = new DirectoryInfo(Server.MapPath(_clientFlxpath));
                     recurseForSiteMap(projectFlx);
+                }
 
                 // loop every file
 
@@ -859,7 +1068,7 @@ namespace ProjectFlx
         {
             foreach (var s in resources.collectResources(".xml"))
             {
-                TMPLT.AddXML(Utility.Web.getWebResource(Extensions.CombinePaths(_resources.Host, s)));
+                TMPLT.AddXML(Utility.Web.getWebResource(Utility.Paths.CombinePaths(_resources.Host, s)));
             }
         }
 
@@ -1179,6 +1388,7 @@ namespace ProjectFlx
             Response = context.Response;
             Request = context.Request;
             Cache = context.Cache;
+            Session = context.Session;
             Main();
         }
 

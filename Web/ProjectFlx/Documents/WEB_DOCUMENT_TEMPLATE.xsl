@@ -11,7 +11,8 @@
 	<xsl:output method="html" indent="yes" encoding="utf-8"/>
 
 	<xsl:param name="wrap-content" select="false()"/>
-
+	<xsl:param name="projSql" select="/.."/>
+	
 	<!-- INTERNAL PRIVATE PARAMTER VARIABLES -->
 	<xsl:param name="DOC_ACTION"/>
 	<xsl:param name="DOC_FOLDER"/>
@@ -46,6 +47,7 @@
 	<xsl:key name="wbt:capable" match="capable/element" use="@name"/>
 
 	<!-- KEYS for Results -->
+	<xsl:key name="wbt:key_QueryResults" match="wbt:app/projectResults/results" use="@name"/>
 	<xsl:key name="wbt:key_Results" match="results" use="@name"/>
 	<xsl:key name="wbt:key_Paging" match="paging" use="parent::results/@name"/>
 	<xsl:key name="wbt:key_Schema" match="schema" use="query/@name"/>
@@ -250,9 +252,9 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:javascript</xsl:with-param>
 		</xsl:call-template>
-		<script src="/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
 		<xsl:text>&#10;</xsl:text>
-		<script src="/ProjectFLX/Documents/WBT_SCRIPT.js" type="text/javascript"/>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js" type="text/javascript"/>
 		<xsl:text>&#10;</xsl:text>
 
 		<!--Embeded javascript-->
@@ -318,9 +320,10 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:style</xsl:with-param>
 		</xsl:call-template>
-		<link rel="stylesheet" href="/ProjectFLX/Documents/WBT_STYLE.css" type="text/css"/>
+		<!-- TODO: map this to CDN repo -->
+		<link rel="stylesheet" href="http://www2.meetscoresonline.com/ProjectFLX/Documents/WBT_STYLE.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
-		<link rel="stylesheet" href="/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
+		<link rel="stylesheet" href="http://www2.meetscoresonline.com/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
 		<xsl:call-template name="sbt:style"/>
 		<xsl:call-template name="pbt:style"/>
@@ -993,10 +996,20 @@
 	</xsl:template>
 
 	<xsl:template match="Redirect" mode="identity-translate">
+		<xsl:variable name="time">
+			<xsl:choose>
+				<xsl:when test="number(@time)">
+					<xsl:value-of select="number(@time * 1000)"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="number(1000)"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
 		<script type="text/javascript">
             setTimeout(function() { 
-            location.href = '<xsl:value-of select="@href"/>'
-            }, <xsl:value-of select="@time * 1000"/>);
+            location.href = '<xsl:value-of select="@href | text()"/>'
+			}, <xsl:value-of select="$time"/>);
         </script>
 	</xsl:template>
 
@@ -1166,4 +1179,38 @@
 		</a>
 	</xsl:template>
 
+	<xsl:template match="wbt:ProjSql" mode="identity-translate">
+		<div class="row">
+			<div class="col-md-12">
+				<nav class="navbar navbar-default">
+					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+						<ul class="nav navbar-nav">
+							<xsl:apply-templates select="$projSql/*" mode="projsql-nav"/>
+						</ul>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</xsl:template>
+	
+	<xsl:template match="*" mode="projsql-nav">
+		<li class="dropdown">
+			<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><xsl:value-of select="local-name()"/> <span class="caret"></span></a>
+			<ul class="dropdown-menu">
+				<xsl:apply-templates select="query[command/action='Result']" mode="projsql-nav"/>
+				<li class="divider"></li>
+				<li class="dropdown-submenu">
+					<a href="#" tabindex="-1">Execute</a>
+					<ul class="dropdown-menu">
+						<xsl:apply-templates select="query[command/action='Scalar'] | query[command/action='NonQuery']" mode="projsql-nav"/>
+					</ul>
+				</li>
+			</ul>
+		</li>		
+	</xsl:template>
+	
+	<xsl:template match="query" mode="projsql-nav">
+		<li><a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}"><xsl:value-of select="@name"/></a></li>
+	</xsl:template>
+	
 </xsl:stylesheet>

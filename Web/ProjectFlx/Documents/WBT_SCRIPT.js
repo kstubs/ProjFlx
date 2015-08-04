@@ -4,7 +4,9 @@ document.observe('dom:loaded', function() {
     $$('.navbar-collapse').each(function(nav) {
         $(nav).on('click','a',function() {
         var collapse = this.retrieve('bootstrap:collapse');
-        collapse.toggle();
+        if(collapse) {
+            collapse.toggle();            
+        }
     });
     });
     $$('*[wbt-toggle]').each(function(elm) {

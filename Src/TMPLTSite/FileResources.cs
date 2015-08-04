@@ -1,11 +1,11 @@
 ﻿using System;
 using System.IO;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using ProjectFlx.Utility;
 
 namespace ProjectFlx
 {
@@ -81,7 +81,7 @@ namespace ProjectFlx
         /// <returns></returns>
         public string AbsolutePath(int Index)
         {
-            return Extensions.CombinePaths(_root, _resources[Index].FullName);
+            return Utility.Paths.CombinePaths(_root, _resources[Index].FullName);
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace ProjectFlx
         /// <returns></returns>
         public string FullWebPath(int Index)
         {
-            return Extensions.CombinePaths(_source, _root, _resources[Index].FullName);
+            return Utility.Paths.CombinePaths(_source, _root, _resources[Index].FullName);
         }
 
         public string FullWebPath(string Resource)
@@ -176,7 +176,7 @@ namespace ProjectFlx
         {
             var query = from r in _resources
                         where r.getPath().BeginWhack().ToLower().Equals(SubPath.ToLower().BeginWhack()) && (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                        select Extensions.CombinePaths(_root, r.FullName);
+                        select Utility.Paths.CombinePaths(_root, r.FullName);
             var x = query.ToList();
             return query.ToList();
         }
@@ -191,7 +191,7 @@ namespace ProjectFlx
         {
             var query = from r in _resources
                         where (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                        select Extensions.CombinePaths(_root, r.FullName);
+                        select Utility.Paths.CombinePaths(_root, r.FullName);
             var x = query.ToList();
             return query.ToList();
         }

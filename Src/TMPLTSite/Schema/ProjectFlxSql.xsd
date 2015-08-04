@@ -73,6 +73,7 @@
 		<xs:complexType mixed="true">
 			<xs:attribute name="name" type="xs:NCName" use="required"/>
 			<xs:attribute name="type" type="fieldType" use="required"/>
+      <xs:attribute name="required" type="xs:boolean" use="optional"/>
 			<xs:attribute name="size" type="xs:int" use="optional"/>
 			<xs:attribute name="ForUpdate" type="xs:boolean" use="optional" default="true"/>
 			<xs:attribute name="ForDisplay" type="xs:boolean" use="optional" default="true"/>
@@ -96,7 +97,23 @@
 		</xs:complexType>
 	</xs:element>
 
-	<xs:element name="fields">
+  <xs:element name="actions">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="action" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="action">
+    <xs:complexType mixed="true">
+      <xs:attribute name="primaryKey" type="xs:NCName" use="required"/>
+      <xs:attribute name="type" type="queryActionType" use="required"/>
+      <xs:attribute name="query" type="xs:NCName" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  
+  <xs:element name="fields">
 		<xs:complexType>
 			<xs:sequence>
 				<xs:element ref="field" maxOccurs="unbounded"/>
@@ -153,6 +170,7 @@
 			<xs:extension base="QueryType">
 				<xs:attribute name="name" type="xs:NCName"/>
 				<xs:attribute name="project" type="xs:NCName"/>
+        <xs:attribute name="force-grid-view" type="xs:boolean" use="optional"/>
 			</xs:extension>
 		</xs:complexContent>
 	</xs:complexType>
@@ -163,6 +181,7 @@
 			<xs:element ref="parameters"/>
 			<xs:element ref="fields" minOccurs="0"/>
 			<xs:element ref="paging" minOccurs="0"/>
+      <xs:element ref="actions" minOccurs="0" />
 			<xs:element ref="subquery" minOccurs="0"/>
 		</xs:sequence>
 	</xs:complexType>
@@ -195,6 +214,15 @@
 		<xs:attribute name="totalpages" type="xs:int" use="required"/>
 	</xs:complexType>
 
+  <xs:simpleType name="queryActionType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="link"/>
+      <xs:enumeration value="update"/>
+      <xs:enumeration value="delete"/>
+      <xs:enumeration value="insert"/>
+    </xs:restriction>
+  </xs:simpleType>
+  
 	<xs:simpleType name="file">
 		<xs:restriction base="xs:string"/>
 	</xs:simpleType>

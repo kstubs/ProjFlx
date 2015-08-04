@@ -369,6 +369,29 @@ namespace ProjectFlx
                 _writer.Write(_xslt.ResultText);
             }
         }
+
+        internal void AddWBTXml(XmlDocument newXML)
+        {
+            var ns = new XmlNamespaceManager(_xml.NameTable);
+            ns.AddNamespace("wbt", "myWebTemplater.1.0");
+            var node = _xml.SelectSingleNode("flx/wbt:app", ns);
+
+            if (node == null)
+            {
+                node = _xml.CreateElement("wbt", "app", ns.LookupNamespace("wbt"));
+                _xml.DocumentElement.AppendChild(node);
+            }
+
+            var newNode = _xml.ImportNode(newXML.DocumentElement, true);
+            node.AppendChild(newNode);
+        }
+        internal void AddWBTXml(string newXml)
+        {
+            var xm = new XmlDocument();
+            xm.LoadXml(newXml);
+            AddWBTXml(xm);
+        }
+
         // create override - add all items to APPLICATION node
         public override void AddXML(XmlDocument newXML)
         {
@@ -617,6 +640,15 @@ namespace ProjectFlx
 
 		}
 
+        public virtual string LookupQueryVars(string lookfor)
+        {
+            string value = "";
+
+            _LookUp(lookfor, ref value, TMPLTLookups.Querystring, clsFindWhenEmpty);
+
+            return (value);
+        }
+
 		public virtual string LookupCookieVars(string lookfor)
 		{
 			string value = "";
@@ -720,28 +752,28 @@ namespace ProjectFlx
 			switch (lookin)
 			{
                 case TMPLTLookups.Session:
-                    xPathString = string.Format("/flx/proj/browser/sessionvars/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/sessionvars/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
                     break;
                 case TMPLTLookups.ServerVars:
-                    xPathString = string.Format("/flx/proj/browser/servervars/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/servervars/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
                     break;
                 case TMPLTLookups.Cookie:
-					xPathString = string.Format("/flx/proj/browser/cookievars/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/cookievars/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
 					break;
 				case TMPLTLookups.Form:
-					xPathString = string.Format("/flx/proj/browser/formvars/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/formvars/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
 					break;
 				case TMPLTLookups.Querystring:
-					xPathString = string.Format("/flx/proj/browser/queryvars/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/queryvars/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
 					break;
 				case TMPLTLookups.AnyBrowserVar:
-                    xPathString = string.Format("/flx/proj/browser/*/element[@name='{0}'][1]", lookfor);
+                    xPathString = string.Format("/flx/proj/browser/*/element[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'][1]", lookfor.ToLower());
 					break;
                 case TMPLTLookups.Tag:
                     xPathString = string.Format("", lookfor);
                     break;
 				case TMPLTLookups.Any:
-					xPathString = string.Format("//*[@*[.='{0}']][1]", lookfor);
+                    xPathString = string.Format("//*[@*[translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}']][1]", lookfor.ToLower());
 					break;
 			}
 

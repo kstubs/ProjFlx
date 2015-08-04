@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using ProjectFlx.Schema;
+using System.Web;
+using System.Net;
 
 namespace ProjectFlx.Schema
 {
@@ -13,7 +15,12 @@ namespace ProjectFlx.Schema
     {
         public static string FlattenList(List<string> list)
         {
-            return  String.Join(" ", list.ToArray());
+            var val = String.Join(" ", list.ToArray());
+            var current = HttpContext.Current;
+            if (current != null)
+                return current.Server.HtmlDecode(val);
+            else
+                return val;
         }
 
         public static class schemaQueryXml
