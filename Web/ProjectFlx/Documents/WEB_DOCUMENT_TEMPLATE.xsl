@@ -154,7 +154,23 @@
 		<xsl:text>&#10;</xsl:text>
 		<script src="//cdn.xportability.com/js/protoscripty__130455207001161849.js" type="text/javascript"/>
 		<xsl:text>&#10;</xsl:text>
-		<script src="//cdn.xportability.com/js/bootstrap_prototype__130603731638117850.js" type="text/javascript"/>
+		<!--<script src="//cdn.xportability.com/js/bootstrap_prototype__130603731638117850.js" type="text/javascript"/>-->
+		
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/transition_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/affix_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/alert_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/carousel_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/button_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/collapse_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/scrollspy_prototype.js" type="text/javascript"></script>
+		<xsl:text>&#10;</xsl:text>
+		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/dropdown_prototype.js" type="text/javascript"></script>
 		<xsl:text>&#10;</xsl:text>
 	</xsl:template>
 
@@ -857,7 +873,7 @@
 					<li>
 						<!-- if content has no html child elements then no link -->
 						<xsl:choose>
-							<xsl:when test="not(*[name() != 'content'])">
+							<xsl:when test="content and (count(*) = count(content))">
 								<xsl:attribute name="class">
 									<xsl:value-of select="concat('content-group content-group-', @name)"/>
 								</xsl:attribute>

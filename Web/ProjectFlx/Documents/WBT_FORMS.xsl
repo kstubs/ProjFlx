@@ -120,7 +120,7 @@
 		</form>
 	</xsl:template>
 
-	<xsl:template match="results" mode="wbt:edits">
+	<xsl:template match="results | result | row" mode="wbt:edits">
 		<xsl:param name="project"/>
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
@@ -160,7 +160,13 @@
 					<input type="hidden" name="wbt_update_project" value="{$project}"/>
 					<input type="hidden" name="wbt_update_query" value="{$query}"/>
 				</form>
-			</xsl:when>			
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:apply-templates select="/flx/app/ProjectSql[@name=$project and @query=$query]/*/parameters/parameter" mode="wbt:edits">
+					<xsl:with-param name="data-row" select="descendant-or-self::row"/>
+					<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
+				</xsl:apply-templates>				
+			</xsl:otherwise>			
 		</xsl:choose>
 	</xsl:template>
     
