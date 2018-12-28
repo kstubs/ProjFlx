@@ -1,0 +1,9 @@
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\bin\Debug\ProjectFlxCommon.dll
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\bin\Debug\ProjectFlxCommon.pdb
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\bin\Debug\Newtonsoft.Json.dll
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\bin\Debug\Newtonsoft.Json.xml
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\obj\Debug\ProjectFlxCommon.csproj.CoreCompileInputs.cache
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\obj\Debug\ProjectFlxCommon.dll
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\obj\Debug\ProjectFlxCommon.pdb
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\obj\Debug\ProjectFlxCommon.csprojAssemblyReference.cache
+E:\Development\ProjectFLX\__Working\Src\Src\ProjectFlxCommon\obj\Debug\ProjectFlxCommon.csproj.CopyComplete

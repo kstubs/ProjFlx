@@ -92,6 +92,7 @@ namespace ProjectFlx.DB
         private SqlConnection _connection = null;
         private SqlTransaction _trans = null;
         private bool _withTrx;
+        private bool _disposed;
 
         public SqlTransaction Transaction
         {
@@ -161,10 +162,27 @@ namespace ProjectFlx.DB
         }
         public void Open()
         {
-            _connection.Open();
+            int tries = 3;
+            while (tries > 0)
+            {
+                try
+                {
+                    _connection.Open();
+                    tries = 0;
+                }
+                catch(Exception unhandled)
+                {
+                    tries--;
+                    if (tries <= 0)
+                        throw unhandled;
+
+                    System.Threading.Thread.Sleep(200);
+                }
+
+            }
 
             if (WithTransaction)
-                 _trans = _connection.BeginTransaction(IsolationLevel.RepeatableRead);
+                _trans = _connection.BeginTransaction(IsolationLevel.RepeatableRead);
         }
 
         public void CommitTransaction()
@@ -177,7 +195,7 @@ namespace ProjectFlx.DB
         }
         public void RollBackTransaction()
         {
-            if (_connection != null && _connection.State == ConnectionState.Open && _trans != null)
+            if (_connection != null && _connection.State == ConnectionState.Open && _trans.Connection != null)
             {
                 _trans.Rollback();
                 _trans = null;
@@ -185,12 +203,44 @@ namespace ProjectFlx.DB
         }
         public void Close()
         {
-            if (_trans != null)
+            try
             {
-                _trans.Commit();
-                _trans = null;
+
+                if (_trans != null && _trans.Connection != null)
+                {
+                    RollBackTransaction();
+                    throw new Exception("Warning, transaction rolled back.  Required, call Close override with commit transaction boolean when Transaction flag for connection is true.");
+                }
             }
-            this.Dispose();
+            finally
+            {
+                this.Dispose();
+            }
+
+        }
+        public void Close(Boolean Commit)
+        {
+
+            try
+            {
+                if (_trans != null && _trans.Connection != null)
+                {
+                    if (Commit)
+                    {
+                        _trans.Commit();
+                        _trans = null;
+                    }
+                    else
+                    {
+                        RollBackTransaction();
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                this.Dispose();
+            }
         }
         #endregion
 
@@ -199,13 +249,35 @@ namespace ProjectFlx.DB
 
         public void Dispose()
         {
+            if (_disposed)
+                return;
+
             try
             {
-                if (_connection != null)
-                    _connection.Close();
-                _connection.Dispose();
+                if (_trans != null)
+                {
+                    if (_trans != null && _trans.Connection != null)
+                    {
+                        _trans.Rollback();
+                        _trans = null;
+                        throw new Exception("Warning, transaction rolled back.  Required, call Close override with commit transaction boolean when Transaction flag for connection is true.");
+                    }
+                }
             }
-            catch { }
+            catch(Exception unhandled)
+            {
+                // TODO: log error here to system
+                System.Diagnostics.Debugger.Log(0, "Unhandled Exception", unhandled.Message);
+            }
+            finally
+            {
+                if (_connection != null)
+                {
+                    _connection.Close();
+                    _connection.Dispose();
+                }
+                _disposed = true;
+            }
         }
 
         #endregion
@@ -221,6 +293,7 @@ namespace ProjectFlx.DB
         XmlDocument _xmresult = new XmlDocument();
         XmlNode _querynode = null;
         int _rowsaffected = 0;
+        int _scalar = 0;
         int _lastInsertID = 0;
         bool _results = false;
         ProjectExceptionHandler _handler = new ProjectExceptionHandler();
@@ -328,6 +401,9 @@ namespace ProjectFlx.DB
                 _command.CommandTimeout = commandTimeout;
 
                 _command.Connection = _database.Connection;
+
+                if (_database.WithTransaction)
+                    _command.Transaction = _database.Transaction;
             }
 
         }
@@ -371,7 +447,7 @@ namespace ProjectFlx.DB
                     fieldNodes = _querynode.SelectNodes(@"fields/field");
 
                 //add rows to result node
-                long currentrow = 0;
+                int currentrow = 0;
 
                 _resultPages = getNewResultPages(_querynode);
                 int pagecount = 1;
@@ -400,7 +476,7 @@ namespace ProjectFlx.DB
                                 try
                                 {
                                     // validate json type
-                                    if (m.GetAttribute("type") == "json")
+                                    if (m.GetAttribute("type") == "json" || m.GetAttribute("type") == "tryjson")
                                     {
                                         try
                                         {
@@ -442,7 +518,7 @@ namespace ProjectFlx.DB
                                             val = dr[m.GetAttribute("field")].ToString().Trim();
                                             val = Regex.Replace(val, m.GetAttribute("regex").ToString(), m.GetAttribute("replace").ToString());
                                         }
-                                        w.WriteAttributeString(m.GetAttribute("name").ToString(), String.IsNullOrEmpty(val) ? "" : val.ToString().Trim());
+                                        w.WriteAttributeString(m.GetAttribute("name").ToString(), String.IsNullOrEmpty(val) ? "" : safeXmlCharacters(val.ToString().Trim()));
                                     }
 
 
@@ -494,7 +570,7 @@ namespace ProjectFlx.DB
                     #endregion
 
 
-                    _rowsaffected = (Int32)currentrow++;
+                    _rowsaffected = currentrow++;
                     inpagecount++;
                     if (inpagecount >= _pagingLimit)
                     {
@@ -554,6 +630,12 @@ namespace ProjectFlx.DB
 
             elm.AppendChild(import);
 
+        }
+
+        private string safeXmlCharacters(string val)
+        {
+            string re = @"[\x00-\x08\x0B\x0C\x0E-\x1F\x26]";
+            return Regex.Replace(val, re, "");
         }
 
         private ResultPages getNewResultPages(XmlNode _querynode)
@@ -734,12 +816,17 @@ namespace ProjectFlx.DB
 
             string _commandtext = null;
             string xpath = null;
-            InitializeCommand();
-
-            _querynode = Query;
 
             if (_database.State != ConnectionState.Open)
                 _database.Open();
+            
+            InitializeCommand();
+
+            // command timeout
+            if (Query.Attributes["script-timeout"] != null)
+                _command.CommandTimeout = int.Parse(Query.Attributes["script-timeout"].Value);
+
+            _querynode = Query;
 
             try
             {
@@ -847,18 +934,20 @@ namespace ProjectFlx.DB
 
 
                 // execute query
-                Int64 rows = 0;
+                int scalar = 0;
+                int rows = 0;
                 xpath = "command/action";
                 elm = (XmlElement)Query.SelectSingleNode(xpath);
-
-                if (_database.WithTransaction)
-                    _command.Transaction = _database.Transaction;
 
                 switch (elm.InnerText)
                 {
                     case ("Scalar"):
-                        rows = Convert.ToInt64(_command.ExecuteScalar());
-                        _rowsaffected = Convert.ToInt32(rows);
+                        var obj = _command.ExecuteScalar();
+                        int.TryParse(obj == null ? "0" : obj.ToString(), out scalar);
+                        _scalar = scalar;
+                        if (scalar > 0)
+                            rows = 1;
+                        _rowsaffected = rows;
 
                         // set result in xml 
                         elm = (XmlElement)_xmresult.SelectSingleNode("results");
@@ -868,22 +957,16 @@ namespace ProjectFlx.DB
 
                         break;
                     case ("Result"):
-                        SqlDataReader dr = null;
-                        try
+                        using(SqlDataReader dr = _command.ExecuteReader())
                         {
-                            BuildResults(dr = _command.ExecuteReader());
+                            BuildResults(dr);
                         }
-                        finally
-                        {
-                            if (dr != null)
-                                dr.Close();
-                        }
-
                         break;
                     case ("NonQuery"):
+
                     default:
                         rows = _command.ExecuteNonQuery();
-                        _rowsaffected = Convert.ToInt32(rows);
+                        _rowsaffected = rows;
 
                         // set result in xml 
                         elm = (XmlElement)_xmresult.SelectSingleNode("results");
@@ -971,6 +1054,13 @@ namespace ProjectFlx.DB
             get
             {
                 return _rowsaffected;
+            }
+        }
+        public int Scalar
+        {
+            get
+            {
+                return _scalar;
             }
         }
         public int LastInsertID
@@ -1080,7 +1170,6 @@ namespace ProjectFlx.DB
 
     public interface IProject
     {
-        void setQuery(Object ProjQuery);
         void setQuery(String ProjQueryName);
         void setParameter(String Name, Object Value);
         void clearParameters();

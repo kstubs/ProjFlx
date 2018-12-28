@@ -177,27 +177,29 @@ BootStrap.Collapse = Class.create({
 /*domload*/
 
 document.observe('dom:loaded',function(){
-	$$('[data-toggle="collapse"]').each(function(e){
-		var href = e.readAttribute('href');
-		href = e.hasAttribute('href') ? href.replace(/.*(?=#[^\s]+$)/, '') : null
-		var target = e.readAttribute('data-target') || href
+	$$('[data-toggle="collapse"]').each(function(elm){
+		var target = elm.readAttribute('data-target');
+		target = $(target) || $$(target).first();
+		if(!target) return;
+
 		var options = {toggle : false}
-		if(e.hasAttribute('data-parent')){
+		if(elm.hasAttribute('data-parent')){
 			options.parent = e.readAttribute('data-parent').replace('#','')
 		}
-		target = $$(target).first()
 		if(target.hasClassName('in')){
-			e.addClassName('collapsed')
+			target.addClassName('collapsed');
 		} else {
-			e.removeClassName('collapsed')
+			target.removeClassName('collapsed');
 		}
-		new BootStrap.Collapse(target,options)
+		new BootStrap.Collapse(target,options);
 	});
 
 	document.on('click','[data-toggle="collapse"]',function(e){
-		var href = e.findElement().readAttribute('href');
-		href = e.findElement().hasAttribute('href') ? href.replace(/.*(?=#[^\s]+$)/, '') : null
-		var target = e.findElement().readAttribute('data-target') || e.preventDefault() || href
-		$$(target).first().retrieve('bootstrap:collapse').toggle();
+		e.stop();
+		var elm = e.findElement('[data-toggle]');
+		var target = elm.readAttribute('data-target');
+		target = $(target) || $$(target).first();
+		if(!target) return;
+		target.retrieve('bootstrap:collapse').toggle();
 	});
 });

@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="MSOWebService">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="credentials" type="type_CredentialWebService"/>
+                <xs:choice minOccurs="0">
+                    <xs:element ref="EventWS" minOccurs="1" maxOccurs="1"/>
+                    <xs:element ref="MeetWS" minOccurs="1" maxOccurs="1"/>
+                </xs:choice>
+                <xs:element ref="result" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="projectSql">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="Meet" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Event" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Club" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Contact" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Admin" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Gymnast" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="TinyUrl" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="AffRedirect" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Log" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Tracking" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="PageContent" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="YouTube" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Media" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="Live" minOccurs="1" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="projectResults">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="results" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="results">
+        <xs:complexType mixed="true">
+            <xs:sequence>
+                <xs:element ref="schema"/>
+                <xs:element ref="result"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:NCName"/>
+            <xs:attribute name="ProjectSqlFile" type="file"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="schema">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                            <xs:element ref="subquery" minOccurs="0" />
+                        </xs:sequence>
+                        <xs:attribute name="name" type="xs:NCName"/>
+                        <xs:attribute name="project" type="xs:NCName"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="result">
+        <xs:complexType>
+            <xs:sequence maxOccurs="unbounded">
+                <xs:element ref="row"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="row">
+        <xs:complexType>
+            <xs:anyAttribute/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Meet">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Meet"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Event">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Event"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="EventWS">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="command" type="simpleType_EventWebService"/>
+                <xs:element name="credentials" type="type_CredentialWebService" minOccurs="0"/>
+                <xs:element name="parameters" type="parametersWebService"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="MeetWS">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="command" type="simpleType_MeetWebService"/>
+                <xs:element name="credentials" type="type_CredentialWebService" minOccurs="0"/>
+                <xs:element name="parameters" type="parametersWebService"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="queries">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="query" minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="query">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="command"/>
+                <xs:element ref="parameters"/>
+                <xs:element ref="fields" minOccurs="0"/>
+                <xs:element ref="paging" minOccurs="0"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:NCName"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="subquery">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="fields" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>    
+    </xs:element>
+    
+    <xs:element name="Club">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Club"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Contact">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Contact"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Admin">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Admin"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Gymnast">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Gymnast"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="TinyUrl">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_TinyUrl"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="AffRedirect">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_AffRedirect"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Log">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Log"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Tracking">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Tracking"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="PageContent">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_PageContent"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="YouTube">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_YouTube"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Media">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Media"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="Live">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="query" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="command"/>
+                            <xs:element ref="parameters"/>
+                            <xs:element ref="fields" minOccurs="0"/>
+                            <xs:element ref="paging" minOccurs="0"/>
+                        </xs:sequence>
+                        <xs:attribute name="name" type="simpleType_Live"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="command">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="name" type="mixedContent"/>
+                <xs:element name="type" type="commandType"/>
+                <xs:element name="action" type="actionType"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="parameters">
+        <xs:complexType>
+            <xs:sequence minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="parameter"/>
+            </xs:sequence>
+            <xs:attribute name="lookupref" type="xs:NCName"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="parameter">
+        <xs:complexType mixed="true">
+            <xs:attribute name="name" type="xs:NCName" use="required"/>
+            <xs:attribute name="type" type="fieldType" use="required"/>
+            <xs:attribute name="size" type="xs:int" use="optional"/>
+            <xs:attribute name="ForUpdate" type="xs:boolean" use="optional" default="true"/>
+            <xs:attribute name="ForDisplay" type="xs:boolean" use="optional" default="true"/>
+            <xs:attribute name="Locked" type="xs:boolean" use="optional" default="false"/>
+            <xs:attribute name="lookup" type="xs:NCName" use="optional"/>
+            <xs:attribute name="lookup_value" type="xs:NCName" use="optional"/>
+            <xs:attribute name="display" type="xs:string" use="optional"/>
+            <xs:attribute name="display_order" type="xs:int" use="optional"/>
+            <xs:attribute name="display_type" type="displayFieldType" use="optional"/>
+            <xs:attribute name="inout" type="inoutType" use="optional" default="in"/>
+            <xs:attribute name="regx" type="regxType" use="optional"/>
+            <xs:attribute name="ws_map" type="xs:NCName" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="fields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="field" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="name" type="mixedContent"/>
+
+    <xs:element name="field">
+        <xs:complexType mixed="true">
+            <xs:attribute name="name" type="xs:NCName" use="required"/>
+            <xs:attribute name="type" type="fieldType" use="required"/>
+            <xs:attribute name="size" type="xs:int" use="optional"/>
+            <xs:attribute name="display" type="xs:string" use="optional"/>
+            <xs:attribute name="ForView" type="xs:boolean" use="optional"/>
+            <xs:attribute name="ForUpdate" type="xs:boolean" use="optional"/>
+            <xs:attribute name="regx" type="regxType" use="optional"/>
+            <xs:attribute name="encode" type="xs:NCName" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="paging">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="pages" type="pages" minOccurs="0"/>
+                <xs:element name="limit" type="xs:int" default="1000"/>
+                <xs:element name="direction" type="pagingDirectionType" default="none"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="page">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="from" type="xs:int"/>
+                <xs:element name="to" type="xs:int"/>
+            </xs:sequence>
+            <xs:attribute name="value" type="xs:int" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- complex type definitions -->
+    <xs:complexType name="parametersWebService">
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="parameter" type="parameterWebService" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="parameterWebService" mixed="true">
+        <xs:attribute name="name" type="xs:NCName" use="required"/>
+    </xs:complexType>
+    
+    <xs:complexType name="mixedContent" mixed="true"/>
+
+    <xs:complexType name="type_CredentialWebService">
+        <xs:sequence>
+            <xs:element name="msoid" type="xs:int"/>
+            <xs:element name="password" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="pages">
+        <xs:sequence maxOccurs="unbounded">
+            <xs:element ref="page"/>
+        </xs:sequence>
+        <xs:attribute name="current" type="xs:int" use="required"/>
+        <xs:attribute name="totalrecords" type="xs:int" use="required"/>
+        <xs:attribute name="totalpages" type="xs:int" use="required"/>
+    </xs:complexType>
+
+    <!-- simple types -->
+    <xs:simpleType name="simpleType_Project">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="meet"/>
+            <xs:enumeration value="event"/>
+            <xs:enumeration value="club"/>
+            <xs:enumeration value="contact"/>
+            <xs:enumeration value="admin"/>
+            <xs:enumeration value="gymnast"/>
+            <xs:enumeration value="tinyurl"/>
+            <xs:enumeration value="affredirect"/>
+            <xs:enumeration value="tracking"/>
+            <xs:enumeration value="pagecontent"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Meet">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="valid_user"/>
+            <xs:enumeration value="logon"/>
+            <xs:enumeration value="add_meet"/>
+            <xs:enumeration value="delete_meet"/>
+            <xs:enumeration value="update_meet"/>
+            <xs:enumeration value="update_status"/>
+            <xs:enumeration value="lookup_clubs"/>            
+            <xs:enumeration value="lookup_meet"/>
+            <xs:enumeration value="lookup_scores"/>
+            <xs:enumeration value="top_scores"/>
+            <xs:enumeration value="realtime_scores"/>
+            <xs:enumeration value="lookup_sessions"/>
+            <xs:enumeration value="lookup_sessionsAll"/>
+            <xs:enumeration value="update_session"/>
+            <xs:enumeration value="update_session_order"/>
+            <xs:enumeration value="insert_session"/>
+            <xs:enumeration value="delete_session"/>
+            <xs:enumeration value="lookup_sesslevdiv"/>
+            <xs:enumeration value="lookup_status"/>
+            <xs:enumeration value="agg_top_scores"/>
+            <xs:enumeration value="lookup_seasons"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Event">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add_quickfind_state"/>
+            <xs:enumeration value="get_states"/>
+            <xs:enumeration value="quick_find"/>
+            <xs:enumeration value="valid_user"/>
+            <xs:enumeration value="add_event"/>
+            <xs:enumeration value="update_event"/>
+            <xs:enumeration value="lookup_event"/>
+            <xs:enumeration value="find_event"/>
+            <xs:enumeration value="get_event_raw"/>
+            <xs:enumeration value="activate_event"/>
+            <xs:enumeration value="lookup_codes"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_YouTube">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
+            <xs:enumeration value="lookup"/>
+            <xs:enumeration value="pending"/>
+            <xs:enumeration value="approve"/>
+            <xs:enumeration value="get_all"/>
+            <xs:enumeration value="lookup_pending"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Media">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
+            <xs:enumeration value="lookup"/>
+            <xs:enumeration value="fetch"/>
+            <xs:enumeration value="tracking"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_EventWebService">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add_event"/>
+            <xs:enumeration value="update_event"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_MeetWebService">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="valid_user"/>
+            <xs:enumeration value="update_meet"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Club">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="quick_find"/>
+            <xs:enumeration value="lookup_club"/>
+            <xs:enumeration value="update_club"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Contact">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add_contact"/>
+            <xs:enumeration value="add_assg"/>
+            <xs:enumeration value="contact_status"/>
+            <xs:enumeration value="delete_contact"/>
+            <xs:enumeration value="update_contact"/>
+            <xs:enumeration value="update_password"/>
+            <xs:enumeration value="lookup_contact"/>
+            <xs:enumeration value="lookup_password"/>
+            <xs:enumeration value="login"/>
+            <xs:enumeration value="build_mailer"/>
+            <xs:enumeration value="mailer_details"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Admin">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="MailerList"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Gymnast">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="quick_find"/>
+            <xs:enumeration value="find_gymnast"/>
+            <xs:enumeration value="lookup_gymnast"/>
+            <xs:enumeration value="edit_lookup"/>
+            <xs:enumeration value="edit_find"/>
+            <xs:enumeration value="lookup_details"/>
+            <xs:enumeration value="update_details"/>
+            <xs:enumeration value="medal_count"/>            
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_TinyUrl">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="lookup"/>
+            <xs:enumeration value="add"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_AffRedirect">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="lookup"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Log">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="log"/>
+            <xs:enumeration value="log_hit"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Tracking">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="add_tracking"/>
+            <xs:enumeration value="lookup_tracking"/>
+            <xs:enumeration value="lookup_tracking_byID"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_Live">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="live_monitor"/>
+            <xs:enumeration value="update_console"/>
+            <xs:enumeration value="valid_user"/>
+            <xs:enumeration value="get_screens"/>
+            <xs:enumeration value="add_screen"/>
+            <xs:enumeration value="update_console"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="simpleType_PageContent">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="PageContent"/>
+            <xs:enumeration value="Lookup"/>
+            <xs:enumeration value="GetLabels"/>
+            <xs:enumeration value="Update"/>
+            <xs:enumeration value="Delete"/>
+            <xs:enumeration value="Add"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="file">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:simpleType name="fieldType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="int"/>
+            <xs:enumeration value="text"/>
+            <xs:enumeration value="json"/>
+            <xs:enumeration value="date"/>
+            <xs:enumeration value="datetime"/>
+            <xs:enumeration value="decimal"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="displayFieldType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="normal"/>
+            <xs:enumeration value="password"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="regxType">
+        <xs:list itemType="xs:NCName"/>
+    </xs:simpleType>
+    <xs:simpleType name="inoutType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="inout"/>
+            <xs:enumeration value="out"/>
+            <xs:enumeration value="in"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="pagingDirectionType">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="top"/>
+            <xs:enumeration value="last"/>
+            <xs:enumeration value="next"/>
+            <xs:enumeration value="previous"/>
+            <xs:enumeration value="none"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="commandType">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="StoredProcedure"/>
+            <xs:enumeration value="Select"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="actionType">
+        <xs:restriction base="xs:NCName">
+            <xs:enumeration value="Result"/>
+            <xs:enumeration value="NonQuery"/>
+            <xs:enumeration value="Scalar"/>
+        </xs:restriction>
+    </xs:simpleType>
+</xs:schema>

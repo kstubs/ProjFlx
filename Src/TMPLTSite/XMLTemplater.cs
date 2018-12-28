@@ -165,28 +165,31 @@ namespace ProjectFlx
 
             while (ex != null)
             {
-                if (ex.GetType() == typeof(ProjectFlx.Exceptions.ProjectException))
-                {
-                    // handled exception
-                    var projex = (ProjectFlx.Exceptions.ProjectException)ex;
+				if (ex is ProjectFlx.Exceptions.ProjectException)
+				{
+					// handled exception
+					var projex = (ProjectFlx.Exceptions.ProjectException)ex;
 
-                    if (projex.Args != null)
-                    {
-                        var msg = String.Format("{0}{1}", ex.Message, String.IsNullOrEmpty(projex.Args.SourceSnippet) ? "" : ", Near: " + projex.Args.SourceSnippet);
-                        _AddTag("ProjectFLX_ERROR",
-                               msg,
-                               String.IsNullOrEmpty(projex.Args.SourceClass) ? ex.Source : projex.Args.SourceClass,
-                               String.IsNullOrEmpty(projex.Args.SourceMethod) ? ex.TargetSite.ToString() : projex.Args.SourceMethod,
-                               false);
-                    }
-                    else
-                        AddTag("ProjectFLX_ERROR", ex.Message);
-                }
-                else
-                {
-                    // unhandled exception
-                    _AddTag("UNHANDLED_ERROR", ex.Message, ex.Source, (ex.TargetSite == null) ? null : ex.TargetSite.ToString(), false);
-                }
+					if (projex.Args != null)
+					{
+						var msg = String.Format("{0}{1}", ex.Message, String.IsNullOrEmpty(projex.Args.SourceSnippet) ? "" : ", Near: " + projex.Args.SourceSnippet);
+						_AddTag("ProjectFLX_ERROR",
+							   msg,
+							   String.IsNullOrEmpty(projex.Args.SourceClass) ? ex.Source : projex.Args.SourceClass,
+							   String.IsNullOrEmpty(projex.Args.SourceMethod) ? ex.TargetSite.ToString() : projex.Args.SourceMethod,
+							   false,
+							   ex);
+					}
+					else
+					{
+						_AddTag("ProjectFLX_ERROR", null, null, null, false, ex);
+					}
+				}
+				else
+				{
+					// unhandled exception
+					_AddTag("UNHANDLED_ERROR", ex.Message, ex.Source, (ex.TargetSite == null) ? null : ex.TargetSite.ToString(), false, ex);
+				}
 
                 AddTag("STACK_TRACE", ex.StackTrace);
                 
@@ -194,8 +197,12 @@ namespace ProjectFlx
             }
         }
 
+		private void _AddTag(string Tag, string Comment, string SourceClass, string SourceMethod, bool CommentOnly)
+		{
+			_AddTag(Tag, Comment, SourceClass, SourceMethod, CommentOnly, null);
+		}
 
-        private void _AddTag(string Tag, string Comment, string SourceClass, string SourceMethod, bool CommentOnly)
+		private void _AddTag(string Tag, string Comment, string SourceClass, string SourceMethod, bool CommentOnly, Exception Exception)
         {
             XmlElement elmTags = (XmlElement)_xml.DocumentElement.SelectSingleNode("tags");
             if (elmTags == null)
@@ -233,6 +240,14 @@ namespace ProjectFlx
                 att.Value = SourceMethod;
                 elmTag.Attributes.Append(att);
             }
+
+			// source exception
+			if(!(Exception == null))
+			{
+				att = _xml.CreateAttribute("Exception");
+				att.Value = Exception.GetType().Name;
+				elmTag.Attributes.Append(att);
+			}
 
             elmTags.AppendChild(elmTag);
 

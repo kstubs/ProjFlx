@@ -5,13 +5,14 @@ using System.Text.RegularExpressions;
 using System.Collections;
 using System.Collections.Generic;
 using ProjectFlx.Exceptions;
+using ProjectFlx.Schema;
 
 namespace ProjectFlx.DB
 {
     /// <summary>
     /// DatabaseQuery wrapper
     /// </summary>
-    public class XObject
+    public class XObject : IXObject
     {
         #region private members
         DatabaseQuery _query = null;
@@ -160,6 +161,13 @@ namespace ProjectFlx.DB
                 _SetParameter(ParamName, null);
             else
                 _SetParameter(ParamName, ParamValue.ToString());
+        }
+        public void SetParameter(parameters Parameters)
+        {
+            foreach (parameter parm in Parameters.parameter)
+            {
+                SetParameter(parm.name, parm.Text.Flatten());
+            }
         }
         /// <summary>
         /// Run the query
