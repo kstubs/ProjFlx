@@ -4,7 +4,6 @@
     <ProjectView>ShowAllFiles</ProjectView>
   </PropertyGroup>
   <PropertyGroup>
-    <ReferencePath>
-    </ReferencePath>
+    <ReferencePath>E:\GitHub\ProjFlx\Binaries\</ReferencePath>
   </PropertyGroup>
 </Project>

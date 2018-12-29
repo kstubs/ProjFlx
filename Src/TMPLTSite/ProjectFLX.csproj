@@ -119,10 +119,6 @@
     <Content Include="Samples\default.xml" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\Old\KStubs\StubWeb\jsJoiner\jsJoiner\jsJoiner.csproj">
-      <Project>{533ce788-faad-4d9d-94c9-3fe73e768c8e}</Project>
-      <Name>jsJoiner</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ProjectFlxCommon\ProjectFlxCommon.csproj">
       <Project>{51f7178c-fc13-4a7c-b8a2-4f346cef752c}</Project>
       <Name>ProjectFlxCommon</Name>
@@ -137,10 +133,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
-del "$(SolutionDir)Binaries\*.pdb" /F
-xcopy "$(SolutionDir)Binaries\*.*" "$(SolutionDir)Web\bin\" /C /Y
-xcopy "$(SolutionDir)Compile\*.*" "$(SolutionDir)Web\bin\" /C /Y</PostBuildEvent>
+    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)bin\" /C /Y
+del "$(SolutionDir)bin\*.pdb" /F</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
