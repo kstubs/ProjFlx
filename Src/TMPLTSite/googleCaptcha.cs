@@ -57,7 +57,7 @@ namespace ProjectFlx
                     }
                     else
                     {
-                        context.Response.Cookies.Add(new HttpCookie("goog_ok_user", "true") { Expires = DateTime.Now.AddYears(3) });
+                        context.Response.Cookies.Add(new HttpCookie(context.Request.Form["cookie"], "true") { Expires = DateTime.Now.AddYears(3) });
                         string redirect = context.Server.UrlDecode(context.Request.Form["redirect"]);
                         context.Response.Redirect(redirect);
                     }

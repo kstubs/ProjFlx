@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ProjectFlx</RootNamespace>
     <AssemblyName>FLX</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -41,6 +41,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -49,6 +50,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Charts">
@@ -58,9 +60,8 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\MiscellaneousProjects\Mvp.Xml-2.3-Src\Mvp.Xml-2.3-Src\Library\Main\Source\bin\Release\Mvp.Xml.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\packages\Newtonsoft.Json.7.0.1\lib\net40\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="NLipsum.Core">
       <HintPath>..\..\..\Binaries\NLipsum.Core.dll</HintPath>
@@ -80,30 +81,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ChartGenerator.cs" />
-    <Compile Include="DB\Database.cs" />
-    <Compile Include="DB\Helper.cs" />
-    <Compile Include="Extensions.cs" />
     <Compile Include="FileResources.cs" />
     <Compile Include="googleCaptcha.cs" />
     <Compile Include="MvpXmlParser.cs" />
-    <Compile Include="Schema\ProjectFlxSqlExt.cs" />
-    <Compile Include="Schema\ProjectFlxSql.cs">
-      <DependentUpon>ProjectFlxSql.xsd</DependentUpon>
-    </Compile>
-    <Compile Include="DB\SchemaBased\DatabaseQuery.cs" />
-    <Compile Include="DB\XObject.cs" />
-    <Compile Include="Exceptions\ProjectException.cs" />
-    <Compile Include="Exceptions\ProjectExceptionArgs.cs" />
-    <Compile Include="Exceptions\ProjectExceptionDelegate.cs" />
-    <Compile Include="Exceptions\ProjectExceptionEnumerations.cs" />
-    <Compile Include="Exceptions\ProjectExceptionHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Struct.cs" />
     <Compile Include="Interfaces\FLXPageInterface.cs" />
     <Compile Include="Interfaces\FLXSiteInterface.cs" />
     <Compile Include="FlxWebSite.cs" />
-    <Compile Include="Utility\hash.cs" />
-    <Compile Include="Utility\Paths.cs" />
     <Compile Include="WebTemplater.cs" />
     <Compile Include="XMLParser.cs" />
     <Compile Include="XMLTemplater.cs" />
@@ -131,26 +116,25 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-    <None Include="Schema\ProjectFlxSql.xsd">
-      <SubType>Designer</SubType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="Samples\default.xml" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\Old\KStubs\StubWeb\jsJoiner\jsJoiner\jsJoiner.csproj">
-      <Project>{533ce788-faad-4d9d-94c9-3fe73e768c8e}</Project>
-      <Name>jsJoiner</Name>
+    <ProjectReference Include="..\ProjectFlxCommon\ProjectFlxCommon.csproj">
+      <Project>{51f7178c-fc13-4a7c-b8a2-4f346cef752c}</Project>
+      <Name>ProjectFlxCommon</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ProjectFlxDB\ProjectFlxDB.csproj">
+      <Project>{30fb4834-4328-4db7-b3ed-b9142ef46a8e}</Project>
+      <Name>ProjectFlxDB</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
-del "$(SolutionDir)Binaries\*.pdb" /F
-xcopy "$(SolutionDir)Binaries\*.*" "$(SolutionDir)Web\bin\" /C /Y
-xcopy "$(SolutionDir)Compile\*.*" "$(SolutionDir)Web\bin\" /C /Y</PostBuildEvent>
+    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)bin\" /C /Y
+del "$(SolutionDir)bin\*.pdb" /F</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

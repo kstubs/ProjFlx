@@ -143,20 +143,37 @@ namespace ProjectFlx
 
 		public void AddXslParameter(string name, string value) 
 		{
-			clsXSLArgs.AddParam(name,"",value);
-			
-		}
+            try
+            {
+                clsXSLArgs.AddParam(name, "", value);
+            }
+            catch (ArgumentException)
+            {
+                clsXSLArgs.RemoveParam(name, "");
+                clsXSLArgs.AddParam(name, "", value);
+            }
+            finally { }
+        }
 
 		public void AddXslParameter(string name, XPathNodeIterator nodeit) 
 		{
-			clsXSLArgs.AddParam(name,"",nodeit);
-		}
+            try
+            {
+                clsXSLArgs.AddParam(name, "", nodeit);
+            }
+            catch (ArgumentException)
+            {
+                clsXSLArgs.RemoveParam(name, "");
+                clsXSLArgs.AddParam(name, "", nodeit);
+            }
+            finally { }
+        }
 
 
-		/// <summary>
-		/// By default results are string
-		/// </summary>
-		public void Transform()
+        /// <summary>
+        /// By default results are string
+        /// </summary>
+        public void Transform()
 		{
 			_Transform();
 

@@ -104,13 +104,14 @@
 		
 	</xsl:template>
 	
-	<xsl:template match="wbt:query[@action='NonQuery' or @action='Static']" mode="wbt:execute">
+	<xsl:template match="wbt:query[@action='NonQuery' or @action='Scalar']" mode="wbt:execute">
 		<xsl:param name="project"/>
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
 		<form method="post" name="form_{$query}" class="form-horizontal">
 			<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
 				<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
+				<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 				<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 			</xsl:apply-templates>
 			<input type="submit" class="btn btn-primary pull-right" value="Execute"/>
@@ -129,6 +130,7 @@
 				<form method="post" name="form_{$query}" class="form-horizontal">
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
+						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
 					<input type="submit" class="btn btn-primary pull-right" value="Update Record"/>
@@ -141,6 +143,7 @@
 				<form method="post" name="form_{$query}" class="form-horizontal">
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
+						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
 					<input type="submit" class="btn btn-primary pull-right" value="Insert Record"/>
@@ -153,6 +156,7 @@
 				<form method="post" name="form_{$query}" class="form-horizontal">
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
+						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
 					<input type="submit" class="btn btn-danger pull-right" value="Delete Record"/>
@@ -164,6 +168,7 @@
 			<xsl:otherwise>
 				<xsl:apply-templates select="/flx/app/ProjectSql[@name=$project and @query=$query]/*/parameters/parameter" mode="wbt:edits">
 					<xsl:with-param name="data-row" select="descendant-or-self::row"/>
+					<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 					<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 				</xsl:apply-templates>				
 			</xsl:otherwise>			
@@ -174,11 +179,22 @@
 
 	<xsl:template match="parameter" mode="wbt:edits">
 		<xsl:param name="data-row"/>
+		<xsl:param name="browser-vars"/>
 		<xsl:variable name="required" select="@required = 'true'"/>
 		<xsl:variable name="email" select="contains(@regx, 'email')"/>
-		
+
 		<!-- lookup previous value -->
 		<xsl:variable name="param" select="."/>
+		<xsl:variable name="value">
+			<xsl:choose>
+				<xsl:when test="normalize-space($data-row/@*[name(.)=$param/@lookup_value])">
+					<xsl:value-of select="$data-row/@*[name(.)=$param/@lookup_value]"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="$browser-vars/*[@name=current()/@name]"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
 		<div class="form-group">
 			<xsl:if test="$param/@ForView='false'">
 				<xsl:attribute name="style">display:none</xsl:attribute>
@@ -216,7 +232,7 @@
 									<xsl:attribute name="type">email</xsl:attribute>
 								</xsl:if>
 								<xsl:attribute name="value">
-									<xsl:value-of select="$data-row/@*[name(.)=$param/@lookup_value]"/>
+									<xsl:value-of select="$value"/>
 								</xsl:attribute>
 								<xsl:if test="string(@size)">
 									<xsl:attribute name="data-max-len">
@@ -232,6 +248,9 @@
 										<xsl:value-of select="@regx"/>
 									</xsl:attribute>
 								</xsl:if>
+								<xsl:attribute name="data-orig">
+									<xsl:value-of select="$value"/>
+								</xsl:attribute>
 							</input>
 						</xsl:otherwise>
 					</xsl:choose>

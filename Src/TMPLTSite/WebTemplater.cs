@@ -194,10 +194,10 @@ namespace ProjectFlx
 			// build xpath string
 			switch (lookfor)
 			{
-                case TMPLTLookups.AnyBrowserVar:
-                case TMPLTLookups.Any:
-                    xPathString = "/flx/proj/browser";
-                    break;
+				case TMPLTLookups.AnyBrowserVar:
+				case TMPLTLookups.Any:
+					xPathString = "/flx/proj/browser";
+					break;
 				case TMPLTLookups.Session:
 					xPathString = "/flx/proj/browser/sessionvars";
 					break;
@@ -214,16 +214,17 @@ namespace ProjectFlx
 
 			if (lookfor != TMPLTLookups.AnyBrowserVar)
 			{
-                n = _xml.SelectSingleNode(xPathString);
-                if (n.Name.Equals("cookievars"))
+				n = _xml.SelectSingleNode(xPathString);
+				if (n.Name.Equals("cookievars"))
                 {
-                    foreach (XmlNode n1 in n.ChildNodes)
+                    foreach (XmlNode n1 in n.SelectNodes("*"))
                     {
                         clearCookie(n1.Attributes["name"].Value);
                     }
+
+					n.RemoveAll();
+					n.InnerText = "";
                 }
-                n.RemoveAll();
-				n.InnerText = "";
 			}
 
 			if (lookfor == TMPLTLookups.AnyBrowserVar)
@@ -232,15 +233,16 @@ namespace ProjectFlx
 				XmlNodeList l = _xml.SelectNodes(xPathString);
 				foreach (XmlNode x in l)
 				{
-                    if (x.Name.Equals("cookievars"))
-                    {
-                        foreach (XmlNode x1 in x.ChildNodes)
-                        {
-                            clearCookie(x1.Name);
-                        }
-                    }
-					x.RemoveAll();
-					x.InnerText = "";
+					if (x.Name.Equals("cookievars") || x.Name.Equals("sessionvars")
+					|| x.Name.Equals("formvars") || x.Name.Equals("queryvars"))
+					{
+						foreach (XmlNode x1 in x.SelectNodes("*"))
+						{
+							clearCookie(x1.Attributes["name"].Value);
+						}
+						x.RemoveAll();
+						x.InnerText = "";
+					}
 				}
 			}
 
@@ -296,6 +298,7 @@ namespace ProjectFlx
             XsltSettings settings = new XsltSettings(true, true);
 
             _xslt.XSLSource = XsltPath;
+            _xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
             //_xslt.Load(XsltPath, settings, new XmlUrlResolver());
             _loaded = true;
         }
@@ -412,7 +415,7 @@ namespace ProjectFlx
             XmlDocument xml = new XmlDocument();
             xml.XmlResolver = new XmlUrlResolver();
             xml.LoadXml(XmlDocumentString);
-            this.AddXML(xml);
+            this.AddXML("app", xml);
         }
 
         public void AddXML(ProjectFlx.Schema.projectResults ProjectResults)
@@ -422,7 +425,7 @@ namespace ProjectFlx
                 XmlDocument doc = new XmlDocument();
                 doc.LoadXml(result.Serialize());
 
-                base.AddXML(doc);
+                base.AddXML("app", doc);
             }
         }
 
@@ -897,9 +900,17 @@ namespace ProjectFlx
         /// <param name="Value"></param>
         public virtual void AddBrowserPageItem(string Name, string Value)
         {
-            AddBrowserPageItem(Name, Value, null);
+            AddBrowserPageItem(Name, Value, null, null, null);
         }
         public virtual void AddBrowserPageItem(string Name, string Value, string ItemName)
+        {
+            AddBrowserPageItem(Name, Value, ItemName, null, null);
+        }
+        public virtual void AddBrowserPageItem(string Name, string Value, string ItemName, string LinkValue)
+        {
+            AddBrowserPageItem(Name, Value, ItemName, LinkValue, null);
+        }
+        public virtual void AddBrowserPageItem(string Name, string Value, string ItemName, string LinkValue, string Title)
         {
             if (String.IsNullOrEmpty(Value))
                 return;
@@ -973,6 +984,21 @@ namespace ProjectFlx
                             break;
                     }
                     newElm.Attributes.Append(actionAtt);
+
+                    if (LinkValue != null)
+                    {
+                        var linkatt = _xml.CreateAttribute("link");
+                        linkatt.Value = LinkValue;
+                        newElm.Attributes.Append(linkatt);
+                    }
+
+                    if (Title != null)
+                    {
+                        var titleatt = _xml.CreateAttribute("title");
+                        titleatt.Value = Title;
+                        newElm.Attributes.Append(titleatt);
+                    }
+
                 }
             }
         }

@@ -1,41 +1,145 @@
 var wbt = wbt || {};
 
-document.observe('dom:loaded', function() {
-    $$('.navbar-collapse').each(function(nav) {
-        $(nav).on('click','a',function() {
-        var collapse = this.retrieve('bootstrap:collapse');
-        if(collapse) {
-            collapse.toggle();            
+// extend form objects
+wbt.FormMethodAddons = {
+	findFirstBlankElement: function(form) {
+        var elements = $(form).getElements().findAll(function(element) {
+          return 'hidden' != element.type && !element.disabled && Form.Element.getValue(element).blank();
+        });
+        var firstByIndex = elements.findAll(function(element) {
+          return element.hasAttribute('tabIndex') && element.tabIndex >= 0;
+        }).sortBy(function(element) { return element.tabIndex }).first();
+
+        return firstByIndex ? firstByIndex : elements.find(function(element) {
+          return /^(?:input|select|textarea)$/i.test(element.tagName);
+      });
+    },
+    focusFirstBlankElement: function(form) {
+        form = $(form);
+        var element = Form.findFirstBlankElement(form);
+        if (element) element.activate();
+        return form;        
+    }
+}
+Object.extend(Form, wbt.FormMethodAddons);
+
+wbt.Toggle = function(elm) {
+    elm.on('click', function(e) {
+    var elm = e.findElement('[wbt-toggle]');
+    if(!elm) return true;
+    e.stop();
+    var id = elm.readAttribute('wbt-toggle');
+    var effects = (elm.readAttribute('wbt-toggle-effects') === null) ? true : elm.readAttribute('wbt-toggle-effects') == true;
+    var toggleElm = $(id);
+    if(toggleElm) {
+        if(toggleElm.visible()) {
+            if(effects) {
+                new Effect.SlideUp(toggleElm, { duration: wbt.Defaults.Effect.TransitionFast});                        
+            } else {
+                toggleElm.hide();
+            }
+            document.fire('wbt:toggle-hidden', toggleElm);
+        } else {
+            if(effects) {
+                new Effect.SlideDown(toggleElm, { duration: wbt.Defaults.Effect.TransitionNormal});
+            } else {
+                toggleElm.show();
+            }
+            document.fire('wbt:toggle-visible', toggleElm);
+        }
+    }
+
+});
+
+}
+
+wbt.TargetDefaultFeatures = {
+        width:500,
+        height:400,
+        titlebar:'no',
+        location:'no',
+        scrollbar:'yes',
+        menubar:'no',
+        toolbar:'no',
+        status:'no',
+        personalbar:'no',
+        toolbar:'no'
+}
+
+wbt.TargetNewWin = function() {
+    var targetFunc = function(e) {
+        var elm = e.findElement('[wbt-targeting]');        
+        var features = wbt.TargetDefaultFeatures;
+        features.att = {};
+        features.att.parsed = elm.readAttribute('wbt-targeting-features');
+        if(features.att.parsed) {
+            features.att.vals = features.att.parsed.split(',').collect(function(p) { 
+                var h = $H();
+                var a = p.split('=');
+                h.set(a[0], isNaN(Number(a[1])) ? a[1] : Number(a[1]));
+                var obj = h.toObject();
+
+                if(obj[a[0]].toUpperCase() === 'MAX') {
+                    switch(a[0]) {
+                        case 'width':
+                            obj[a[0]] == window.innerWidth;
+                        break;
+                        case 'height':
+                            obj[a[0]] == window.innerHeight;
+                        break;
+                    }
+                }
+                return obj;
+            });
+
+            features.att.vals.each(function(val) {
+                features[Object.keys(val)[0]] = Object.values(val)[0];
+            });
+        }
+
+
+        var dualScreenLeft = window.screenLeft != undefined ? window.screenLeft : screen.left;
+        var dualScreenTop = window.screenTop != undefined ? window.screenTop : screen.top;
+
+        var width = window.innerWidth ? window.innerWidth : document.documentElement.clientWidth ? document.documentElement.clientWidth : screen.width;
+        var height = window.innerHeight ? window.innerHeight : document.documentElement.clientHeight ? document.documentElement.clientHeight : screen.height;
+
+        features.left = ((width / 2) - (features.width / 2)) + dualScreenLeft;
+        features.top = ((height / 2) - (features.height / 2)) + dualScreenTop;
+
+        var tmp = Object.toQueryString(features).split('&').join(',');
+        if(elm === null) return;
+        elm.writeAttribute('target', elm.readAttribute('wbt-targeting'));
+        var win = window.open("about:blank",elm.readAttribute('wbt-targeting'),tmp);
+        win.document.title = "WBT New Win";
+        return true;
+    };
+    $$('[wbt-targeting').each(function(elm) {
+        switch(elm.tagName)
+        {
+            case 'FORM':
+                elm.on('submit', targetFunc.bindAsEventListener())
+            break;
+            default:
+                elm.on('click', targetFunc.bindAsEventListener());
+            break;
+
         }
     });
-    });
-    $$('*[wbt-toggle]').each(function(elm) {
-        elm.on('click', function(e) {
-            e.stop();
-            var elm = e.findElement('[wbt-toggle]');
-            var id = elm.readAttribute('wbt-toggle');
-            var effects = (elm.readAttribute('wbt-toggle-effects') === null) ? true : elm.readAttribute('wbt-toggle-effects') == true;
-            var toggleElm = $(id);
-            if(toggleElm) {
-                if(toggleElm.visible()) {
-                    if(effects) {
-                        new Effect.SlideUp(toggleElm, { duration: wbt.Defaults.Effect.TransitionFast});                        
-                    } else {
-                        toggleElm.hide();
-                    }
-                    document.fire('wbt:toggle-hidden', toggleElm);
-                } else {
-                    if(effects) {
-                        new Effect.SlideDown(toggleElm, { duration: wbt.Defaults.Effect.TransitionNormal});
-                    } else {
-                        toggleElm.show();
-                    }
-                    document.fire('wbt:toggle-visible', toggleElm);
-                }
-            }
 
-        });
-    });
+}
+
+document.observe('dom:loaded', function() {
+        // $$('.navbar-collapse').each(function(nav) {
+        //     $(nav).on('click','a',function() {
+        //         var collapse = this.retrieve('bootstrap:collapse');
+        //         if(collapse) {
+        //             collapse.toggle();            
+        //         }
+        //     });
+        // });
+        $$('*[wbt-toggle]').each(wbt.Toggle);
+
 });
 
 wbt.Viewport = {
@@ -69,11 +173,11 @@ wbt.SimpleForms = {
             if(Number(maxlen)) {
                 var diff = maxlen - input.getValue().len;
                 if(!isNaN(diff)) {
-                var label = input.next('span.max-label');
+                    var label = input.next('span.max-label');
                     if(label) {
                         label.update(diff);
-                   }
-               }
+                    }
+                }
             }
         },this);
     },
@@ -102,7 +206,7 @@ wbt.SimpleForms = {
                 if(label != null) {
                     label.update('0');
                     label.addClassName('maxed');
-               }
+                }
                 e.stop();                
             } else {
                 if(label != null) {
@@ -112,10 +216,10 @@ wbt.SimpleForms = {
             }
             break;
             case 'keypress':
-                if(label != null) {
-                    label.update(diff);
-                    label.removeClassName('maxed');
-               }
+            if(label != null) {
+                label.update(diff);
+                label.removeClassName('maxed');
+            }
             break;
             case 'keyup':            
             break;
@@ -125,6 +229,20 @@ wbt.SimpleForms = {
     _blured: function (e) {
         var elm = e.findElement();
         if (elm) {
+            var blankname = elm.readAttribute('name') + '_isBlank';     // blank name field
+            var blankelm = elm.up('form').down('input[name=' + blankname + ']');
+            // check if blank and diffierent than original
+            if(elm.readAttribute('data-orig') && !elm.readAttribute('data-orig').blank()) {
+                var orig = elm.readAttribute('data-orig');
+                if(elm.getValue().blank() && !blankelm) {
+                    elm.up('form').insert('<input type=\'hidden\' name=\'' + blankname + '\' value=\'true\'/>');
+                } else {
+                    if(blankelm)
+                        $(blankelm).remove();
+                }
+            }
+
+
             var maxlen = elm.readAttribute('data-max-len');
             if (maxlen == null) {
                 return;
@@ -140,7 +258,7 @@ wbt.SimpleForms = {
                         label.update('0');
                         label.addClassName('maxed');
                     }
-                }                
+                }
             }
         }
     }
@@ -172,6 +290,7 @@ wbt.calcBrowser = function () {
 
 document.on('dom:loaded', function () {
     wbt.calcBrowser();
+    wbt.TargetNewWin();
 });
 wbt.calcBrowser();
 

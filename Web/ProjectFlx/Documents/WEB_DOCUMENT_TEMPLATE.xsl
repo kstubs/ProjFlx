@@ -7,6 +7,7 @@
 	<xsl:include href="WBT_TABLES.xsl"/>
 	<xsl:include href="WBT_LINKS.xsl"/>
 	<xsl:include href="WBT_PAGING.xsl"/>
+	<xsl:include href="BS_TWITTER_3.1.xsl"/>
 
 	<xsl:output method="html" indent="yes" encoding="utf-8"/>
 
@@ -32,6 +33,10 @@
 			</xsl:if>
 		</xsl:for-each>
 	</xsl:variable>
+	
+	<!-- Browser Vars -->
+	<xsl:variable name="wbt:browser-vars" select="/flx/proj/browser/formvars | /flx/proj/browser/queryvars | /flx/proj/browser/cookievars"/> 
+	
 	<!-- Results Variable -->
 	<xsl:variable name="wbt:results" select="ROOT/APPLICATION/results"/>
 
@@ -150,12 +155,10 @@
 		<xsl:text>&#10;</xsl:text>
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
-		<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" type="text/css"/>
+		<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
 		<script src="//cdn.xportability.com/js/protoscripty__130455207001161849.js" type="text/javascript"/>
 		<xsl:text>&#10;</xsl:text>
-		<!--<script src="//cdn.xportability.com/js/bootstrap_prototype__130603731638117850.js" type="text/javascript"/>-->
-		
 		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/transition_prototype.js" type="text/javascript"></script>
 		<xsl:text>&#10;</xsl:text>
 		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/affix_prototype.js" type="text/javascript"></script>
@@ -390,7 +393,7 @@
 			<div class="row">
 				<div class="col-md-3">
 					<ul class="nav nav-list affix">
-						<xsl:apply-templates select="/flx/client-context/page/content" mode="identity-build-nav"/>
+						<xsl:apply-templates select="/flx/client-context/page/content[not(@active='false')]" mode="identity-build-nav"/>
 					</ul>
 				</div>
 				<div class="col-md-9">
@@ -690,6 +693,7 @@
 		</div>
 	</xsl:template>
 
+	<!-- obsolete? -->
 	<xsl:template name="wbt:breadcrumb">
 		<ul class="breadcrumb">
 			<xsl:call-template name="wbt:walk-content">
@@ -697,6 +701,28 @@
 			</xsl:call-template>
 		</ul>
 	</xsl:template>
+	
+	<xsl:template match="Crumbs" mode="identity-translate">
+		<ol class="breadcrumb">
+			<xsl:for-each select="$BrowserPage">
+				<li>
+					<xsl:choose>
+						<xsl:when test="position() = last()">
+							<xsl:attribute name="class">active</xsl:attribute>
+							<xsl:value-of select="@title"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<a href="{@link}">
+								<xsl:value-of select="@title"/>
+							</a>
+						</xsl:otherwise>
+					</xsl:choose>
+				</li>
+			</xsl:for-each>
+		</ol>
+	</xsl:template>
+	
+	
 
 	<!-- 
         *   Walk content and browser items
@@ -731,7 +757,7 @@
 	<xsl:template match="item" mode="wbt:walk-content">
 		<xsl:param name="type">content</xsl:param>
 		<xsl:param name="path" select="text()"/>
-		<xsl:param name="context" select="/flx/client/*[local-name() = 'page' or local-name() = 'content'][translate(@name, $ABC, $abc) = current()/text()]"/>
+		<xsl:param name="context" select="/flx/client/*[local-name() = 'page' or local-name() = 'content'][translate(@name, $ABC, $abc) = current()/text()][not(@active='false')]"/>
 		<xsl:param name="title">
 			<xsl:choose>
 				<xsl:when test="$context/@title">
@@ -789,7 +815,7 @@
 			</xsl:when>
 			<xsl:otherwise>
 				<xsl:call-template name="wbt:apply-content">
-					<xsl:with-param name="context" select="$context | /flx/client/page | /flx/client/content"/>
+					<xsl:with-param name="context" select="$context | /flx/client/page | /flx/client/content[not(@active='false')]"/>
 				</xsl:call-template>
 			</xsl:otherwise>
 		</xsl:choose>
@@ -801,34 +827,40 @@
 			<xsl:when test="($context/@authenticateduser = 'true' or $context/@wbt:authenticateduser = 'true') and not($AuthenticatedUser)">
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
-			<xsl:when test="($context/@loggedonuser = 'true' or $context/@wbt:loggedonuser = 'true') and not($LoggedOnUser)">
+			<xsl:when test="($context/@loggedonuser = 'true' or $context/@loggedinuser = 'true' or $context/@wbt:loggedonuser = 'true') and not($LoggedOnUser)">
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
+			<xsl:otherwise>
+				<xsl:apply-templates select="$context" mode="wbt:apply-content"/>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template match="page | content" mode="wbt:apply-content">
+		<xsl:choose>
 			<xsl:when test="$wrap-content">
 				<xsl:element name="div">
 					<xsl:attribute name="id">
 						<xsl:choose>
-							<xsl:when test="$context/@name">
-								<xsl:value-of select="$context/@name"/>
+							<xsl:when test="@name">
+								<xsl:value-of select="@name"/>
 							</xsl:when>
-							<xsl:when test="$context/@id">
-								<xsl:value-of select="$context/@id"/>
+							<xsl:when test="@id">
+								<xsl:value-of select="@id"/>
 							</xsl:when>
 							<xsl:otherwise>
 								<xsl:value-of select="generate-id(.)"/>
 							</xsl:otherwise>
 						</xsl:choose>
 					</xsl:attribute>
-					<xsl:apply-templates select="$context/*" mode="identity-translate"/>
+					<xsl:apply-templates select="*" mode="identity-translate"/>
 				</xsl:element>
 			</xsl:when>
 			<xsl:otherwise>
-				<xsl:apply-templates select="$context/*" mode="identity-translate"/>
+				<xsl:apply-templates select="*" mode="identity-translate"/>
 			</xsl:otherwise>
 		</xsl:choose>
-	</xsl:template>
-
-	<xsl:template match="content" mode="identity-translate"/>
+	</xsl:template>	
 
 	<xsl:template match="content" mode="identity-build-nav">
 		<xsl:variable name="nav_link_part1">
@@ -859,7 +891,7 @@
 		</xsl:variable>
 		
 		<!-- draw navigation - test for authenticated user, logged on user, and nav choice -->
-		<xsl:if test="not(@nav = 'false')">
+		<xsl:if test="not(@nav = 'false') and not(@active='false')">
 			<xsl:if
 				test="
 					((ancestor-or-self::*/@loggedonuser = 'true' or ancestor-or-self::*/@wbt:loggedonuser = 'true') and $LoggedOnUser)
@@ -910,8 +942,9 @@
 		</xsl:if>
 		<xsl:apply-templates select="content" mode="identity-build-nav"/>
 	</xsl:template>
-
+	
 	<xsl:template match="*" mode="identity-build-nav.link"/>
+	<xsl:template match="content[@nav='false' or @active='false']" mode="identity-build-nav.link"/>
 	<xsl:template match="page | content" mode="identity-build-nav.link">
 		<xsl:if test="not(self::page)">
 			<xsl:text>.</xsl:text>
@@ -1085,13 +1118,15 @@
 		<xsl:text>&#10;</xsl:text>
 	</xsl:template>
 
-	<xsl:template match="BackButton" mode="identity-translate">
+	<xsl:template name="BackButton" match="BackButton" mode="identity-translate">
+		<xsl:param name="href" select="@href"/>
+		<xsl:param name="title" select="@title | text()" />
 		<xsl:choose>
-			<xsl:when test="text()">
-				<a href="{text()}" class="btn btn-default"><i class="glyphicon glyphicon-chevron-left"/> Back</a>
+			<xsl:when test="string($href)">
+				<a href="{$href}" class="btn btn-default back-button"><i class="glyphicon glyphicon-chevron-left"/> <xsl:value-of select="$title"/></a>
 			</xsl:when>
 			<xsl:otherwise>
-				<a href="#" onclick="history.back(); return false;" class="btn btn-default"><i class="glyphicon glyphicon-chevron-left"/> Back</a>
+				<a href="#" onclick="history.back(); return false;" class="btn btn-default back-button"><i class="glyphicon glyphicon-chevron-left"/> Back</a>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
@@ -1137,6 +1172,7 @@
 							</xsl:call-template>
 						</xsl:attribute>
 					</input>
+					<input type="hidden" name="cookie" value="{@cookie}"/>
 				</form>
 			</xsl:otherwise>
 		</xsl:choose>
@@ -1181,7 +1217,7 @@
 	
 	<xsl:template name="JumpOut" match="JumpOut" mode="identity-translate">
 		<xsl:param name="href" select="."/>
-		<xsl:param name="title" select="@title | text()"/>
+		<xsl:param name="title" select="@title"/>
 		<a>
 			<xsl:apply-templates select="@*" mode="identity-translate"/>
 			<xsl:attribute name="href">
@@ -1194,7 +1230,7 @@
 			<i class="glyphicon glyphicon-new-window"/>
 		</a>
 	</xsl:template>
-
+	
 	<xsl:template match="wbt:ProjSql" mode="identity-translate">
 		<div class="row">
 			<div class="col-md-12">
@@ -1229,4 +1265,105 @@
 		<li><a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}"><xsl:value-of select="@name"/></a></li>
 	</xsl:template>
 	
+	<xsl:template match="@actionx" mode="identity-translate">
+		<xsl:attribute name="action">
+			<xsl:text>/</xsl:text>
+			<xsl:for-each select="$BrowserPage">
+				<xsl:value-of select="@title"/>
+				<xsl:text>.</xsl:text>
+			</xsl:for-each>
+			<xsl:value-of select="."/>
+		</xsl:attribute>
+	</xsl:template>
+	
+	<xsl:template match="OFF" mode="identity-translate" priority="99"/>
+	
+	<xsl:template match="@hrefx" name="hrefx" mode="identity-translate">
+		<xsl:param name="hrefx"/>
+		<xsl:attribute name="href">
+			<xsl:text>/</xsl:text>
+			<xsl:for-each select="$BrowserPage">
+				<xsl:value-of select="@title"/>
+				<xsl:text>.</xsl:text>
+			</xsl:for-each>
+			<xsl:choose>
+				<xsl:when test="string($hrefx)">
+					<xsl:value-of select="$hrefx"/>					
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="."/>					
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:attribute>
+	</xsl:template>
+	
+	<xsl:template match="wbt:*" mode="identity-translate">
+		<xsl:element name="{local-name()}" namespace="">
+			<xsl:apply-templates select="@*[namespace-uri()='']" mode="identity-translate"/>
+			<xsl:choose>
+				<xsl:when test="@wbt:query">
+					<xsl:apply-templates select="key('wbt:key_Results', @wbt:query)/result/row" mode="wbt:table">
+						<xsl:with-param name="template" select="*"/>
+					</xsl:apply-templates>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:apply-templates select="node()" mode="identity-translate"/>					
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:element>
+	</xsl:template>
+	
+	<xsl:template match="tbody[@wbt:query]" mode="identity-translate">
+		<xsl:apply-templates select="key('wbt:key_Results', @wbt:query)/result/row" mode="wbt:table">
+			<xsl:with-param name="template" select="*"/>
+		</xsl:apply-templates>
+	</xsl:template>
+	
+	<xsl:template match="row" mode="wbt:table">		
+		<xsl:param name="template"/>
+		<xsl:apply-templates select="$template" mode="wbt:table">
+			<xsl:with-param name="current" select="current()"/>
+		</xsl:apply-templates>
+		
+	</xsl:template>
+	
+	<xsl:template match="*" mode="wbt:table">
+		<xsl:param name="current" select="/.."/>
+		<xsl:variable name="field" select="."/>
+		<xsl:copy>
+			<xsl:apply-templates select="@*[namespace-uri()='']" mode="identity-translate"/>
+			<xsl:apply-templates select="node() | @wbt:*" mode="wbt:table">
+				<xsl:with-param name="current" select="$current"/>
+			</xsl:apply-templates>
+		</xsl:copy>
+	</xsl:template>
+
+	<xsl:template match="text()" mode="wbt:table">
+		<xsl:value-of select="."/>
+	</xsl:template>
+	
+	<xsl:template match="@wbt:*" mode="wbt:table">
+		<xsl:param name="current" select="/.."/>
+		<xsl:variable name="field" select="."/>
+		<xsl:attribute name="{local-name()}">
+			<xsl:value-of select="$current/@*[name()=$field]"/>
+		</xsl:attribute>
+	</xsl:template>
+	
+	<xsl:template match="wbt:field" mode="wbt:table">
+		<xsl:param name="current" select="/.."/>
+		<xsl:variable name="field" select="@name"/>
+		<xsl:value-of select="$current/@*[name()=$field]"/>
+		<xsl:apply-templates select="text() | *" mode="wbt:table">
+			<xsl:with-param name="current" select="$current"/>
+		</xsl:apply-templates>
+	</xsl:template>
+	
+	<xsl:template match="wbt:field-attr" mode="wbt:table">
+		<xsl:param name="current" select="/.."/>
+		<xsl:variable name="field" select="@name"/>
+		<xsl:attribute name="data-{$field}">
+			<xsl:value-of select="$current/@*[name()=$field]"/>
+		</xsl:attribute>
+	</xsl:template>
 </xsl:stylesheet>

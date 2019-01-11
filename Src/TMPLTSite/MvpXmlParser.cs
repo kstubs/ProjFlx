@@ -20,11 +20,10 @@ namespace ProjectFlx
            
             MvpXslTransform xslObj = new MvpXslTransform();
             xslObj.SupportCharacterMaps = false;            // causes error reading
-            var readersettings = new XmlReaderSettings();
+            var readersettings = new XmlReaderSettings();			
 
             using (XmlReader xslreader = XmlReader.Create(classXSLObjectSource, readersettings))
             {
-                
                 xslObj.Load(xslreader, settings, r);
                 XmlInput xm = new XmlInput(xNav);
                 XmlOutput xo;

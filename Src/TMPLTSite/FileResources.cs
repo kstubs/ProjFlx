@@ -33,7 +33,7 @@ namespace ProjectFlx
         {
             get
             {
-                return (from a in _resources select a.FullName).ToList<string>();
+                return (from a in _resources select a.RelativeName).ToList<string>();
             }
         }
 
@@ -51,8 +51,9 @@ namespace ProjectFlx
         public int IndexOf { get; set; }
         public bool Exists(string Resource)
         {
+            var name = Utility.Paths.CombinePaths(Root, Resource);
             IndexOf = -1;
-            IndexOf = _resources.FindIndex(a => { return a.FullName.ToLower().BeginWhack() == Resource.ToLower().BeginWhack(); });
+            IndexOf = _resources.FindIndex(a => { return a.RelativeName.ToLower() == name.ToLower(); });
 
             return IndexOf > -1;
         }
@@ -81,7 +82,7 @@ namespace ProjectFlx
         /// <returns></returns>
         public string AbsolutePath(int Index)
         {
-            return Utility.Paths.CombinePaths(_root, _resources[Index].FullName);
+            return Utility.Paths.CombinePaths(_resources[Index].RelativeName);
         }
 
         /// <summary>
@@ -91,7 +92,7 @@ namespace ProjectFlx
         /// <returns></returns>
         public string FullWebPath(int Index)
         {
-            return Utility.Paths.CombinePaths(_source, _root, _resources[Index].FullName);
+            return Utility.Paths.CombinePaths(_source, _resources[Index].RelativeName);
         }
 
         public string FullWebPath(string Resource)
@@ -127,58 +128,111 @@ namespace ProjectFlx
             List<FileResource> resources = new List<FileResource>();
             foreach (String s in Resources)
             {
+                if (String.IsNullOrEmpty(Path.GetFileName(s)))
+                    continue;
+
+                var regobj = Regex.Match(Path.GetFileName(s), @"(\.\d{1,3})?(\.[a-zA-Z]{1,4})$");
+                string name = Path.GetFileName(s);
+                int version = 0;
+                // Version + File Extension Match
+                if (regobj.Groups[1].Success && regobj.Groups[2].Success)
+                {
+                    int.TryParse(regobj.Groups[1].Value.Substring(1), out version);
+                    name = String.Format("{0}{1}", Path.GetFileName(s).Substring(0, regobj.Groups[1].Index), Path.GetExtension(s));
+                }
+
                 FileResource fr;
                 resources.Add(fr = new FileResource()
                 {
-                    FullName = s,
+                    RelativeName = Paths.BeginWhack(s),
                     Extension = Path.GetExtension(s),
-                    Name = Path.GetFileName(s)
+                    Name = name,
+                    Host = Host,
+                    Version = version
                 });
-
-                if (fr.FullName.BeginWhack().StartsWith(Root.BeginWhack().Replace("\\", "/")))
-                    fr.FullName = fr.FullName.Substring(Root.Length);
             }
             return new FileResources(resources, Host, Root);
         }
 
-        public static FileResources getFileResources(String ProjectFlxPath, String Host, String Root)
+        public static FileResources getFileResources(String ProjectFlxPath, String Host, String RelativePath)
         {
             List<FileResource> resources = new List<FileResource>();
             var dir = new DirectoryInfo(ProjectFlxPath);
-            recurseResources(resources, new DirectoryObj() { Root = ProjectFlxPath, DirectoryInfo = dir });
+            recurseResources(resources, new DirectoryObj() { Root = ProjectFlxPath.Substring(0, ProjectFlxPath.Length - RelativePath.Length), DirectoryInfo = dir }, Host);
 
-            return new FileResources(resources, Host, Root);
+            return new FileResources(resources, Host, RelativePath);
         }
 
-        internal static void recurseResources(List<FileResource> resources, DirectoryObj Dir)
+        internal static void recurseResources(List<FileResource> resources, DirectoryObj DirObj, String Host)
         {
-            foreach (var d in Dir.DirectoryInfo.GetDirectories())
-                recurseResources(resources, new DirectoryObj() { Root = Dir.Root, DirectoryInfo = d } );
+            foreach (var d in DirObj.DirectoryInfo.GetDirectories())
+                recurseResources(resources, new DirectoryObj() { Root = DirObj.Root, DirectoryInfo = d }, Host);
 
-            foreach (var f in Dir.DirectoryInfo.GetFiles())
+            foreach (var f in DirObj.DirectoryInfo.GetFiles())
             {
+                int version = 0;
+                string name;
+                var regobj = Regex.Match(f.FullName, @"(\.\d{1,3})?(\.[a-zA-Z]{1,4})$");
+                var newresource = new FileResource();
+
+                // Version + File Extension Match
+                if (regobj.Groups[1].Success && regobj.Groups[2].Success)
+                {
+                    int.TryParse(regobj.Groups[1].Value.Substring(1), out version);
+                    newresource.Version = version;
+                    // strip version from fullname
+                    name = String.Format("{0}{1}", f.FullName.Substring(0, regobj.Groups[1].Index), f.Extension);
+                }
+                else
+                    name = f.FullName;
+
                 resources.Add(new FileResource()
                 {
-                    FullName = f.FullName.Substring(Dir.Root.Length).ToLower().Replace("\\", "/"),
-                    Name = Path.GetFileName(f.FullName.Substring(Dir.Root.Length).ToLower()),
-                    Extension = Path.GetExtension(f.FullName.ToLower())
+                    RelativeName = Paths.BeginWhack(f.FullName.Substring(DirObj.Root.Length).ToLower().Replace("\\", "/")),
+                    Name = name,
+                    Host = Host,
+                    Extension = Path.GetExtension(f.FullName.ToLower()),
+                    Version = version
                 });
             }
         }
 
         /// <summary>
-        /// Collecte resource from the subpath
+        /// Collect resource from the subpath
         /// </summary>
         /// <param name="SubPath"></param>
         /// <param name="FileExtension"></param>
         /// <returns></returns>
         public List<string> collectResources(string SubPath, string FileExtension)
         {
-            var query = from r in _resources
-                        where r.getPath().BeginWhack().ToLower().Equals(SubPath.ToLower().BeginWhack()) && (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                        select Utility.Paths.CombinePaths(_root, r.FullName);
-            var x = query.ToList();
-            return query.ToList();
+            var name = Paths.BeginWhack(Paths.CombinePaths(Root, SubPath));
+            var list = (from r in _resources
+                         where r.getPath().ToLower().Equals(name.ToLower()) && (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
+                         select r).ToList();
+
+            var maxlist = new List<FileResource>();
+
+            foreach (var resource in list)
+            {
+                var item = maxlist.FirstOrDefault(m => m.Name == resource.Name);
+                if(item == null) {
+                    maxlist.Add(resource);
+                }
+                else
+                {
+                    if(resource.Version > item.Version)
+                    {
+                        item.Version = resource.Version;
+                        item.RelativeName = resource.RelativeName;
+                        item.Name = resource.Name;
+                    }
+                }
+            }
+
+            // select Utility.Paths.CombinePaths(_root, r.FullName)
+            var result = maxlist.Select(s => s.RelativeName);
+            return result.ToList();
+
         }
 
         /// <summary>
@@ -191,7 +245,7 @@ namespace ProjectFlx
         {
             var query = from r in _resources
                         where (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                        select Utility.Paths.CombinePaths(_root, r.FullName);
+                        select Utility.Paths.CombinePaths(_root, r.RelativeName);
             var x = query.ToList();
             return query.ToList();
         }
@@ -202,15 +256,17 @@ namespace ProjectFlx
 
     public class FileResource
     {
+        internal string Host { get; set; }
         internal string Name { get; set; }
         internal string Extension { get; set; }
-        internal string FullName { get; set; }
+        internal string RelativeName { get; set; }
+        internal int Version { get; set; }
         internal string getPath()
         {
-            if (FullName.LastIndexOf("/") > 0)
-                return FullName.Substring(0, FullName.LastIndexOf("/"));
+            if (RelativeName.LastIndexOf("/") > 0)
+                return RelativeName.Substring(0, RelativeName.LastIndexOf("/"));
             else
-                return FullName;
+                return RelativeName;
         }
     }
 
