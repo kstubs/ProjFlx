@@ -90,17 +90,34 @@ namespace ProjectFlx.Schema
                 XWriter.WriteEndElement();
             }
 
+            //TEMP!
+            internal static int[] temp_count_rows = { 0, 0 };
+
+            //TEMP!
+            internal static void Temp_WriteFile(string Msg, params object[] parms)
+            {
+                var msg = String.Format("{0}\n", Msg);
+                File.AppendAllText(@"e:\temp\Temp_WriteFile.txt", String.Format(msg, parms));
+            }
 
             internal static void getSubGroups(results Results, List<Grouped> Groups, Grouped Parent, int Depth, params string[] Grouped)
             {
+                // TEMP!
+                temp_count_rows[1] = 0;
+
                 foreach (var row in Results.result.row)
                 {
                     var name = Grouped[0];
                     var val = row.AnyAttr.LookupValue(name);
+
+                    // TEMP!
+                    Temp_WriteFile("foreach row {0}:{1} {2}", temp_count_rows[0]++, temp_count_rows[1]++, String.Join(",", Grouped));
+
                     if (!Groups.Any(a => a.Name.Equals(name) && a.Value.Equals(val)))
                     {
                         string subval = null;
                         var isEqual = true;
+
                         // check for parent match
                         var parent = Parent;
                         while(parent != null)
@@ -109,6 +126,7 @@ namespace ProjectFlx.Schema
                             isEqual = subval.Equals(parent.Value);
                             parent = parent.Parent;
                         }
+
                         if (isEqual)
                         {
                             Schema.Grouped g;
@@ -117,14 +135,23 @@ namespace ProjectFlx.Schema
                                 Depth = Depth,
                                 Name = name,
                                 Value = val,
-                                Parent = Parent
+                                Parent = Parent         // TODO: is this correct parent?
                             });
 
+                            // Exhaust Grouped to last item - then add rows
+                            //      Group1>Group2>Group3
+                            //      Group2>Group3
+                            //      Group3
+                            //        row
+                            //        row ...
                             if (Grouped.Length == 1)
                             {
                                 if (g.Row == null)
                                     g.Row = new List<row>();
                                 g.Row.Add(row);
+
+                                // TEMP!
+                                Temp_WriteFile("\t\t\t Add Row {0} {1} {2} {3}", row.AnyAttr[0].Value, row.AnyAttr[1].Value, row.AnyAttr[2].Value, row.AnyAttr[3].Value);
                             }
                         }
                     }
@@ -136,6 +163,9 @@ namespace ProjectFlx.Schema
                     Depth++;
                     foreach (var group in Groups)
                     {
+                        // TEMP!
+                        Temp_WriteFile("\t\tRecurse! depth:{0}", Depth);
+
                         group.Groups = new List<Schema.Grouped>();
                         getSubGroups(Results, group.Groups, group, Depth, Grouped.Skip(1).ToArray());
                     }
@@ -149,7 +179,6 @@ namespace ProjectFlx.Schema
                  * 2. 
                  */
                 var list = new List<Grouped>();
-                int depth = 0;
 
                 var groupingValues = new Dictionary<string, string>();
 
@@ -173,8 +202,15 @@ namespace ProjectFlx.Schema
                 XWriter.WriteEndElement();
             }
 
+            static int writeResultsGroupedCounter = 1;
             private static void writeResultsGrouped(XmlWriter XWriter, List<Grouped> list)
             {
+                // TEMP!
+                System.Diagnostics.Debug.WriteLine("writeResultsGrouped " + (writeResultsGroupedCounter++).ToString());
+
+                //if (writeResultsGroupedCounter > 100)
+                //    return;
+
                 foreach (var item in list)
                 {
                     XWriter.WriteStartElement(item.Name);
