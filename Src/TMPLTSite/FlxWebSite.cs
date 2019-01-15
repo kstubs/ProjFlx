@@ -675,6 +675,8 @@ namespace ProjectFlx
 
         private void wbtProjSql(XmlNode current, Schema.Extra.commonProj projsql)
         {
+            AssertProtectedContent(current);
+
             var proj = Request.QueryString["wbt_project"];
             var query = Request.QueryString["wbt_query"];
 
@@ -740,6 +742,8 @@ namespace ProjectFlx
 
         private void wbtQuery(XmlNode current)
         {
+            AssertProtectedContent(current);
+
             // File resource queries
             var qresources = _resources.collectResources("queries", ".xml");
             qresources.AddRange(_resources.collectResources(Utility.Paths.CombinePaths(ResourceContentPath, "queries"), ".xml"));
@@ -902,6 +906,25 @@ namespace ProjectFlx
 
             if (result.results.Count > 0)
                 TMPLT.AddWBTXml(result.Serialize());
+        }
+
+        private void AssertProtectedContent(XmlNode current)
+        {
+            // check if logged on user required
+            var contentnode = current.SelectSingleNode("content");
+
+            if (contentnode != null)
+            {
+                var att = contentnode.Attributes["loggedonuser"];
+
+                if (att != null && att.Value == "true")
+                    if (!LoggedOnUser)
+                    {
+                        var contentname = contentnode.Attributes["name"];
+                        var exargs = new ProjectExceptionArgs("Protected Page Content: " + contentname.Value);
+                        throw new ProjectException(exargs);
+                    }
+            }
         }
 
         private string getValueFromWbtParm(string parm)

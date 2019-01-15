@@ -25,11 +25,23 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryXml
         {
+            public static Utility.Timing Timing { get; set; }
+
             public static void getProjectGrouped(projectResults ProjectResults, XmlWriter XWriter, params string[] Grouped)
             {
-                foreach (var results in ProjectResults.results)
+                try
                 {
-                    getResultGrouped(results, XWriter, Grouped);
+                    if (Timing != null)
+                        Timing.Start("getResultGrouped");
+
+                    foreach (var results in ProjectResults.results)
+                    {
+                        getResultGrouped(results, XWriter, Grouped);
+                    }
+                }
+                finally
+                {
+                    Timing.End("getResultGrouped");
                 }
             }
 
@@ -90,69 +102,57 @@ namespace ProjectFlx.Schema
                 XWriter.WriteEndElement();
             }
 
-            //TEMP!
-            internal static int[] temp_count_rows = { 0, 0 };
-
-            //TEMP!
             internal static void Temp_WriteFile(string Msg, params object[] parms)
             {
-                var msg = String.Format("{0}\n", Msg);
-                File.AppendAllText(@"e:\temp\Temp_WriteFile.txt", String.Format(msg, parms));
+                try
+                {
+                    var msg = String.Format("{0}\n", Msg);
+                    File.AppendAllText(@"e:\temp\Temp_WriteFile.txt", String.Format(msg, parms));
+                }
+                catch { }
             }
 
             internal static void getSubGroups(results Results, List<Grouped> Groups, Grouped Parent, int Depth, params string[] Grouped)
             {
-                // TEMP!
-                temp_count_rows[1] = 0;
+                var subrow = Results.result.row;
 
-                foreach (var row in Results.result.row)
+                var parent = Parent;
+                while (parent != null)
+                {
+                    subrow = subrow.Where(w => w.AnyAttr.LookupValue(parent.Name) == parent.Value).ToList();
+                    parent = parent.Parent;
+                }
+
+                foreach (var row in subrow)
                 {
                     var name = Grouped[0];
                     var val = row.AnyAttr.LookupValue(name);
 
-                    // TEMP!
-                    Temp_WriteFile("foreach row {0}:{1} {2}", temp_count_rows[0]++, temp_count_rows[1]++, String.Join(",", Grouped));
-
                     if (!Groups.Any(a => a.Name.Equals(name) && a.Value.Equals(val)))
                     {
-                        string subval = null;
+                        //string subval = null;
                         var isEqual = true;
 
-                        // check for parent match
-                        var parent = Parent;
-                        while(parent != null)
+                        Schema.Grouped g;
+                        Groups.Add(g = new Schema.Grouped()
                         {
-                            subval = row.AnyAttr.LookupValue(parent.Name);
-                            isEqual = subval.Equals(parent.Value);
-                            parent = parent.Parent;
-                        }
+                            Depth = Depth,
+                            Name = name,
+                            Value = val,
+                            Parent = Parent         // TODO: is this correct parent?
+                        });
 
-                        if (isEqual)
+                        // Exhaust Grouped to last item - then add rows
+                        //      Group1>Group2>Group3
+                        //      Group2>Group3
+                        //      Group3
+                        //        row
+                        //        row ...
+                        if (Grouped.Length == 1)
                         {
-                            Schema.Grouped g;
-                            Groups.Add(g = new Schema.Grouped()
-                            {
-                                Depth = Depth,
-                                Name = name,
-                                Value = val,
-                                Parent = Parent         // TODO: is this correct parent?
-                            });
-
-                            // Exhaust Grouped to last item - then add rows
-                            //      Group1>Group2>Group3
-                            //      Group2>Group3
-                            //      Group3
-                            //        row
-                            //        row ...
-                            if (Grouped.Length == 1)
-                            {
-                                if (g.Row == null)
-                                    g.Row = new List<row>();
-                                g.Row.Add(row);
-
-                                // TEMP!
-                                Temp_WriteFile("\t\t\t Add Row {0} {1} {2} {3}", row.AnyAttr[0].Value, row.AnyAttr[1].Value, row.AnyAttr[2].Value, row.AnyAttr[3].Value);
-                            }
+                            if (g.Row == null)
+                                g.Row = new List<row>();
+                            g.Row.Add(row);
                         }
                     }
                 }
@@ -163,9 +163,6 @@ namespace ProjectFlx.Schema
                     Depth++;
                     foreach (var group in Groups)
                     {
-                        // TEMP!
-                        Temp_WriteFile("\t\tRecurse! depth:{0}", Depth);
-
                         group.Groups = new List<Schema.Grouped>();
                         getSubGroups(Results, group.Groups, group, Depth, Grouped.Skip(1).ToArray());
                     }
@@ -174,43 +171,52 @@ namespace ProjectFlx.Schema
 
             public static void getResultGrouped(results Results, XmlWriter XWriter, params string[] Grouped)
             {
-                /*
-                 * 1. organize results by grouped
-                 * 2. 
-                 */
-                var list = new List<Grouped>();
+                if (Timing != null)
+                    Timing.Start("getResultGrouped");
 
-                var groupingValues = new Dictionary<string, string>();
+                try
+                {
+                    /*
+                     * 1. organize results by grouped
+                     * 2. 
+                     */
+                    var list = new List<Grouped>();
 
-                getSubGroups(Results, list, null, 0, Grouped);
+                    var groupingValues = new Dictionary<string, string>();
 
-                list.Sort();
+                    getSubGroups(Results, list, null, 0, Grouped);
+
+                    list.Sort();
+
+                    XWriter.WriteStartElement("results");
+                    XWriter.WriteAttributeString("name", Results.name);
+                    XWriter.WriteAttributeString("ProjectSqlFile", Results.ProjectSqlFile);
+                    XWriter.WriteStartElement("schema");
+                    XWriter.WriteRaw(Helper.StripXmlDecleration(Results.schema[0].Serialize()));
+                    XWriter.WriteEndElement();
+                    XWriter.WriteStartElement("result");
+
+                    if (Timing != null)
+                        Timing.Start("writeResultsGrouped");
+
+                    writeResultsGrouped(XWriter, list);
+
+                    if (Timing != null)
+                        Timing.End("writeResultsGrouped");
 
 
-
-                XWriter.WriteStartElement("results");
-                XWriter.WriteAttributeString("name", Results.name);
-                XWriter.WriteAttributeString("ProjectSqlFile", Results.ProjectSqlFile);
-                XWriter.WriteStartElement("schema");
-                XWriter.WriteRaw(Helper.StripXmlDecleration(Results.schema[0].Serialize()));
-                XWriter.WriteEndElement();
-                XWriter.WriteStartElement("result");
-
-                writeResultsGrouped(XWriter, list);
-
-                XWriter.WriteEndElement();
-                XWriter.WriteEndElement();
+                    XWriter.WriteEndElement();
+                    XWriter.WriteEndElement();
+                }
+                finally
+                {
+                    Timing.End("getResultGrouped");
+                }
             }
 
             static int writeResultsGroupedCounter = 1;
             private static void writeResultsGrouped(XmlWriter XWriter, List<Grouped> list)
             {
-                // TEMP!
-                System.Diagnostics.Debug.WriteLine("writeResultsGrouped " + (writeResultsGroupedCounter++).ToString());
-
-                //if (writeResultsGroupedCounter > 100)
-                //    return;
-
                 foreach (var item in list)
                 {
                     XWriter.WriteStartElement(item.Name);
@@ -220,7 +226,7 @@ namespace ProjectFlx.Schema
                         foreach (var row in item.Row)
                             getRowGrouped(row, XWriter);
 
-                    if(item.Groups!= null)
+                    if (item.Groups != null)
                         writeResultsGrouped(XWriter, item.Groups);
 
                     XWriter.WriteEndElement();
