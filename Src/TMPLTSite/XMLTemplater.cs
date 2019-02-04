@@ -149,12 +149,12 @@ namespace ProjectFlx
         {
             _AddTag(Tag, Convert.ToString(Comment), null, null, true);
         }
-        public void AddCommentTag(string Tag, string Comment)
+        public void AddCommentTag(string Tag, object Comment)
         {
             _AddTag(Tag, Comment, null, null, true);
         }
 
-        public void AddCommentTag(string Tag, string Comment, string SourceClass, string SourceMethod)
+        public void AddCommentTag(string Tag, object Comment, string SourceClass, string SourceMethod)
         {
             _AddTag(Tag, Comment, SourceClass, SourceMethod, true);
         }
@@ -197,59 +197,63 @@ namespace ProjectFlx
             }
         }
 
-		private void _AddTag(string Tag, string Comment, string SourceClass, string SourceMethod, bool CommentOnly)
+		private void _AddTag(string Tag, object Comment, string SourceClass, string SourceMethod, bool CommentOnly)
 		{
 			_AddTag(Tag, Comment, SourceClass, SourceMethod, CommentOnly, null);
 		}
 
-		private void _AddTag(string Tag, string Comment, string SourceClass, string SourceMethod, bool CommentOnly, Exception Exception)
+		private void _AddTag(string Tag, object Comment, string SourceClass, string SourceMethod, bool CommentOnly, Exception Exception)
         {
-            XmlElement elmTags = (XmlElement)_xml.DocumentElement.SelectSingleNode("tags");
-            if (elmTags == null)
+            try
             {
-                elmTags = _xml.CreateElement("tags");
-                _xml.DocumentElement.AppendChild(elmTags);
-            }
-            XmlElement elmTag = _xml.CreateElement("tag");
+                XmlElement elmTags = (XmlElement)_xml.DocumentElement.SelectSingleNode("tags");
+                if (elmTags == null)
+                {
+                    elmTags = _xml.CreateElement("tags");
+                    _xml.DocumentElement.AppendChild(elmTags);
+                }
+                XmlElement elmTag = _xml.CreateElement("tag");
 
-            XmlAttribute att = _xml.CreateAttribute("Name");
-            att.Value = Tag;
-            elmTag.Attributes.Append(att);
-            elmTag.InnerText = Comment;
-
-            // add comment attribute = true
-            if (CommentOnly == true)
-            {
-                att = _xml.CreateAttribute("Comment");
-                att.Value = "True";
+                XmlAttribute att = _xml.CreateAttribute("Name");
+                att.Value = Tag;
                 elmTag.Attributes.Append(att);
+                elmTag.InnerText = Convert.ToString(Comment);
+
+                // add comment attribute = true
+                if (CommentOnly == true)
+                {
+                    att = _xml.CreateAttribute("Comment");
+                    att.Value = "True";
+                    elmTag.Attributes.Append(att);
+                }
+
+                // add Source Class
+                if (!(SourceClass == null))
+                {
+                    att = _xml.CreateAttribute("Class");
+                    att.Value = SourceClass;
+                    elmTag.Attributes.Append(att);
+                }
+
+                // add Source method
+                if (!(SourceMethod == null))
+                {
+                    att = _xml.CreateAttribute("Method");
+                    att.Value = SourceMethod;
+                    elmTag.Attributes.Append(att);
+                }
+
+                // source exception
+                if (!(Exception == null))
+                {
+                    att = _xml.CreateAttribute("Exception");
+                    att.Value = Exception.GetType().Name;
+                    elmTag.Attributes.Append(att);
+                }
+
+                elmTags.AppendChild(elmTag);
             }
-
-            // add Source Class
-            if (!(SourceClass == null))
-            {
-                att = _xml.CreateAttribute("Class");
-                att.Value = SourceClass;
-                elmTag.Attributes.Append(att);
-            }
-
-            // add Source method
-            if (!(SourceMethod == null))
-            {
-                att = _xml.CreateAttribute("Method");
-                att.Value = SourceMethod;
-                elmTag.Attributes.Append(att);
-            }
-
-			// source exception
-			if(!(Exception == null))
-			{
-				att = _xml.CreateAttribute("Exception");
-				att.Value = Exception.GetType().Name;
-				elmTag.Attributes.Append(att);
-			}
-
-            elmTags.AppendChild(elmTag);
+            catch { }
 
         }
 

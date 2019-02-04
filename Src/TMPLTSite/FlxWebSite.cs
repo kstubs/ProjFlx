@@ -437,9 +437,6 @@ namespace ProjectFlx
 
         public virtual void SITE_INIT()
         {
-            // Temp
-            TMPLT.AddTag("BINGO", "RINGO");
-
             try
             {
                 Timing.Start("ProjectFlx.FlxMain.SITE_INIT");
@@ -1337,6 +1334,17 @@ namespace ProjectFlx
             try
             {
                 Timing.Start("ProjectFlx.FlxMain.SITE_TERMINATE");
+
+                TMPLT.AddCommentTag("_useCdn", _useCdn, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_debug", _debug, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_projectFlxPath", _projectFlxPath, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_requestType", _requestType, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_SiteMap", _SiteMap, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_useCache", _useCache, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_clientFlxpath", _clientFlxpath, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_cdnSite", _cdnSite, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_cacheMinutes", _cacheMinutes, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_AuthenticatedUser", _AuthenticatedUser, "FlxWebSite", "SITE_TERMINATE");
                 if (_SiteMap)
                     return;
 
