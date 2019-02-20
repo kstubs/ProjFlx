@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
+using ProjectFlx.Schema.Extra;
 using ProjectFlx.Exceptions;
 
 namespace ProjectFlx.Schema
@@ -183,57 +184,27 @@ namespace ProjectFlx.Schema
         }
     }
 
-    public static class Extensions
-    {
-        /// <summary>
-        /// Return value for give attribute by name
-        /// </summary>
-        /// <param name="Attributes"></param>
-        /// <param name="Name"></param>
-        /// <returns></returns>
-        public static string LookupValue(this List<XmlAttribute> Attributes, string Name)
-        {
-            try
-            {
-                var x = Attributes.Find(a => a.Name.Equals(Name));
-                return x.Value.ToString();
-            }
-            catch { return null; }
-        }
-
-        /// <summary>
-        /// Parameter by Name
-        /// </summary>
-        /// <param name="Parameters"></param>
-        /// <param name="Name"></param>
-        /// <returns></returns>
-        public static parameter Lookup(this parameters Parameters, string Name)
-        {
-            return Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
-        }
-
-        /// <summary>
-        /// Find All projectResults by Name
-        /// </summary>
-        /// <param name="Results"></param>
-        /// <param name="Name"></param>
-        /// <returns></returns>
-        public static List<results> FindAll(this projectResults Results, string Name)
-        {
-            return Results.results.FindAll(r => { return r.name.Equals(Name); });
-        }
-
-        public static results Lookup(this List<results> Results, int LookupIndex)
-        {
-            return Results.FirstOrDefault(r => { return r.schema[0].parameters.Lookup("LookupIndex").Text.Flatten().Equals(LookupIndex.ToString()); });
-        }
-
-    }
-
     namespace Extra
     {
         public static class Extensions
         {
+
+            /// <summary>
+            /// Assumes first row in result set and
+            /// And returns value for given attribute by name
+            /// </summary>
+            /// <param name="Attributes"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static string LookupValue(this result Result, string Name)
+            {
+                try
+                {
+                    var row = Result.row[0];
+                    return row.AnyAttr.LookupValue(Name);
+                }
+                catch { return null; }
+            }
             /// <summary>
             /// Return value for give attribute by name
             /// </summary>
@@ -248,6 +219,41 @@ namespace ProjectFlx.Schema
                     return x.Value.ToString();
                 }
                 catch { return null; }
+            }
+
+            /// <summary>
+            /// Parameter by Name
+            /// </summary>
+            /// <param name="Parameters"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static parameter Lookup(this parameters Parameters, string Name)
+            {
+                return Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
+            }
+
+            /// <summary>
+            /// Find All projectResults by Name
+            /// </summary>
+            /// <param name="Results"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static List<results> FindAll(this projectResults Results, string Name)
+            {
+                return Results.results.FindAll(r => { return r.name.Equals(Name); });
+            }
+
+            public static result Lookup(this List<results> Results, String Name)
+            {
+                var results = Results.Where(w => w.name == Name).FirstOrDefault();
+                if (results == null) return null;
+                else
+                    return results.result;
+            }
+
+            public static result Lookup(this projectResults Results, String Name)
+            {
+                return Results.results.Lookup(Name);
             }
 
         }
