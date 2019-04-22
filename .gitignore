@@ -7,3 +7,5 @@
 obj/
 debug/
 packages/
+*.dll
+*.pdb

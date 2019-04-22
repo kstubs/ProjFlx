@@ -129,8 +129,12 @@ namespace ProjectFlx.Schema
                 this.parameters.parameter = new List<parameter>();
 
             var parm = new parameter() { name = Name, type = FieldType, inout = InOut };
-            this.parameters.parameter.Add(parm);
 
+            var temp = this.parameters.parameter.Where(a => a.name == Name).FirstOrDefault();
+            if (temp != null)
+                this.parameters.parameter.Remove(temp);
+
+            this.parameters.parameter.Add(parm);
             parm.Text = new List<string>();
 
             if(Size != 0) {
