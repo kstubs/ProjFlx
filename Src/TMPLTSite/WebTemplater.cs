@@ -301,6 +301,8 @@ namespace ProjectFlx
             _xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
             //_xslt.Load(XsltPath, settings, new XmlUrlResolver());
             _loaded = true;
+
+            this.AddCommentTag("XsltPath", XsltPath, "ProjectFlx.FlxTemplater", "setXslt");
         }
 
         public bool XsltLoaded

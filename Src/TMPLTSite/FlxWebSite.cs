@@ -437,9 +437,6 @@ namespace ProjectFlx
 
         public virtual void SITE_INIT()
         {
-            // Temp
-            TMPLT.AddTag("BINGO", "RINGO");
-
             try
             {
                 Timing.Start("ProjectFlx.FlxMain.SITE_INIT");
@@ -675,6 +672,8 @@ namespace ProjectFlx
 
         private void wbtProjSql(XmlNode current, Schema.Extra.commonProj projsql)
         {
+            AssertProtectedContent(current);
+
             var proj = Request.QueryString["wbt_project"];
             var query = Request.QueryString["wbt_query"];
 
@@ -740,6 +739,8 @@ namespace ProjectFlx
 
         private void wbtQuery(XmlNode current)
         {
+            AssertProtectedContent(current);
+
             // File resource queries
             var qresources = _resources.collectResources("queries", ".xml");
             qresources.AddRange(_resources.collectResources(Utility.Paths.CombinePaths(ResourceContentPath, "queries"), ".xml"));
@@ -902,6 +903,25 @@ namespace ProjectFlx
 
             if (result.results.Count > 0)
                 TMPLT.AddWBTXml(result.Serialize());
+        }
+
+        private void AssertProtectedContent(XmlNode current)
+        {
+            // check if logged on user required
+            var contentnode = current.SelectSingleNode("content");
+
+            if (contentnode != null)
+            {
+                var att = contentnode.Attributes["loggedonuser"];
+
+                if (att != null && att.Value == "true")
+                    if (!LoggedOnUser)
+                    {
+                        var contentname = contentnode.Attributes["name"];
+                        var exargs = new ProjectExceptionArgs("Protected Page Content: " + contentname.Value);
+                        throw new ProjectException(exargs);
+                    }
+            }
         }
 
         private string getValueFromWbtParm(string parm)
@@ -1314,6 +1334,17 @@ namespace ProjectFlx
             try
             {
                 Timing.Start("ProjectFlx.FlxMain.SITE_TERMINATE");
+
+                TMPLT.AddCommentTag("_useCdn", _useCdn, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_debug", _debug, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_projectFlxPath", _projectFlxPath, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_requestType", _requestType, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_SiteMap", _SiteMap, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_useCache", _useCache, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_clientFlxpath", _clientFlxpath, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_cdnSite", _cdnSite, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_cacheMinutes", _cacheMinutes, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_AuthenticatedUser", _AuthenticatedUser, "FlxWebSite", "SITE_TERMINATE");
                 if (_SiteMap)
                     return;
 

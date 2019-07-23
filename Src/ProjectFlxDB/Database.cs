@@ -12,7 +12,7 @@ using ProjectFlx.Exceptions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System.Web.Caching;
-
+using System.Xml.Linq;
 
 namespace ProjectFlx.DB
 {
@@ -511,7 +511,7 @@ namespace ProjectFlx.DB
                                     }
                                     else
                                     {
-                                        string val = null;
+                                        string val = dr[m.GetAttribute("name")].ToString();
                                         if (!(m.HasAttribute("encode") || m.HasAttribute("regx")))
                                             val = dr[m.GetAttribute("name")].ToString().Trim();
 
@@ -1188,6 +1188,13 @@ namespace ProjectFlx.DB
             get
             {
                 return _xmresult;
+            }
+        }
+        public XDocument ResultXDoc
+        {
+            get
+            {
+                return XDocument.Load(new XmlNodeReader(_xmresult));
             }
         }
         public XmlDocument PagingNode
