@@ -245,8 +245,6 @@ namespace ProjectFlx
 					}
 				}
 			}
-
-
 		}
 
         private void clearCookie(String Name)
@@ -260,10 +258,10 @@ namespace ProjectFlx
                 HttpContext.Current.Response.Cookies.Add(cookie);
             }
         }
-		#endregion
+        #endregion
 
         #region Public Methods and Functions
-		public FlxTemplater()
+        public FlxTemplater()
 		{
 			httpC = HttpContext.Current;
             _domain = getDomain(httpC.Request.Url.GetLeftPart(UriPartial.Authority));
@@ -933,7 +931,7 @@ namespace ProjectFlx
             XmlNode existingNode = null;
             try
             {
-                if (!String.IsNullOrEmpty(Value))
+                if (!String.IsNullOrEmpty(Value) && !"RAW_SCRIPT".Equals(Name))
                 {
                     if (Value.StartsWith("'") && Value.EndsWith("'"))
                         existingNode = child.SelectSingleNode("item[.=" + Value + "]");
@@ -954,7 +952,7 @@ namespace ProjectFlx
                     newElm.Attributes.Append(att);
                 }
                 child.AppendChild(newElm);
-                if (Name == "RAW_SCRIPT")
+                if ("RAW_SCRIPT" == Name)
                 {
                     var cdata = _xml.CreateCDataSection(Value);
                     newElm.AppendChild(cdata);

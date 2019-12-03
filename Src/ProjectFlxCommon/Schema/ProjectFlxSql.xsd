@@ -101,7 +101,16 @@
     </xs:complexType>
 	</xs:element>
 
-	<xs:element name="subquery">
+  <xs:element name="cache">
+    <xs:complexType>
+      <xs:sequence minOccurs="1">
+        <xs:element name="enabled" type="xs:boolean"/>
+        <xs:element name="minutes" type="xs:int"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="subquery">
 		<xs:complexType>
 			<xs:sequence>
 				<xs:element ref="fields" minOccurs="0"/>
@@ -198,6 +207,7 @@
 			<xs:element ref="paging" minOccurs="0"/>
       <xs:element ref="actions" minOccurs="0" />
 			<xs:element ref="subquery" minOccurs="0"/>
+      <xs:element ref="cache" minOccurs="0"/>
 		</xs:sequence>
 	</xs:complexType>
 

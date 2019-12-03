@@ -299,8 +299,18 @@ namespace ProjectFlx.Schema
                     // results
                     json.WritePropertyName("result");
                     getRowJsonStringArray(json, rslts.result, (rslts.schema.Count > 0) ? rslts.schema[0].fields : ProjectResults.results[0].schema[0].fields);
-                    json.WriteEndObject();
 
+                    // TODO: add sub results
+                    if(rslts.subresult != null)
+                    {
+                        json.WritePropertyName("subquery");
+                        json.WriteStartObject();
+                        json.WritePropertyName("result");
+                        getRowJsonStringArray(json, rslts.subresult, (rslts.schema.Count > 0) ? rslts.schema[0].subquery.fields : ProjectResults.results[0].schema[0].subquery.fields);
+                        json.WriteEndObject();
+                    }
+
+                    json.WriteEndObject();
                 }
                 json.WriteEndArray();
                 json.WriteEndObject();
@@ -328,14 +338,9 @@ namespace ProjectFlx.Schema
 
             }
 
-            public static void getRowJsonStringArray(JsonTextWriter json, result Result, List<field> fields)
+            private static void getRows(JsonTextWriter json, List<row> row, List<field> fields)
             {
-                json.WriteStartObject();
-                json.WritePropertyName("row");
-
-                json.WriteStartArray();
-
-                foreach (row schemaRow in Result.row)
+                foreach (row schemaRow in row)
                 {
 
                     json.WriteStartObject();
@@ -344,7 +349,7 @@ namespace ProjectFlx.Schema
                     {
                         json.WritePropertyName(att.Name);
                         var parm = fields.Find(p => p.name.Equals(att.Name));
-                        
+
                         // write value as is
                         if (parm == null)
                         {
@@ -353,7 +358,7 @@ namespace ProjectFlx.Schema
                         }
 
                         // evaluate value for field type
-                        switch(parm.type)
+                        switch (parm.type)
                         {
                             case fieldType.json:
                                 json.WriteRawValue(att.Value);
@@ -366,7 +371,7 @@ namespace ProjectFlx.Schema
                                 }
                                 catch
                                 {
-                                    json.WriteValue(att.Value.Trim());   
+                                    json.WriteValue(att.Value.Trim());
                                 }
                                 break;
                             case fieldType.date:
@@ -383,21 +388,41 @@ namespace ProjectFlx.Schema
                                 if (dttime.ToString("d").Equals("1/1/1970"))
                                     json.WriteValue(att.Value);
                                 else
-                                    json.WriteValue(dttime.ToString("r"));
+                                    json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
                                 break;
                             default:
                                 json.WriteValue(att.Value.Trim());
                                 break;
                         }
-                            
+
                     }
 
                     json.WriteEndObject();
                 }
+            }
+
+            public static void getRowJsonStringArray(JsonTextWriter json, subresult Result, List<field> fields)
+            {
+                json.WriteStartObject();
+                json.WritePropertyName("row");
+
+                json.WriteStartArray();
+                getRows(json, Result.row, fields);
 
                 json.WriteEndArray();
                 json.WriteEndObject();
+            }
 
+            public static void getRowJsonStringArray(JsonTextWriter json, result Result, List<field> fields)
+            {
+                json.WriteStartObject();
+                json.WritePropertyName("row");
+
+                json.WriteStartArray();
+                getRows(json, Result.row, fields);
+
+                json.WriteEndArray();
+                json.WriteEndObject();
             }
 
             public static void getFieldJsonStringArray(JsonTextWriter json, List<field> Fields)

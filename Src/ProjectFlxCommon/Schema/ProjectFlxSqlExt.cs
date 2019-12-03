@@ -96,6 +96,24 @@ namespace ProjectFlx.Schema
             return query;
         }
 
+        public static SchemaQueryType Create(string QueryName, actionType CommandType, string CommandName, string CommandText, XmlNodeList Fields)
+        {
+            var query = Create(QueryName, CommandType, CommandName, CommandText);
+            foreach (XmlNode node in Fields)
+            {
+
+                fieldType fieldtype = (fieldType)Enum.Parse(typeof(fieldType), node.Attributes["type"].Value);
+                query.fields.Add(new field()
+                {
+                    name = node.Attributes["name"].Value,
+                    type = fieldtype
+                });
+            }
+
+            return query;
+
+        }
+
         public parameter AddParameter(string Name, object Value)
         {
             return this.AddParameter(Name, Value, fieldType.text);
@@ -237,6 +255,26 @@ namespace ProjectFlx.Schema
             }
 
             /// <summary>
+            /// Parameter value by Name
+            /// </summary>
+            /// <param name="Parameters"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static string LookupValue(this parameters Parameters, string Name)
+            {
+                var parm = Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
+                if (parm != null && parm.Text.Count > 0)
+                    return parm.Text.Flatten();
+                else
+                    return null;
+            }
+
+            public static string Value(this parameter Parameter)
+            {
+                return Parameter.Text != null && Parameter.Text.Count > 0 ? Parameter.Text.Flatten() : "";
+            }
+
+            /// <summary>
             /// Find All projectResults by Name
             /// </summary>
             /// <param name="Results"></param>
@@ -249,7 +287,7 @@ namespace ProjectFlx.Schema
 
             public static result Lookup(this List<results> Results, String Name)
             {
-                var results = Results.Where(w => w.name == Name).FirstOrDefault();
+                var results = Results.Where(w => w.name == Name).LastOrDefault();
                 if (results == null) return null;
                 else
                     return results.result;
@@ -260,6 +298,30 @@ namespace ProjectFlx.Schema
                 return Results.results.Lookup(Name);
             }
 
+            public static result Lookup(this projectResults Results, String Name, String ParameterName, String ParameterValue)
+            {
+                var temp1 = Results.results.Where((r) => { return r.name.Equals(Name); }).FirstOrDefault();
+                var temp2 = temp1.schema.FirstOrDefault().parameters.parameter.Find((f) => { return f.name.Equals(ParameterName); });
+                var temp3 = temp1.schema.FirstOrDefault().parameters.Lookup(ParameterName);
+
+                var result = Results.results.Where((r) => {
+                    return r.name.Equals(Name) &&
+                    r.schema[0].parameters.Lookup(ParameterName).Value().Equals(ParameterValue); }).FirstOrDefault();
+
+                if (result == null)
+                    return null;
+                else
+                    return result.result;
+            }
+
+            public static parameters getParameters(this projectResults Results, String ResultsName)
+            {
+                var result = Results.results.Find((f) => { return f.name == ResultsName; });
+                if (result == null)
+                    return null;
+
+                return result.schema[0].parameters;
+            }
         }
 
         public class commonProj : ProjectFlx.DB.IProject
@@ -430,13 +492,17 @@ namespace ProjectFlx.Schema
             {                
                 var xpath = String.Format("query[@name='{0}']", ProjQueryName);
                 _query = new SchemaQueryType();
-                _query = ProjectFlx.Schema.SchemaQueryType.Deserialize(_catalog.SelectSingleNode(xpath).OuterXml);
+                var node = _catalog.SelectSingleNode(xpath);
+                if (node == null)
+                    throw new Exception("setQuery failed.  Query Not Found: " + ProjQueryName);
+                _query = ProjectFlx.Schema.SchemaQueryType.Deserialize(node.OuterXml);
                 _query.project = _project;
             }
 
-            public void setQuery(object ProjQuery)
+            public void setQuery(SchemaQueryType ProjQuery)
             {
-                throw new NotImplementedException();
+                this._query = ProjQuery;
+                this._query.project = this._project;
             }
 
             public XmlNode ProjSqlNode

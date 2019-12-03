@@ -1,21 +1,11 @@
 /* ========================================================================
- * Bootstrap: dropdown.js v3.0.0
+ * Bootstrap: dropdown.js v3.3.6
  * http://twbs.github.com/bootstrap/javascript.html#dropdowns
- * ========================================================================
- * Copyright 2012 Twitter, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+  * ========================================================================
+ * Copyright 2011-2016 Twitter, Inc.
+ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  * ======================================================================== */
+
 /*
 
 Modified for use with PrototypeJS
@@ -27,128 +17,137 @@ https://github.com/jwestbrook/bootstrap-prototype/tree/master-3.0
 
 'use strict';
 
-if(BootStrap === undefined)
-{
-  var BootStrap = {};
-}
-
+window.BootStrap = window.BootStrap || { };
 
  /* DROPDOWN CLASS DEFINITION
-  * ========================= */
-BootStrap.Dropdown = Class.create({
+ * ========================= */
+ BootStrap.Dropdown = Class.create({
+  VERSION: '3.4.1',
   initialize : function (element) {
-    element.store('bootstrap:dropdown',this)
-    var $el = $(element).on('click',this.toggle)
-    $$('html')[0].on('click', function () {
-      $el.up().removeClassName('open')
-    })
-  }
-  ,toggle: function (e) {
-    var $this = $(this)
-    , $parent
-    , isActive
+    this.$element = $(element)
+    this.$element.store('bootstrap:button',this)
 
-    if ($this.hasClassName('disabled') || $this.readAttribute('disabled') == 'disabled') return
+    document.observe('click',this.clearMenus.bind(this));
+    this.$element.on('click',this.toggle.bind(this));
+  },
+  getParent: function() {
+    var element = this.$element;
+    var selector = element.readAttribute('data-target');
+    var parent;
 
-    $parent = BootStrap.Dropdown.prototype.getParent($this)
-
-    isActive = $parent.hasClassName('open')
-
-    BootStrap.Dropdown.prototype.clearMenus()
-
-    if (!isActive) {
-      if ('ontouchstart' in document.documentElement) {
-        // if mobile we we use a backdrop because click events don't delegate
-        var backdrop = new Element('div',{'class':'dropdown-backdrop'});
-        backdrop.observe('click',BootStrap.Dropdown.prototype.clearMenus);
-        $this.insert({'before':backdrop})
+    if (!selector) {
+      selector = element.readAttribute('href');
+        selector = selector && /#/.test(selector) && selector.replace(/.*(?=#[^\s]*$)/, '') && selector != '#'; //strip for ie7
       }
 
-      $parent.toggleClassName('open')
+
+      if(!selector) return element.up();
+      var parent = $$(selector)[0];
+      if(!parent) return element.up();
+
+      return parent;
+    },
+    clearMenus : function() {
+      // TODO: if mouse right click return
+      $$('.dropdown-backdrop').invoke('remove');
+      var parent = this.getParent();
+      parent.removeClassName('open');
+
+      document.fire('hidden.bs.dropdown');
+    }, 
+    toggle: function (e) {
+      var element = this.$element;
+      var parent;
+      var isActive;
+
+      if (element.hasClassName('disabled') || element.readAttribute('disabled') == 'disabled') return;
+
+      var parent = this.getParent();
+
+      isActive = parent.hasClassName('open');
+
+      this.clearMenus();
+
+      if (!isActive) {
+        if ('ontouchstart' in document.documentElement) {
+        // if mobile we we use a backdrop because click events don't delegate
+        var backdrop = new Element('div',{'class':'dropdown-backdrop'});
+        backdrop.observe('click',this.clearMenus.bind(this));
+        element.insert({'before':backdrop});
+      }
+
+      parent.addClassName('open');
+      element.fire('focus');
+      element.writeAttribute('aria-expanded', 'true');
+      parent.fire('shown.bs.dropdown', element);
     }
 
-    $this.focus()
+    element.focus();
+    e.stop();
+  }, 
+  keydown: function (e) {
+    var element = this.$element;
+    var items;
+    var active;
+    var isActive;
+    var index;
 
-    e.stop()
-  }
-  , keydown: function (e) {
-    var $this
-    , $items
-    , $active
-    , $parent
-    , isActive
-    , index
+    if (!/(38|40|27|32)/.test(e.keyCode) || 
+      /input|textarea/i.test(e.target.tagName)) return;
+      
+    e.preventDefault();
+    e.stopPropagation();
 
-    if (!/(38|40|27)/.test(e.keyCode)) return
+    if (element.hasClassName('disabled') || element.readAttribute('disabled') == 'disabled') return;
 
-    $this = $(this)
+    var parent = this.getParent();
 
-    e.preventDefault()
-    e.stopPropagation()
-
-    if ($this.hasClassName('disabled') || $this.readAttribute('disabled') == 'disabled') return
-
-    $parent = BootStrap.Dropdown.prototype.getParent($this)
-
-    isActive = $parent.hasClassName('open')
+    isActive = parent.hasClassName('open');
 
     if (!isActive || (isActive && e.keyCode == Event.KEY_ESC))
     {
-      if (e.which == Event.KEY_ESC) $parent.select('[data-toggle=dropdown]')[0].focus()
-      return $this.click()
+      if (e.which == Event.KEY_ESC) {
+        parent.select('[data-toggle=dropdown]')[0].focus();
+        return element.click();   // TODO: test this
+      }
     }
 
     // :visible is a jQuery extension - NOT VALID CSS
-    //      $items = $parent.select('[role=menu] li:not(.divider):visible a')
+    //      items = parent.select('[role=menu] li:not(.divider):visible a')
     //
-    $items = $parent.select('[role=menu] li:not(.divider) a')
+    items = parent.select('[role=menu] li:not(.divider) a');
 
-    if (!$items.length) return
+    if (!items.length) return;
 
-    index = -1
-    $items.each(function(item,i){
-    item.match(':focus') ? index = i : ''
+    index = -1;
+    items.each(function(item,i){
+      item.match(':focus') ? index = i : '';
     })
 
-    if (e.keyCode == Event.KEY_UP && index > 0) index--                                        // up
-    if (e.keyCode == Event.KEY_DOWN && index < $items.length - 1) index++                        // down
+    if (e.keyCode == Event.KEY_UP && index > 0) index--;
+    if (e.keyCode == Event.KEY_DOWN && index < items.length - 1) index++;
     if (!~index) index = 0
 
-    $items[index].focus()
-  }
-  , clearMenus : function(){
-    $$('.dropdown-backdrop').invoke('remove')
-    $$('[data-toggle=dropdown]').each(function(i) {
-      BootStrap.Dropdown.prototype.getParent(i).removeClassName('open')
-    })
-  }
-  , getParent : function(element){
-    var selector = element.readAttribute('data-target')
-    , $parent
-
-    if (!selector) {
-      selector = element.readAttribute('href')
-      selector = selector && /#/.test(selector) && selector.replace(/.*(?=#[^\s]*$)/, '') && selector != '#' //strip for ie7
-    }
-
-    $parent = selector && $$(selector)
-
-    if (!$parent || !$parent.length) $parent = element.up()
-
-    return $parent
-
+      items[index].focus();
   }
 });
 
-/*domload*/
+ /*domload*/
 
 /* APPLY TO STANDARD DROPDOWN ELEMENTS
- * =================================== */
+* =================================== */
+
 document.observe('dom:loaded',function(){
+  $$('[data-toggle=dropdown]').each(function(elm) {
+    new BootStrap.Dropdown(elm);
+  });
+
+/*document.observe('dom:loaded',function(){
   document.observe('click',BootStrap.Dropdown.prototype.clearMenus)
   $$('.dropdown form').invoke('observe','click',function(e){
     e.stop();
   });
   $$('[data-toggle=dropdown]').invoke('observe','click',BootStrap.Dropdown.prototype.toggle)
   $$('[data-toggle=dropdown]'+', [role=menu]').invoke('observe','keydown',BootStrap.Dropdown.prototype.keydown)
+  */
 });

@@ -69,6 +69,7 @@
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Caching" />
     <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -119,6 +120,9 @@
     <Content Include="Samples\default.xml" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ProjectFlxCommon\ProjectFlxCommon.csproj">
       <Project>{51f7178c-fc13-4a7c-b8a2-4f346cef752c}</Project>
       <Name>ProjectFlxCommon</Name>
@@ -128,15 +132,13 @@
       <Name>ProjectFlxDB</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)bin\" /C /Y
 xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
-del "$(SolutionDir)Binaries\*.pdb" /F
-del "$(SolutionDir)Binaries\*.xml" /F</PostBuildEvent>
+
+REM del "$(SolutionDir)Binaries\*.pdb" /F
+REM del "$(SolutionDir)Binaries\*.xml" /F</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

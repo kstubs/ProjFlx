@@ -131,6 +131,10 @@ namespace ProjectFlx
         {
             _AddTag(Tag, Convert.ToString(Value), null, null, false);
         }
+        public void AddTag(string Tag, long Value)
+        {
+            _AddTag(Tag, Convert.ToString(Value), null, null, false);
+        }
         public void AddTag(string Tag, string Value)
         {
             _AddTag(Tag, Value, null, null, false);

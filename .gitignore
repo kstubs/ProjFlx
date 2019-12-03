@@ -9,3 +9,5 @@ debug/
 packages/
 *.dll
 *.pdb
+*.dll
+*.pdb

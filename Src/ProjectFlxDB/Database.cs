@@ -117,8 +117,7 @@ namespace ProjectFlx.DB
                 _connectionString = ConfigurationManager.ConnectionStrings[connectionName].ConnectionString;
             }
 
-            // make the connection
-            if (_connection == null || _connection.State == ConnectionState.Closed)
+            if(_connection == null)
                 _connection = new SqlConnection(_connectionString);
         }
         #endregion
@@ -399,18 +398,19 @@ namespace ProjectFlx.DB
             // make the command
             if (_command == null)
             {
-                _command = new SqlCommand();
+                _command = _database.Connection.CreateCommand();
                 _command.CommandType = CommandType.Text;
 
                 // set timeouts
                 int commandTimeout = (ConfigurationManager.AppSettings["SqlCommandTimeout"] != null) ? Convert.ToInt32(ConfigurationManager.AppSettings["SqlCommandTimeout"]) : 25;
                 _command.CommandTimeout = commandTimeout;
 
-                _command.Connection = _database.Connection;
-
                 if (_database.WithTransaction)
                     _command.Transaction = _database.Transaction;
             }
+
+            if (_command.Connection.State == ConnectionState.Closed )
+                _command.Connection.Open();
 
         }
         private void BuildResults(SqlDataReader dr, int subqueryIndex = 0)
@@ -553,7 +553,7 @@ namespace ProjectFlx.DB
                                         }
                                     }
                                 }
-                                catch (IndexOutOfRangeException handled)
+                                catch (IndexOutOfRangeException)
                                 {
                                     w.WriteAttributeString(m.GetAttribute("name").ToString(), "#field not found#");
                                 }
@@ -642,6 +642,7 @@ namespace ProjectFlx.DB
 
             elm.AppendChild(import);
 
+
             // cache builder
             if (_cache != null && CachingEnabled)
             {
@@ -653,9 +654,9 @@ namespace ProjectFlx.DB
         private string cacheKeyHelper(XmlNode Node)
         {
             var keybuilder = new StringBuilder();
-            var queryNode = Node.SelectSingleNode("//query");
+            var queryNode = Node.SelectSingleNode("descendant-or-self::query");
             keybuilder.Append(queryNode.Attributes["name"].Value);
-            var pars = Node.SelectNodes("//parameter");
+            var pars = Node.SelectNodes("descendant::parameter");
             foreach (XmlNode node in pars)
             {
                 if (!String.IsNullOrWhiteSpace(node.InnerText))
@@ -876,7 +877,8 @@ namespace ProjectFlx.DB
             _cache.Remove(Key);
         }
 
-        private bool _cachingEnabled = true;
+        private bool _cachingEnabled = false;
+        [Obsolete("Use Cache Object in ProjectSql.xml")]
         public bool CachingEnabled
         {
             get
@@ -901,6 +903,25 @@ namespace ProjectFlx.DB
         #region public methods
         public void Query(XmlNode Query)
         {
+            // command type
+            var xpath = "command/type";
+            var elm = (XmlElement)Query.SelectSingleNode(xpath);
+            var CommandTypeName = elm.InnerText;
+
+            xpath = "cache";
+            var cachenode = (XmlElement)Query.SelectSingleNode(xpath);
+            _cachingEnabled = false;
+            if(_cache != null && cachenode != null)
+            {
+                _cachingEnabled = bool.Parse(cachenode.SelectSingleNode("enabled").InnerText);
+                _cacheMinutes = int.Parse(cachenode.SelectSingleNode("minutes").InnerText);
+            }
+
+            // command action
+            xpath = "command/action";
+            elm = (XmlElement)Query.SelectSingleNode(xpath);
+            var CommandAction = elm.InnerText;
+
             string timingToken = "Anonymous Query";
             if (Timing != null)
             {
@@ -912,13 +933,21 @@ namespace ProjectFlx.DB
                 Timing.Start(timingToken);
             }
 
-            XmlElement elm = null;
-
             string _commandtext = null;
-            string xpath = null;
-
-            if (_database.State != ConnectionState.Open)
-                _database.Open();
+            
+            if (CommandAction == "Result")
+            {
+                string cachekey = cacheKeyHelper(Query);
+                var cachedBuilder = GetCache(cachekey);
+                if (cachedBuilder != null && _cachingEnabled)
+                {
+                    SetupResults(_xmresult, Query);
+                    pushToTree(cachedBuilder);
+                    if (Timing != null)
+                        Timing.End(timingToken);
+                    return;
+                }
+            }
 
             InitializeCommand();
 
@@ -931,10 +960,7 @@ namespace ProjectFlx.DB
             try
             {
 
-                // command type
-                xpath = "command/type";
-                elm = (XmlElement)Query.SelectSingleNode(xpath);
-                switch (elm.InnerText)
+                switch (CommandTypeName)
                 {
                     case "StoredProcedure":
                         _command.Parameters.Clear();
@@ -1024,22 +1050,13 @@ namespace ProjectFlx.DB
                 // prepare result xml document
                 XmlNode importnode;
                 XmlNode newElm;
-                _xmresult = new XmlDocument();
-                _xmresult.LoadXml("<results><schema/></results>");
-                _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
-                if (!String.IsNullOrEmpty(_sqlProjName))
-                    _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
-                importnode = _xmresult.ImportNode(Query, true);
-                _xmresult.SelectSingleNode("results/schema").AppendChild(importnode);
-
+                SetupResults(_xmresult, Query);
 
                 // execute query
                 int scalar = 0;
                 int rows = 0;
-                xpath = "command/action";
-                elm = (XmlElement)Query.SelectSingleNode(xpath);
 
-                switch (elm.InnerText)
+                switch (CommandAction)
                 {
                     case ("Scalar"):
                         var obj = _command.ExecuteScalar();
@@ -1057,27 +1074,27 @@ namespace ProjectFlx.DB
 
                         break;
                     case ("Result"):
-                        var cachekey = cacheKeyHelper(_xmresult);
-                        var cachedBuilder = GetCache(cachekey);
-                        if (cachedBuilder != null && _cachingEnabled)
-                        {
-                            pushToTree(cachedBuilder);
-                        }
-                        else
-                        {
-                            SqlDataReader dr = null;
-                            try
+                        // TODO: enable caching
+                        //var cachekey = cacheKeyHelper(_xmresult);
+                        //var cachedBuilder = GetCache(cachekey);
+                        //if (cachedBuilder != null && _cachingEnabled)
+                        //{
+                        //    pushToTree(cachedBuilder);
+                        //}
+                        //else
+                        //{
+                            using (SqlDataReader dr = _command.ExecuteReader())
                             {
-                                // TODO: move open DB here (or similar) to avoid open db when cache results
-                                dr = _command.ExecuteReader();
-                                BuildResults(dr);
-                            }
-                            finally
-                            {
-                                if (dr != null)
+                                try
+                                {
+                                    BuildResults(dr);
+                                }
+                                finally
+                                {
                                     dr.Close();
+                                }
                             }
-                        }
+                        //}
                         break;
                     case ("NonQuery"):
 
@@ -1121,7 +1138,51 @@ namespace ProjectFlx.DB
             {
                 if (Timing != null)
                     Timing.Stop(timingToken);
+            }
+        }
 
+        private void SetupResults(XmlDocument xmresult, XmlNode Query)
+        {
+            /*
+            _xmresult = new XmlDocument();
+            _xmresult.LoadXml("<results><schema/></results>");
+            _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
+            if (!String.IsNullOrEmpty(_sqlProjName))
+                _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
+            importnode = _xmresult.ImportNode(Query, true);
+            _xmresult.SelectSingleNode("results/schema").AppendChild(importnode);
+            */
+
+            if (_xmresult == null || _xmresult.DocumentElement == null)
+            {
+                _xmresult = new XmlDocument();
+                _xmresult.LoadXml("<results><schema/></results>");
+
+                var schemanode = _xmresult.SelectSingleNode("results/schema");
+                var importnode = _xmresult.ImportNode(Query, true);
+
+                _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
+                _xmresult.SelectSingleNode("results/schema").AppendChild(importnode);
+                
+                // TODO: needed to support caching?
+                //foreach(XmlNode node in Query.SelectNodes("child::*"))
+                //{
+                //    var newnode = _xmresult.ImportNode(node, true);
+                //    schemanode.AppendChild(newnode);
+                //}
+
+                if (!String.IsNullOrEmpty(_sqlProjName))
+                    _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
+
+                return;
+            }
+
+            // TODO: support existing element - supports caching?
+            if (xmresult.DocumentElement != null)
+            {
+                _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
+                if (!String.IsNullOrEmpty(_sqlProjName))
+                    _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
             }
         }
 
@@ -1153,7 +1214,11 @@ namespace ProjectFlx.DB
             CacheDependency cachedependency = null;
             if (!String.IsNullOrEmpty(this._cachePath))
             {
-                string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+
+                string depFile = Path.Combine(_cachePath, keypath + ".cache");
                 using (StreamWriter writer = new StreamWriter(depFile))
                 {
                     writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
@@ -1161,6 +1226,15 @@ namespace ProjectFlx.DB
                 cachedependency = new CacheDependency(depFile);
             }
             _cache.Insert(Key, BuilderDoc, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+        }
+
+        public void Clear()
+        {
+            _pagingLimit = -1;
+            _scalar = 0;
+            _rowsaffected = 0;
+            _results = false;
+            _xmresult = null;
         }
 
         public void Query(Schema.SchemaQueryType QueryType)
@@ -1306,8 +1380,8 @@ namespace ProjectFlx.DB
             if (this.disposed)
                 return;
 
-            this.disposed = true;
-            _database.Dispose();
+            if(_command != null)
+                _command.Dispose();
         }
         public Utility.Timing Timing { get; set; }
     }

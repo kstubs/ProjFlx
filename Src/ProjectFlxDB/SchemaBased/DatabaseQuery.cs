@@ -21,7 +21,7 @@ namespace ProjectFlx.DB.SchemaBased
         private SqlCommand _command;
 
         #region Cache Object
-        private Cache _cache { get; set; }
+        private Cache _cache;
 
         private string _cachePath;
         private int _cacheMinutes = 60 * 24;
@@ -104,11 +104,19 @@ namespace ProjectFlx.DB.SchemaBased
         void _Query(ProjectFlx.Schema.SchemaQueryType query, bool IgnoreResults)
         {
             string timingToken = String.Format("ProjectFlxDB.DB.SchemaBase.DatabaseQuery {0}.{1}", query.project, query.name);
+            string cachekey;
+
             if (Timing != null)
                 Timing.Start(timingToken);
 
-            try
-            {
+                try
+                {
+
+                if(_cache != null && query.cache != null)
+                {
+                    _cachingEnabled = query.cache.enabled;
+                    _cacheMinutes = query.cache.minutes;
+                }
 
                 if (query.paging == null)
                     query.paging = new ProjectFlx.Schema.paging();
@@ -118,10 +126,29 @@ namespace ProjectFlx.DB.SchemaBased
                 rslts.schema.Add(query);
                 rslts.name = query.name;
 
-                if (_database.State != ConnectionState.Open)
+                // cache results
+                cachekey = cacheKeyHelper(query);
+                var cacheresult = GetCache<result>(cachekey);
+                if (cacheresult != null && CachingEnabled)
                 {
-                    _database.InitializeConnection();
-                    _database.Open();
+                    rslts.result = cacheresult;
+
+                    // subquery caching
+                    int subindex = 0;
+                    do
+                    {
+                        var cachesubkey = String.Format("{0}_sub{1}", cachekey, subindex++);
+                        var subcacheresult = GetCache<subresult>(cachesubkey);
+                        if (subcacheresult == null)
+                            break;
+                        rslts.subresult.row = subcacheresult.row;
+
+                    } while (true);
+
+
+                    if (Timing != null)
+                        Timing.End(timingToken);
+                    return;
                 }
 
                 InitializeCommand();
@@ -259,36 +286,36 @@ namespace ProjectFlx.DB.SchemaBased
                         break;
                     case ProjectFlx.Schema.actionType.Result:
 
-                        var cachekey = cacheKeyHelper(query);
-                        var cacheresult = GetCache(cachekey);
-                        if (cacheresult != null && CachingEnabled)
+                        if(query.cache != null && query.cache.enabled && _cache != null)
                         {
-                            rslts.result = cacheresult;
+                            _cacheMinutes = query.cache.minutes;
                         }
-                        else
+
+                        using (SqlDataReader reader = _command.ExecuteReader())
                         {
-                            using (SqlDataReader reader = _command.ExecuteReader())
+                            if (IgnoreResults == true) return;
+
+                            readerToResult(reader, rslts.result, query.fields, query.paging);
+
+                            if (_cache != null && _cachingEnabled)
                             {
-                                if (IgnoreResults == true) return;
+                                var key = cacheKeyHelper(query);
+                                SaveCache(key, rslts.result);
+                            }
 
-                                readerToResult(reader, rslts.result, query.fields, query.paging);
 
-                                if (_cache != null && _cachingEnabled)
+                            // include sub results (StoredProcedure returns more than one Result Set)
+                            int subindex = 0;
+                            while (reader.NextResult())
+                            {
+                                if (query.subquery != null)
                                 {
-                                    var key = cacheKeyHelper(query);
-                                    SaveCache(key, rslts.result);
-                                }
+                                    readerToResult(reader, rslts.subresult, query.subquery.fields, query.paging);
 
-
-                                // include sub results (StoredProcedure returns more than one Result Set)
-                                while (reader.NextResult())
-                                {
                                     if (_cache != null && _cachingEnabled)
-                                        throw new Exception("Caching not supported for Suquery Queries");
-
-                                    if (query.subquery != null)
                                     {
-                                        readerToResult(reader, rslts.subresult, query.subquery.fields, query.paging);
+                                        var key = cacheKeyHelper(query, subindex);
+                                        SaveCache(key, rslts.subresult);
                                     }
                                 }
                             }
@@ -323,10 +350,8 @@ namespace ProjectFlx.DB.SchemaBased
 
                             }
                         }
-
                         break;
                 }
-
             }
             finally
             {
@@ -335,7 +360,6 @@ namespace ProjectFlx.DB.SchemaBased
             }
         }
 
-
         public void InitializeCommand()
         {
             //_rowsaffected = 0;
@@ -343,19 +367,15 @@ namespace ProjectFlx.DB.SchemaBased
             // make the command
             if (_command == null)
             {
-                _command = new SqlCommand();
+                _command = _database.Connection.CreateCommand();
                 _command.CommandType = CommandType.Text;
-
-                // set timeouts
-                //int commandTimeout = (ConfigurationManager.AppSettings["SqlCommandTimeout"] != null) ? Convert.ToInt32(ConfigurationManager.AppSettings["SqlCommandTimeout"]) : 25;
-                //_command.CommandTimeout = commandTimeout;
-
-                _command.Connection = _database.Connection;
 
                 if (_database.WithTransaction)
                     _command.Transaction = _database.Transaction;
             }
 
+            if (_command.Connection.State == ConnectionState.Closed)
+                _command.Connection.Open();
         }
 
 
@@ -495,7 +515,7 @@ namespace ProjectFlx.DB.SchemaBased
                                 if (val != null)
                                     att.Value = safeXmlCharacters(val);
                             }
-                            catch (IndexOutOfRangeException handled)
+                            catch (IndexOutOfRangeException)
                             {
                                 att.Value = "-field not found-";
                             }
@@ -667,20 +687,34 @@ namespace ProjectFlx.DB.SchemaBased
             return keybuilder.ToString();
         }
 
-        private result GetCache(String Key)
+        private string cacheKeyHelper(SchemaQueryType query, int subIndex)
+        {
+            var keybuilder = new StringBuilder();
+            keybuilder.Append(query.name);
+            foreach (var parm in query.parameters.parameter)
+            {
+                if (parm.Text.Count > 0)
+                    keybuilder.Append(parm.Text.Flatten());
+            }
+            keybuilder.AppendFormat("_sub{0}", subIndex);
+
+            return keybuilder.ToString();
+        }
+
+        private T GetCache<T>(String Key)
         {
             if (_cache == null || _cachingEnabled == false)
-                return null;
+                return default(T);
 
             try
             {
                 // cache
                 var obj = _cache[Key];
-                return (result)obj;
+                return (T)obj;
             }
             catch
             {
-                return null;
+                return default(T);
             }
         }
 
@@ -692,7 +726,11 @@ namespace ProjectFlx.DB.SchemaBased
             CacheDependency cachedependency = null;
             if (!String.IsNullOrEmpty(this._cachePath))
             {
-                string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                string depFile = Path.Combine(_cachePath, keypath + ".cache");
+
                 using (StreamWriter writer = new StreamWriter(depFile))
                 {
                     writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
@@ -701,27 +739,45 @@ namespace ProjectFlx.DB.SchemaBased
             }
             _cache.Insert(Key, result, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
         }
-        //public XmlDocument RegXValidationDocument
-        //{
-        //    get
-        //    {
-        //        return _xmRegX;
-        //    }
-        //    set
-        //    {
-        //        _xmRegX = value;
-        //    }
-        //}
+
+        private void SaveCache(string Key, subresult subresult)
+        {
+            if (_cache == null)
+                return;
+
+            CacheDependency cachedependency = null;
+            if (!String.IsNullOrEmpty(this._cachePath))
+            {
+                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                string depFile = Path.Combine(_cachePath, keypath + ".cache");
+
+                using (StreamWriter writer = new StreamWriter(depFile))
+                {
+                    writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                }
+                cachedependency = new CacheDependency(depFile);
+            }
+            _cache.Insert(Key, subresult, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+        }
+
 
         #region IDisposable Members
+
+        bool disposed = false;
 
         public void Dispose()
         {
             try
             {
-                if(_database != null && _database.Connection.State == ConnectionState.Open)
-                    _database.Connection.Close();
-                _database.Dispose();
+                if (this.disposed)
+                    return;
+
+                this.disposed = true;
+
+                if (_command != null)
+                    _command.Dispose();
             }
             catch { }
         }

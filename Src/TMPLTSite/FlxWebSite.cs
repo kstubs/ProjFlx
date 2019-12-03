@@ -6,13 +6,13 @@ using System.Configuration;
 using System.Collections;
 using System.Collections.Generic;
 using System.Web;
-using System.Web.Caching;
+using System.Runtime.Caching;
 using System.Xml;
 using ProjectFlx.Exceptions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
-
+using closure = ProjectFlx.Utility.Closure;
 
 namespace ProjectFlx
 {
@@ -28,7 +28,9 @@ namespace ProjectFlx
         protected HttpRequest Request;
         protected System.Web.SessionState.HttpSessionState Session;
         protected HttpServerUtility Server;
-        protected Cache Cache;
+
+        private ObjectCache _cache = MemoryCache.Default;
+        private string _cacheDependencyPath = null;
         private string clsCurrentPage;
         private List<string> _pageHeirarchy = new List<string>();
         private bool clsClearProcess = false;
@@ -41,8 +43,8 @@ namespace ProjectFlx
         private bool _AuthenticatedUser = false;
         private bool _LoggedOnUser = false;
 
-        private enum _cacheKeyEnum { XmlCacheKey, ContextCacheKey, XslCacheKey, PHCacheKey, ScriptCacheKey, WaitClosureKey, ContentPathKey };
-        private Dictionary<_cacheKeyEnum, String> _cacheKeys = new Dictionary<_cacheKeyEnum, string>();
+        public enum CacheKeyEnum { XmlCacheKey, ContextCacheKey, XslCacheKey, PHCacheKey, ScriptCacheKey, WaitClosureKey, ContentPathKey };
+        private Dictionary<CacheKeyEnum, String> _cacheKeys = new Dictionary<CacheKeyEnum, string>();
 
         protected Utility.TimingDebugger TimingDebugger { get; set; }
         protected Utility.Timing Timing { get; set; }
@@ -53,15 +55,38 @@ namespace ProjectFlx
             NSMGR.AddNamespace("wbt", "myWebTemplater.1.0");
             NSMGR.AddNamespace("sbt", "mySiteTemplater.1.0");
             NSMGR.AddNamespace("pbt", "myPageTemplater.1.0");
-
-            _useCdn = (!String.IsNullOrEmpty(ConfigurationManager.AppSettings["use-cdn"]) && ConfigurationManager.AppSettings["use-cdn"] == "true");
-            _useCache = (!String.IsNullOrEmpty(ConfigurationManager.AppSettings["cache-enabled"]) && ConfigurationManager.AppSettings["cache-enabled"] == "true");
-            _cacheMinutes = !String.IsNullOrEmpty(ConfigurationManager.AppSettings["cache-expires-minutes"]) ? int.Parse(ConfigurationManager.AppSettings["cache-expires-minutes"]) : 60;
-
-            _cdnSite = ConfigurationManager.AppSettings["project-cdn-path"];
-            _clientFlxpath = ConfigurationManager.AppSettings["projectFlxTemplates"];
         }
-        
+
+        private string GetConfigValue(string Name, string DefaultValue)
+        {
+            var val = App.Config[Name];
+            if (String.IsNullOrEmpty(val))
+                return DefaultValue;
+            else
+                return val;
+        }
+        private T GetConfigValue<T>(string Name, T DefaultValue)
+        {
+            T result;
+            var val = App.Config[Name];
+
+            if (String.IsNullOrEmpty(val))
+                result = DefaultValue;
+            else
+            {
+                try
+                {
+                    result = (T)System.ComponentModel.TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(val);
+                }
+                catch
+                {
+                    result = DefaultValue;
+                }
+            }
+
+            return result;
+        }
+
         public bool LoggedOnUser
         {
             get { return _LoggedOnUser; }
@@ -109,6 +134,7 @@ namespace ProjectFlx
                 {
                     TimingDebugger = new Utility.TimingDebugger();
                     Timing = TimingDebugger.New("FLX");
+                    TMPLT_CONFIG();
 
                     TMPLT_INIT();
                     TMPLT_MAIN();
@@ -172,11 +198,30 @@ namespace ProjectFlx
             }
         }
 
+        public virtual void TMPLT_CONFIG()
+        {
+            if(!App.Config.Initialized)
+                App.Config.Setup();
+
+            _projFlxUseCache = GetConfigValue<bool>("projectflx-caching", false);
+            _cacheContentMinutes = GetConfigValue<int>("projectflx-caching-minutes", (int)(60 * 24 * 1));
+            _projFlxUseCacheScript = GetConfigValue<bool>("projectflx-jscript-caching", false);
+            _cacheJscriptMinutes = GetConfigValue<int>("projectflx-jscript-caching-minutes", (int)(60 * 24 * 5));
+
+            _useCdn = GetConfigValue<bool>("use-cdn", false);
+            _cdnSite = GetConfigValue("project-cdn-path", "");
+            _clientFlxpath = GetConfigValue("projectFlxTemplates", "");
+
+        }
+
         private void TMPLT_INIT()
         {
             try
             {
                 Timing.Start("ProjectFlx.FlxMain.TMPLT_INIT");
+
+                _debug = GetConfigValue<bool>("debug", false);
+
                 switch (Request.RequestType)
                 {
                     case System.Net.WebRequestMethods.Http.Post:
@@ -193,27 +238,24 @@ namespace ProjectFlx
                 TMPLT.AddBrowserPageItem("HTTP_METHOD", _requestType.ToString());
 
                 // deal with banned IPs
-                if (!(String.IsNullOrEmpty(ConfigurationManager.AppSettings["banned-ips"])))
+                var bannedips = GetConfigValue("banned_ips","");
+                if (!string.IsNullOrEmpty(bannedips))
                 {
                     string remoteip = FlxMain.getUserIP();
-                    string[] IPs = ConfigurationManager.AppSettings["banned-ips"].Split(' ');
+                    string[] IPs = bannedips.Split(' ');
                     foreach (string ip in IPs)
                     {
                         if (remoteip.StartsWith(ip))
-                            Response.Redirect(ConfigurationManager.AppSettings["banned-page"]);
+                            Response.Redirect(GetConfigValue("banned-page", "https://theuselessweb.com/"));
                     }
                 }
 
-                if (Convert.ToBoolean(ConfigurationManager.AppSettings["site-down"]) == true)
-                    Response.Redirect("Index.html");
-
-
-                if (ConfigurationManager.AppSettings["debug"] != null)
-                    _debug = ConfigurationManager.AppSettings["debug"].Equals("true", StringComparison.OrdinalIgnoreCase);
+                if (GetConfigValue<bool>("site-down", false))
+                    Response.Redirect(GetConfigValue("site-down-redirect", "index.html"));
 
                 TMPLT.AddXslParameter("DEBUG", _debug);
 
-                _projectFlxPath = Server.MapPath("/ProjectFLX");
+                _projectFlxPath = Server.MapPath(GetConfigValue("project-flx-path", " /ProjectFLX"));
 
                 // parse the path
                 List<String> aPath = new List<string>();
@@ -253,21 +295,65 @@ namespace ProjectFlx
 
                 _SiteMap = PageHeirarchyCombined.Equals("sitemap") || PageHeirarchyCombined.Equals("sitemapxml");
 
-                //_cacheKeys.Add(_cacheKeyEnum.XmlCacheKey, "cache:result__content__path");
-                string pagecachkey = PageHeirarchyCombined.Replace("/", "__");
-                _cacheKeys.Add(_cacheKeyEnum.XmlCacheKey, "cache:xml__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.ContextCacheKey, "cache:context__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.XslCacheKey, "cache:xsl__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.PHCacheKey, "cache:PH__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.ScriptCacheKey, "cache:script__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.ContentPathKey, "cache:contentpath__" + pagecachkey);
-                _cacheKeys.Add(_cacheKeyEnum.WaitClosureKey, "cache:pausegoogleclosure__" + pagecachkey);
+                setupCacheKey(CacheKeyEnum.XmlCacheKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.XslCacheKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.ContextCacheKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.PHCacheKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.ScriptCacheKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.ContentPathKey, PageHeirarchyCombined);
+                setupCacheKey(CacheKeyEnum.WaitClosureKey, PageHeirarchyCombined);
+
+                // TODO: cleanup
+                //_cacheKeys.Add(CacheKeyEnum.XmlCacheKey, "cache:xml__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.ContextCacheKey, "cache:context__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.XslCacheKey, "cache:xsl__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.PHCacheKey, "cache:PH__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.ScriptCacheKey, "cache:script__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.ContentPathKey, "cache:contentpath__" + pagecachkey);
+                //_cacheKeys.Add(CacheKeyEnum.WaitClosureKey, "cache:pausegoogleclosure__" + pagecachkey);
             }
             finally
             {
                 Timing.Stop("ProjectFlx.FlxMain.TMPLT_INIT");
             }
 
+        }
+
+        private void setupCacheKey(CacheKeyEnum CacheKey, string CacheKeyVal)
+        {
+            // TODO: coordinate this with other uses, match page combined name value
+            var key = (MapPageKeys.ContainsKey(PageHeirarchyCombined) ? MapPageKeys[PageHeirarchyCombined] : PageHeirarchyCombined).Replace("/", "__");
+
+            if (_cacheKeys.ContainsKey(CacheKey))
+                _cacheKeys.Remove(CacheKey);
+
+            string format = null;
+            switch(CacheKey)
+            {
+                case CacheKeyEnum.XmlCacheKey:
+                    format = "cache:{0}__xml";
+                    break;
+                case CacheKeyEnum.XslCacheKey:
+                    format = "cache:{0}__xsl";
+                    break;
+                case CacheKeyEnum.WaitClosureKey:
+                    format = "cache:{0}__pausegoogleclosure";
+                    break;
+                case CacheKeyEnum.ScriptCacheKey:
+                    format = "cache:{0}__script";
+                    break;
+                case CacheKeyEnum.PHCacheKey:
+                    format = "cache:{0}__PH";
+                    break;
+                case CacheKeyEnum.ContextCacheKey:
+                    format = "cache:{0}__context";
+                    break;
+                case CacheKeyEnum.ContentPathKey:
+                    format = "cache:{0}__contentpath";
+                    break;
+            }
+
+            _cacheKeys.Add(CacheKey, String.Format(format, key));
         }
 
         private string parseKeywords(StreamReader r)
@@ -303,22 +389,14 @@ namespace ProjectFlx
             {
                 Timing.Start("ProjectFlx.FlxMain.TMPLT_MAIN");
 
-                try
-                {
-                    Timing = Timing.New("ProjectFlx.FlxMain.SITE");
-                    // SITE Init - overrideable
-                    SITE_INIT();
+                // SITE Init - overrideable
+                SITE_INIT();
 
-                    // Main Call (2 of 3) - Call Site Main
-                    SITE_MAIN();
+                // Main Call (2 of 3) - Call Site Main
+                SITE_MAIN();
 
-                    // Site Terminate Event - overrideable
-                    SITE_TERMINATE();
-                }
-                finally
-                {
-                    Timing = Timing.End("ProjectFlx.FlxMain.SITE");
-                }
+                // Site Terminate Event - overrideable
+                SITE_TERMINATE();
             }
             finally
             {
@@ -340,14 +418,12 @@ namespace ProjectFlx
                 {
                     //TMPLT.AddXML(PerformanceMonitoring.getProcessInfoHistory());
 
-                    TMPLT.AddTag("CacheCount", Cache.Count);
-                    TMPLT.AddTag("CacheEffectivePercentagePhysicalMemoryLimit", Cache.EffectivePercentagePhysicalMemoryLimit.ToString());
-                    TMPLT.AddTag("CacheEffectivePrivateBytesLimit", Cache.EffectivePrivateBytesLimit.ToString());
-                    IDictionaryEnumerator CacheEnum = Cache.GetEnumerator();
-                    while (CacheEnum.MoveNext())
-                    {
-                        TMPLT.AddTag("CacheKey", CacheEnum.Key.ToString());                        
-                    }
+                    TMPLT.AddTag("CacheCount", _cache.GetCount());
+                    // TODO: support for the following values from System.Runtime.Cache (was available in Web)
+                    //TMPLT.AddTag("CacheEffectivePercentagePhysicalMemoryLimit", _cache.EffectivePercentagePhysicalMemoryLimit.ToString());
+                    //TMPLT.AddTag("CacheEffectivePrivateBytesLimit", _cache.EffectivePrivateBytesLimit.ToString());
+                    foreach(var cache in _cache)
+                        TMPLT.AddTag("CacheKey", cache.Key.ToString());
                 }
 
                 // resolve Lorem Ipsum requests
@@ -396,6 +472,12 @@ namespace ProjectFlx
 
                 if (!clsClearProcess)
                 {
+                    try
+                    {
+                        TMPLT.AddXMLJson(ProjectFlx.Utility.TimingDebugger.Serialize(TimingDebugger));
+                    }
+                    catch { }
+
                     Timing.Start("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
                     TMPLT.ProcessTemplate();
                     Timing.End("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
@@ -406,7 +488,7 @@ namespace ProjectFlx
 			catch(Exception unhandled)
 			{
 				_exceptionInTerminate = true;
-				throw;
+				throw unhandled;
 			}
             finally
             {
@@ -423,10 +505,10 @@ namespace ProjectFlx
         }
         string _cdnSite = null;
 
-        protected bool UseCache
+        protected bool FlxUseCache
         {
-            get { return _useCache; }
-            set { _useCache = value; }
+            get { return _projFlxUseCache; }
+            set { _projFlxUseCache = value; }
         }
 
         protected string CdnSite
@@ -442,12 +524,13 @@ namespace ProjectFlx
                 Timing.Start("ProjectFlx.FlxMain.SITE_INIT");
 
                 // bots are bad, block bots
-                List<string> whitelist = new List<string>();
+                var whitelist = new List<string>();
                 if (ConfigurationManager.AppSettings["bot-white-list"] != null)
                 {
-                    if (Cache["bot-white-list"] != null)
+                    // TODO: update to new caching objects
+                    if(CacheContains("bot-white-list"))
                     {
-                        whitelist = (List<String>)Cache["bot-white-list"];
+                        whitelist = GetCache<List<string>>("bot-white-list");
                     }
                     else
                     {
@@ -463,8 +546,7 @@ namespace ProjectFlx
                                     whitelist.Add(line);
                                 }
                             }
-                            var cachedependency = new CacheDependency(filepath);
-                            Cache.Insert("bot-white-list", whitelist, cachedependency, DateTime.Now.AddDays(3), System.Web.Caching.Cache.NoSlidingExpiration);
+                            SaveCache("bot-white-list", whitelist, 24 * 60);
                         }
                     }
                 }
@@ -502,9 +584,6 @@ namespace ProjectFlx
                 XmlNode current = null, context = null;
                 ResourceContentPath = getXmlResources(content, ref current);
 
-                // TEMP
-                TMPLT.AddTag("ResourceContentPath", ResourceContentPath);
-
                 TMPLT.AddXML("client-context", getXmlContext(content));
 
                 var newAtt = current.OwnerDocument.CreateAttribute("wbt", "loggedonuser", NSMGR.LookupNamespace("wbt"));
@@ -520,33 +599,40 @@ namespace ProjectFlx
 
                 string[] paths = { "", String.IsNullOrEmpty(ResourceContentPath) ? "SKIP__RESOURCE" : ResourceContentPath };
 
-                #region embed required scripts
+                #region embed required style and scripts
                 foreach (string pickup in paths)
                 {
                     if (pickup == "SKIP__RESOURCE")
                         continue;
 
-                    if (_resources.Exists(Utility.Paths.CombinePaths(pickup, "/script/required.txt")))
+                    var subs = new String[] { "style", "script" };
+
+                    foreach (var sub in subs)
                     {
-                        StringReader txtreader;
-                        if (_useCdn)
+                        if (_resources.Exists(Utility.Paths.CombinePaths(pickup, sub, "required.txt")))
                         {
-                            txtreader = new StringReader(Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
-                        }
-                        else
-                        {
-                            // load required scripts
-                            using (StreamReader reader = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
+                            StringReader txtreader;
+                            if (_useCdn)
                             {
-                                txtreader = new StringReader(reader.ReadToEnd());
+                                txtreader = new StringReader(Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
                             }
-                        }
-                        var line = txtreader.ReadLine();
-                        while (line != null)
-                        {
-                            if (line.EndsWith(".js"))
-                                TMPLT.AddBrowserPageItem("SCRIPT", line.Replace("\\", "/"));
-                            line = txtreader.ReadLine();
+                            else
+                            {
+                                // load required scripts
+                                using (StreamReader reader = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
+                                {
+                                    txtreader = new StringReader(reader.ReadToEnd());
+                                }
+                            }
+                            var line = txtreader.ReadLine();
+                            while (line != null)
+                            {
+                                if (line.EndsWith(".js"))
+                                    TMPLT.AddBrowserPageItem("SCRIPT", line.Replace("\\", "/"));
+                                else if(line.EndsWith(".css"))
+                                    TMPLT.AddBrowserPageItem("STYLE", line.Replace("\\", "/"));
+                                line = txtreader.ReadLine();
+                            }
                         }
                     }
                 }
@@ -555,7 +641,7 @@ namespace ProjectFlx
                 #region embed inline content xml pbt:javascript and pbt:style
                 if (current != null)
                 {
-                    foreach (XmlNode node in current.SelectNodes("pbt:*", NSMGR))
+                    foreach (XmlNode node in current.SelectNodes("//pbt:*", NSMGR))
                     {
                         if (node != null)
                         {
@@ -869,7 +955,19 @@ namespace ProjectFlx
                     continue;
 
                 projsql.setProject(q.Attributes["project"].Value);
-                projsql.setQuery(q.Attributes["query"].Value);
+                if (q.Attributes["query"] != null)
+                {
+                    projsql.setQuery(q.Attributes["query"].Value);
+                }
+                else
+                {
+                    if(q.SelectNodes("fields/field").Count > 0)
+                        projsql.setQuery(ProjectFlx.Schema.SchemaQueryType.Create(q.Attributes["name"].Value, Schema.actionType.Result, q.Attributes["name"].Value, q.SelectSingleNode("text").InnerText, q.SelectNodes("fields/field")));
+                    else
+                        projsql.setQuery(ProjectFlx.Schema.SchemaQueryType.Create(q.Attributes["name"].Value, Schema.actionType.Result, q.Attributes["name"].Value, q.SelectSingleNode("text").InnerText));
+                    
+                }
+
 
                 // If NonQuery or Scalar querie continue
                 if ((projsql.SchemaQuery.command.action == Schema.actionType.NonQuery || projsql.SchemaQuery.command.action == Schema.actionType.Scalar))
@@ -1028,50 +1126,53 @@ namespace ProjectFlx
         /// <returns></returns>
         private string getXmlResources(XmlDocument content, ref XmlNode current)
         {
+            var mapResource = default(string);
+
             try
             {
-                if (!_useCache)
+                if (!_projFlxUseCache)
                 {
                     try
                     {
                         foreach (var key in _cacheKeys)
-                            Cache.Remove(key.Value);
+                            _cache.Remove(key.Value);
                     }
                     catch { }
                 }
-                if (_useCache)
+                if (_projFlxUseCache)
                 {
 
-                    if (Cache[_cacheKeys[_cacheKeyEnum.XmlCacheKey]] == null)
-                    {
-                        foreach (var key in _cacheKeys)
-                            Cache.Remove(key.Value);
-                    }
-                    else
-                    {
-                        var obj = Cache[_cacheKeys[_cacheKeyEnum.XmlCacheKey]];
-                        var xm = (XmlDocument)Cache[_cacheKeys[_cacheKeyEnum.XmlCacheKey]];
-                        var importnode = content.ImportNode(xm.DocumentElement, true);
-                        content.AppendChild(importnode);
-                        current = (XmlNode)Cache[_cacheKeys[_cacheKeyEnum.ContextCacheKey]];
-                        if (!((string)Cache[_cacheKeys[_cacheKeyEnum.XslCacheKey]] == "--DEFAULT--"))                 // no stylesheet resolved, this falls back to a default stylesheet
-                            TMPLT.setXslt((string)Cache[_cacheKeys[_cacheKeyEnum.XslCacheKey]]);
 
-                        if (Cache[_cacheKeys[_cacheKeyEnum.PHCacheKey]] != null)
+                    if (CacheContains(
+                        CacheKeyEnum.XmlCacheKey, 
+                        CacheKeyEnum.XslCacheKey,
+                        CacheKeyEnum.ContentPathKey,
+                        CacheKeyEnum.ContextCacheKey))
+                    {
+                        var xm = GetCache<XmlDocument>(CacheKeyEnum.XmlCacheKey);
+                        var importnode = content.ImportNode(xm.DocumentElement, true);
+
+                        content.AppendChild(importnode);
+                        current = GetCache<XmlNode>(CacheKeyEnum.ContextCacheKey);
+
+                        TMPLT.setXslt(GetCache(CacheKeyEnum.XslCacheKey));
+                        //if (!((string)_cache[_cacheKeys[CacheKeyEnum.XslCacheKey]] == "--DEFAULT--"))                 // no stylesheet resolved, this falls back to a default stylesheet
+                        //    TMPLT.setXslt((string)_cache[_cacheKeys[CacheKeyEnum.XslCacheKey]]);
+
+                        if (CacheContains(CacheKeyEnum.PHCacheKey))
                         {
                             _pageHeirarchy = new List<string>();
                             TMPLT.ClearBrowserpageItem("PAGE_HEIRARCHY");
-                            var browseritems = (XmlNode)Cache[_cacheKeys[_cacheKeyEnum.PHCacheKey]];
+                            var browseritems = GetCache<XmlNode>(CacheKeyEnum.PHCacheKey);
                             foreach (XmlNode phnode in browseritems.SelectNodes("item"))
                             {
                                 _pageHeirarchy.Add(phnode.InnerText);
                                 TMPLT.AddBrowserPageItem("PAGE_HEIRARCHY", phnode.InnerText);
                             }
                         }
-                        return (string)Cache[_cacheKeys[_cacheKeyEnum.ContentPathKey]];
+                        return GetCache(CacheKeyEnum.ContentPathKey);
                     }
                 }
-
 
                 bool foundXml = false;
                 bool foundXsl = false;
@@ -1085,48 +1186,96 @@ namespace ProjectFlx
                     if (!foundXml)
                     {
                         localxmlpath = String.Join("/", _pageHeirarchy.ToArray(), 0, x);
-                        for (int i = 2; i > 0; i--)
+                        for (int i = _pageHeirarchy.Count; i > 0; i--)
                         {
-                            string resourcepath;
-                            if(i == 2 && _pageHeirarchy.Count > 1)
-                                resourcepath = String.Format("{0}/{2}.{1}.xml", localxmlpath, _pageHeirarchy[_pageHeirarchy.Count - 1], _pageHeirarchy[_pageHeirarchy.Count - 2]);
-                            else
-                                resourcepath = String.Format("{0}/{1}.xml", localxmlpath, _pageHeirarchy[x - 1]);
-                            if (_resources.Exists(resourcepath))
+                            if (foundXml)
+                                break;
+
+                            string resourcePath;
+                            resourcePath = String.Format("{0}/{1}.xml", localxmlpath, _pageHeirarchy[_pageHeirarchy.Count - 1]);
+
+                            foundXml = _resources.Exists(resourcePath);
+
+                            if(!foundXml)
                             {
-                                resultcontentpath = localxmlpath;
-                                if (_useCdn)
-                                    content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                                if (i == 4)
+                                    resourcePath = String.Format("{0}/{1}.{2}.{3}.{4}.xml", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1], _pageHeirarchy[2], _pageHeirarchy[3]);
+                                else if (i == 3)
+                                    resourcePath = String.Format("{0}/{1}.{2}.{3}.xml", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1], _pageHeirarchy[2]);
+                                else if (i == 2)
+                                {
+                                    resourcePath = String.Format("{0}/{1}.{2}.xml", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1]);
+                                    foundXml = _resources.Exists(resourcePath);
+                                    if(!foundXml)
+                                        resourcePath = String.Format("{0}/{2}.xml", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1]);
+                                }
                                 else
-                                    content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
-                                foundXml = true;
+                                    resourcePath = String.Format("{0}/{1}.xml", localxmlpath, _pageHeirarchy[0]);
+
+                                foundXml = foundXml || _resources.Exists(resourcePath);
                             }
+
+                        }
+
+                        if(foundXml)
+                        {
+                            // if page heirarchy doesn't match found xml, map the resource
+                            if(!_pageHeirarchy.Count.Equals(x))
+                            {
+                                // CONSIDER: assuming separator is a . but should be configurable
+                                var temp1 = PageHeirarchyCombined.Split('.').Take(x).ToArray();
+                                mapResource = String.Join(".", temp1);
+                            }
+
+                            resultcontentpath = localxmlpath;
+                            if (_useCdn)
+                                content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                            else
+                                content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
                         }
                     }
 
                     if (!foundXsl)
                     {
                         localxmlpath = String.Join("/", _pageHeirarchy.ToArray(), 0, x);
-                        for (int i = 2; i > 0; i--)
+                        for (int i = _pageHeirarchy.Count; i > 0; i--)
                         {
-                            string resourcepath;
-                            if (i == 2 && _pageHeirarchy.Count > 1)
-                                resourcepath = String.Format("{0}/{2}.{1}.xsl", localxmlpath, _pageHeirarchy[_pageHeirarchy.Count - 1], _pageHeirarchy[_pageHeirarchy.Count - 2]);
-                            else
-                                resourcepath = String.Format("{0}/{1}.xsl", localxmlpath, _pageHeirarchy[x - 1]);
-
-                            if (_resources.Exists(resourcepath))
-                            {
-                                foundXsl = true;
-                                resultcontentpath = localxmlpath;
-                                xslpath = _resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff");
-                            }
-
                             if (foundXsl)
                                 break;
+
+                            string resourcePath;
+                            resourcePath = String.Format("{0}/{1}.xsl", localxmlpath, _pageHeirarchy[_pageHeirarchy.Count - 1]);
+
+                            foundXsl = _resources.Exists(resourcePath);
+
+                            if (!foundXsl)
+                            {
+                                if (i == 4)
+                                    resourcePath = String.Format("{0}/{1}.{2}.{3}.{4}.xsl", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1], _pageHeirarchy[2], _pageHeirarchy[3]);
+                                else if (i == 3)
+                                    resourcePath = String.Format("{0}/{1}.{2}.{3}.xsl", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1], _pageHeirarchy[2]);
+                                else if (i == 2)
+                                {
+                                    resourcePath = String.Format("{0}/{1}.{2}.xsl", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1]);
+                                    foundXsl = _resources.Exists(resourcePath);
+                                    if (!foundXsl)
+                                        resourcePath = String.Format("{0}/{2}.xsl", localxmlpath, _pageHeirarchy[0], _pageHeirarchy[1]);
+                                }
+                                else
+                                    resourcePath = String.Format("{0}/{1}.xsl", localxmlpath, _pageHeirarchy[0]);
+
+                                foundXsl = foundXsl || _resources.Exists(resourcePath);
+                            }
+
+                        }
+
+                        if (foundXsl)
+                        {
+                            resultcontentpath = localxmlpath;
+                            xslpath = _resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff");
+                            break;
                         }
                     }
-
                 }
 
                 // look for default content in root client projectFlx path considering a default as well
@@ -1138,26 +1287,14 @@ namespace ProjectFlx
                     string[] resource = new string[] { _pageHeirarchy[0], "default" };
                     foreach (string s in resource)
                     {
-                        
-
                         if (!foundXml && _resources.Exists(String.Format("{0}.xml", s)))
                         {
-                            if (s == "default")
-                            {
-                                resultcontentpath = "default";
-                                //_pageHeirarchy = new List<string>();
-                                //_pageHeirarchy.Add("default");
-                                //TMPLT.ClearBrowserpageItem("PAGE_HEIRARCHY");
-                                //TMPLT.AddBrowserPageItem("PAGE_HEIRARCHY", "default");
-
-                                if (_useCache)
-                                    Cache.Insert(_cacheKeys[_cacheKeyEnum.PHCacheKey], TMPLT.DOCxml.SelectSingleNode("flx/proj/browser/page/PAGE_HEIRARCHY"));
-                            }
-
                             if (_useCdn)
                                 content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
                             else
                                 content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
+
+                            mapResource = s;
                             foundXml = true;
                         }
 
@@ -1178,8 +1315,6 @@ namespace ProjectFlx
                 }
                 else
                 {
-
-
                     if (!foundXml && File.Exists(Path.Combine(_projectFlxPath, "content/projectflx.xml")))
                     {
                         content.Load(Path.Combine(_projectFlxPath, "content/projectflx.xml"));
@@ -1208,19 +1343,26 @@ namespace ProjectFlx
                 foreach (XmlNode node in current.SelectNodes("content"))
                     current.RemoveChild(node);
 
-                if (_useCache)
+                if (_projFlxUseCache)
                 {
-                    string depFile = Server.MapPath(Path.Combine("/ac", _cacheKeys[_cacheKeyEnum.XmlCacheKey].Substring("cache:".Length) + ".cache"));
-                    using (StreamWriter writer = new StreamWriter(depFile))
+                    if(!String.IsNullOrEmpty(mapResource))
                     {
-                        writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                        // TODO: map this
+                        MapPage(mapResource);
+                        setupCacheKey(CacheKeyEnum.XmlCacheKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.XslCacheKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.ContextCacheKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.PHCacheKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.ScriptCacheKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.ContentPathKey, mapResource);
+                        setupCacheKey(CacheKeyEnum.WaitClosureKey, mapResource);
                     }
-                    var cachedependency = new CacheDependency(depFile);
 
-                    Cache.Insert(_cacheKeys[_cacheKeyEnum.XmlCacheKey], content, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
-                    Cache.Insert(_cacheKeys[_cacheKeyEnum.ContextCacheKey], current);
-                    Cache.Insert(_cacheKeys[_cacheKeyEnum.XslCacheKey], String.IsNullOrEmpty(xslpath) ? "--DEFAULT--" : xslpath);
-                    Cache.Insert(_cacheKeys[_cacheKeyEnum.ContentPathKey], resultcontentpath);
+                    SaveCache(CacheKeyEnum.PHCacheKey, TMPLT.DOCxml.SelectSingleNode("flx/proj/browser/page/PAGE_HEIRARCHY"), _cacheContentMinutes);
+                    SaveCache(CacheKeyEnum.XmlCacheKey, content, _cacheContentMinutes);
+                    SaveCache(CacheKeyEnum.ContextCacheKey, current, _cacheContentMinutes);
+                    SaveCache(CacheKeyEnum.XslCacheKey, String.IsNullOrEmpty(xslpath) ? "--DEFAULT--" : xslpath, _cacheContentMinutes);
+                    SaveCache(CacheKeyEnum.ContentPathKey, resultcontentpath, _cacheContentMinutes);
                 }
 
                 return resultcontentpath;
@@ -1230,7 +1372,18 @@ namespace ProjectFlx
                 var args = new ProjectExceptionArgs("Unhandled Exception Caught", "ProjectFlx.FlxMain", "getXmlResources(XmlDocument, XmlNode)", null, SeverityLevel.Critical, LogLevel.Debug);
                 throw new ProjectException(args, unhandled);
             }
+        }
 
+        public static Dictionary<string, string> MapPageKeys = new Dictionary<string, string>();
+        private void MapPage(string NewPageHeirarchy)
+        {
+            lock(_lock)
+            {
+                if (MapPageKeys.Keys.Any(a => a.Equals(PageHeirarchyCombined)))
+                    MapPageKeys.Remove(PageHeirarchyCombined);
+
+                MapPageKeys.Add(PageHeirarchyCombined, NewPageHeirarchy);
+            }
         }
 
         /// <summary>
@@ -1340,195 +1493,245 @@ namespace ProjectFlx
                 TMPLT.AddCommentTag("_projectFlxPath", _projectFlxPath, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_requestType", _requestType, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_SiteMap", _SiteMap, "FlxWebSite", "SITE_TERMINATE");
-                TMPLT.AddCommentTag("_useCache", _useCache, "FlxWebSite", "SITE_TERMINATE");
+                TMPLT.AddCommentTag("_projFlxUseCache", _projFlxUseCache, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_clientFlxpath", _clientFlxpath, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_cdnSite", _cdnSite, "FlxWebSite", "SITE_TERMINATE");
-                TMPLT.AddCommentTag("_cacheMinutes", _cacheMinutes, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_AuthenticatedUser", _AuthenticatedUser, "FlxWebSite", "SITE_TERMINATE");
                 if (_SiteMap)
                     return;
 
-                List<XmlNode> rawscript;
-
-                // TODO: for now skip google closure joiner code
-                ////if (_useCache && Cache[_cacheKeys[_cacheKeyEnum.WaitClosureKey]] == null)
-                ////{
-                ////    // TODO: this remains cached even after deleting dependent user file
-
-                ////    if (Cache[_cacheKeys[_cacheKeyEnum.ScriptCacheKey]] != null)
-                ////    {
-                ////        rawscript = (List<XmlNode>)Cache[_cacheKeys[_cacheKeyEnum.ScriptCacheKey]];
-                ////        TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/page/SCRIPT").RemoveAll();
-                ////        foreach (XmlNode node in rawscript)
-                ////            TMPLT.AddBrowserPageItem("RAW_SCRIPT", node.InnerText);
-                ////        return;
-                ////    }
-
-                ////    try
-                ////    {
-                ////        StringWriter writer = new StringWriter();
-                ////        JsonTextWriter jwriter = new JsonTextWriter(writer);
-
-                ////        jwriter.WriteStartObject();
-                ////        jwriter.WritePropertyName("joiner");
-                ////        jwriter.WriteStartArray();
-                ////        jwriter.WriteStartObject();
-                ////        jwriter.WritePropertyName("application");
-                ////        jwriter.WriteValue("FLXIncludedScript");
-                ////        jwriter.WritePropertyName("compile");
-                ////        jwriter.WriteValue(true);
-                ////        jwriter.WritePropertyName("version");
-                ////        jwriter.WriteValue(1.0d);
-                ////        jwriter.WritePropertyName("required");
-                ////        jwriter.WriteStartArray();
-
-                ////        if (TMPLT == null || TMPLT.DOCxml == null || TMPLT.DOCxml.DocumentElement == null)
-                ////            throw new Exception("TMPLT not properly initialized");
-
-                ////        foreach (XmlNode node in TMPLT.DOCxml.SelectNodes("/flx/proj/browser/page/SCRIPT/item"))
-                ////        {
-                ////            jwriter.WriteValue(node.InnerText);
-                ////        }
-                ////        jwriter.WriteEndArray();
-                ////        jwriter.WriteEndObject();
-                ////        jwriter.WriteEndObject();
-                ////        jwriter.Flush();
-
-                ////        var result = Stub.jsJoiner.Joiner.invokeWebApplicationJoiner2(writer.ToString());
-
-                ////        if (result == null)
-                ////            throw new Exception("jsJoiner returns null at: Stub.jsJoine.Joiner.invokeWebApplicationJoiner2");
-
-                ////        // write a query to check for server errors
-                ////        var query = (from r in result
-                ////                     where r.Xml.SelectSingleNode("compilationResult/errors/error | compilationResult/serverErrors/error") != null
-                ////                     select r.Xml).ToList();
-
-                ////        if (query == null || query.Count == 0)
-                ////        {
-                ////            rawscript = new List<XmlNode>();
-                ////            // no errors, embed script in page
-                ////            XmlNode scriptnode = TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/page/SCRIPT");
-                ////            if (scriptnode != null)
-                ////            {
-                ////                try
-                ////                {
-                ////                    query = (from r in result select r.Xml).ToList();
-
-                ////                    foreach (XmlNode node in query)
-                ////                    {
-                ////                        if (node.SelectSingleNode("compilationResult/serverErrors/error") != null)
-                ////                        {
-                ////                            if (node.SelectSingleNode("compilationResult/serverErrors/error[@code=\"22\"]") != null)
-                ////                                throw new ProjectException("Too many compiles");
-                ////                            else
-                ////                                throw new Exception(node.SelectSingleNode("compilationResult/serverErrors/error").InnerText);
-                ////                        }
-
-                ////                        TMPLT.AddBrowserPageItem("RAW_SCRIPT", node.SelectSingleNode("compilationResult/compiledCode").InnerText);
-                ////                        rawscript.Add(node.SelectSingleNode("compilationResult/compiledCode"));
-                ////                    }
-
-                ////                    if (_useCache)
-                ////                    {
-                ////                        Cache.Insert(_cacheKeys[_cacheKeyEnum.ScriptCacheKey], rawscript, null, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
-                ////                    }
-
-                ////                    scriptnode.RemoveAll();
-                ////                }
-                ////                catch (ProjectException handled)
-                ////                {
-                ////                    if (handled.Message == "Too many compiles")
-                ////                    {
-                ////                        Cache.Insert(_cacheKeys[_cacheKeyEnum.WaitClosureKey], DateTime.Now.ToUniversalTime(), null, DateTime.Now.AddMinutes(15), System.Web.Caching.Cache.NoSlidingExpiration);
-                ////                        TMPLT.AddCommentTag("jsCompile", handled.Message);
-                ////                    }
-                ////                    else
-                ////                        TMPLT.AddException(handled);
-
-                ////                }
-                ////                catch (Exception unhandled)
-                ////                {
-                ////                    try
-                ////                    {
-                ////                        foreach (var gc in result)
-                ////                        {
-                ////                            TMPLT.AddXML(gc.Xml);
-                ////                        }
-                ////                    }
-                ////                    catch { }
-
-                ////                    throw new Exception("Error compiling jsJoiner code", unhandled);
-                ////                }
-
-                ////            }
-                ////        }
-                ////        else
-                ////        {
-                ////            // pass errors to our template for later evaluation
-                ////            foreach (XmlNode node in query)
-                ////            {
-                ////                XmlDocument addDoc = new XmlDocument();
-                ////                addDoc.InnerXml = node.OuterXml;
-                ////                TMPLT.AddXML(addDoc);
-                ////            }
-                ////        }
-                ////    }
-                ////    catch (Exception unhandled)
-                ////    {
-                ////        var args = new ProjectExceptionArgs("Unhandled Exception Caught in FlxWebsite SITE_TERMINATE", "ProjectFlx.FlxMain", "SITE_TERMINATE", null, SeverityLevel.Critical, LogLevel.Debug);
-                ////        throw new ProjectException(args, unhandled);
-                ////    }
-                ////}
-                ////else
-                ////{
-                ////    try
-                ////    {
-                ////        if (Cache[_cacheKeys[_cacheKeyEnum.WaitClosureKey]] != null)
-                ////            TMPLT.AddCommentTag("GoogleClosurePaused", ((DateTime)Cache[_cacheKeys[_cacheKeyEnum.WaitClosureKey]]).ToString("yyyyMMddHHmmssffff"));
-
-                ////        if (Cache[_cacheKeys[_cacheKeyEnum.ScriptCacheKey]] != null)
-                ////            Cache.Remove(_cacheKeys[_cacheKeyEnum.ScriptCacheKey]);
-                ////    }
-                ////    catch { }
-                ////}
+                setupScript();
             }
             finally
             {
                 Timing.Stop("ProjectFlx.FlxMain.SITE_TERMINATE");
             }
 
-            
+        }
+
+        private void setupScript()
+        {
+            // TODO: need global variable set that will eliminate concurrent calls of this
+
+            if (!(_projFlxUseCache && _projFlxUseCacheScript)) return;
+
+            if (CacheContains(CacheKeyEnum.WaitClosureKey))     // waiting on too many compiles
+                return;
+
+            Timing.Start("setupScript");
+
+            // TODO: this remains cached even after deleting dependent user file
+            if (CacheContains(CacheKeyEnum.ScriptCacheKey))
+            {
+                var gc = GetCache<closure.ClosureCompiler>(CacheKeyEnum.ScriptCacheKey);
+                TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/page/SCRIPT").RemoveAll();
+                TMPLT.AddXML(gc.Xml);
+                Timing.End("setupScript");
+                return;
+            }
+
+            try
+            {
+                // TODO: closure or no closure
+
+                var list = new List<closure.ClosureCompilerFile>();
+                foreach (XmlNode node in TMPLT.DOCxml.SelectNodes("/flx/proj/browser/page/SCRIPT/item"))
+                    list.Add(new closure.ClosureCompilerFile(node.InnerText, Server.MapPath("/")));
+
+                var outputs = new List<closure.OutputInfo>();
+                outputs.Add(closure.OutputInfo.compiled_code);
+                outputs.Add(closure.OutputInfo.errors);
+                outputs.Add(closure.OutputInfo.statistics);
+                outputs.Add(closure.OutputInfo.warnings);
+
+                if (closure.ClosureCompiler.Instance == null)
+                {
+                    var gc = closure.ClosureCompiler.NewSealedInstance;
+                    try
+                    {
+                        TMPLT.AddTag("GCCompiler", "Running");
+                        gc.Run(
+                            list,
+                            "projectflx_compiled.js",
+                            closure.WarningLevel.VERBOSE,
+                            closure.CompilationLevel.SIMPLE_OPTIMIZATIONS,
+                            outputs,
+                            null,
+                            false);
+
+                        if(gc.Xml != null)
+                            TMPLT.AddXML(gc.Xml);
+
+                        if (!gc.Success)
+                        {
+                            if (gc.TooManyCompiles)
+                            {
+                                SaveCache(CacheKeyEnum.WaitClosureKey, DateTime.UtcNow, 60);       // TODO: consider new timing for this - save longer than normal??
+                                TMPLT.AddTag("ClosureCompiler", "Too Many Compiles");
+                            }
+                            else
+                                throw new ProjectException("JS Code Compile Issue");
+                        }
+
+                        SaveCache(CacheKeyEnum.ScriptCacheKey, gc, _cacheJscriptMinutes);
+                        TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/page/SCRIPT").RemoveAll();
+                    }
+                    finally
+                    {
+                        if (gc != null)
+                            gc.Dispose();
+                    }
+                }
+                else
+                {
+                    TMPLT.AddTag("GCCompiler", "Skipped");
+                }
+            }
+            catch (ProjectException handled)
+            {
+                TMPLT.AddException(handled);
+            }
+            catch (Exception unhandled)
+            {
+                var args = new ProjectExceptionArgs("Unhandled Exception Caught in FlxWebsite setupScript", "ProjectFlx.FlxMain", "SITE_TERMINATE", null, SeverityLevel.Critical, LogLevel.Debug);
+                throw new ProjectException(args, unhandled);
+            }
+            finally
+            {
+                Timing.End("setupScript");
+            }
 
         }
 
         protected void ClearCache()
         {
-            IDictionaryEnumerator CacheEnum = Cache.GetEnumerator();
-            while (CacheEnum.MoveNext())
+            try
             {
-                var key = CacheEnum.Key.ToString();
-                Cache.Remove(key);
+                foreach (var cache in _cache)
+                    _cache.Remove(cache.Key);
+
+                if (!String.IsNullOrEmpty(_cacheDependencyPath))
+                {
+                    var files = Directory.GetFiles(_cacheDependencyPath, "*.cache");
+                    foreach (var file in files)
+                    {
+                        File.Delete(file);
+                    }
+                }
             }
+            catch { }
         }
         protected void ClearCache(String StartsWith)
         {
-            IDictionaryEnumerator CacheEnum = Cache.GetEnumerator();
-            while (CacheEnum.MoveNext())
-            {
-                var key = CacheEnum.Key.ToString();
-                if (key.StartsWith(StartsWith, StringComparison.InvariantCultureIgnoreCase))
-                    Cache.Remove(key);
-            }
+            foreach (var cache in _cache.Where(w => w.Key.StartsWith(StartsWith)).ToList())
+                _cache.Remove(cache.Key);
         }
         protected void ClearCache(Regex RegX)
         {
-            IDictionaryEnumerator CacheEnum = Cache.GetEnumerator();
-            while (CacheEnum.MoveNext())
+            foreach (var cache in _cache.Where(w => RegX.IsMatch(w.Key)).ToList())
+                _cache.Remove(cache.Key);
+        }
+
+        protected T GetCache<T>(CacheKeyEnum Key)
+        {
+            return GetCache<T>(_cacheKeys[Key]);
+        }
+
+        protected string GetCache(CacheKeyEnum Key)
+        {
+            return GetCache(_cacheKeys[Key]);
+        }
+
+        protected string GetCache(String Key)
+        {
+            if (_cache == null)
+                return null;
+
+            try
             {
-                var key = CacheEnum.Key.ToString();
-                if (RegX.Match(key).Success)
-                    Cache.Remove(key);
+                // cache
+                var obj = _cache[Key];
+                return (string)obj;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        protected T GetCache<T>(String Key)
+        {
+            if (_cache == null)
+                return default(T);
+
+            try
+            {
+                // cache
+                var obj = _cache[Key];
+                return (T)obj;
+            }
+            catch
+            {
+                return default(T);
+            }
+        }
+
+        protected bool CacheContains(params CacheKeyEnum[] Key)
+        {
+            var result = true;
+            foreach(var k in Key)
+            {
+                result = CacheContains(_cacheKeys[k]);
+                if (!result)
+                    break;
+            }
+            return result;
+        }
+
+        protected bool CacheContains(String Key)
+        {
+            if (_cache == null)
+                return false;
+
+            return (_cache[Key] == null) ? false : true;
+        }
+        
+        protected void SaveCache(CacheKeyEnum Key, Object Value, double CacheMinutes)
+        {
+            SaveCache(_cacheKeys[Key], Value, CacheMinutes);
+        }
+
+        private static object _lock = new object();
+
+        protected void SaveCache(string Key, Object Value, double CacheMinutes)
+        {
+            if (!_projFlxUseCache)
+                return;
+
+            lock (_lock)
+            {
+                if (_cache == null)
+                    return;
+
+                var cachedependency = new CacheItemPolicy();
+                if (!String.IsNullOrEmpty(this._cacheDependencyPath))
+                {
+                    var filename = (Key.IndexOf(':') > 0 ? Key.Substring(Key.IndexOf(':')) : Key).Split(Path.GetInvalidFileNameChars());
+                    var keypath = string.Concat(filename);
+                    if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                    string depFile = Path.Combine(_cacheDependencyPath, keypath + ".cache");
+                    using (StreamWriter writer = new StreamWriter(depFile))
+                    {
+                        writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                    }
+                    List<string> files = new List<string>();
+                    files.Add(depFile);
+                    cachedependency.AbsoluteExpiration = DateTime.Now.AddMinutes(CacheMinutes);
+                    cachedependency.ChangeMonitors.Add(new HostFileChangeMonitor(files));
+                }
+
+                var cache = new CacheItem(Key, Value);
+                _cache.Set(cache, cachedependency);
             }
         }
 
@@ -1678,7 +1881,6 @@ namespace ProjectFlx
             Server = context.Server;
             Response = context.Response;
             Request = context.Request;
-            Cache = context.Cache;
             Session = context.Session;
             Main();
         }
@@ -1693,6 +1895,7 @@ namespace ProjectFlx
                 {
                     if (!String.IsNullOrEmpty(s))
                     {
+                        // CONSIDER: assumes the page delimiter is a . this should be configured by user
                         if (i > 0)
                             sb.Append(".");
                         sb.Append(s);
@@ -1739,8 +1942,10 @@ namespace ProjectFlx
         }
 
         FileResources _resources = null;
-        private bool _useCache;
-        private double _cacheMinutes;
+        private bool _projFlxUseCache;
+        private bool _projFlxUseCacheScript;
+        private double _cacheJscriptMinutes;
+        private double _cacheContentMinutes;
         private bool _SiteMap;
         private bool _validUserAgent;
         protected FileResources ProjectFlxResources
@@ -1772,7 +1977,9 @@ namespace ProjectFlx
 			}
 		}
 
-		private List<int> _pageRoles = new List<int>();
+        public string CacheDependencyPath { get => _cacheDependencyPath; set => _cacheDependencyPath = value; }
+
+        private List<int> _pageRoles = new List<int>();
 		private List<int> _userRoles = new List<int>();
 
 		/// <summary>

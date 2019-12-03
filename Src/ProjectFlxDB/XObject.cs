@@ -57,7 +57,9 @@ namespace ProjectFlx.DB
             _cachePath = CacheDependencyPath;
             _hourexpires = HoursExpires;
         }
-        private bool _cachingEnabled = true;
+        private bool _cachingEnabled = false;
+
+        [Obsolete("Use Cache Object in ProjectSql.xml")]
         public bool CachingEnabled
         {
             get
@@ -123,7 +125,8 @@ namespace ProjectFlx.DB
         {
             try
             {
-                
+                _query.Clear();
+
                 string xpath = String.Format("queries/query[@name='{0}']", QueryName);
 
                 _querynode = _xmldocument.SelectSingleNode(xpath);
@@ -228,10 +231,11 @@ namespace ProjectFlx.DB
                 if (_query.Timing == null)
                     _query.Timing = Timing;
 
-            _query.CachingEnabled = CachingEnabled;
-
-            if (_cache != null && CachingEnabled)
+            if (_cache != null)
                 _query.SetCache(_cache, _cachePath);
+
+            if (_querynode == null)
+                throw new Exception("Invalid operation in DB.XObject.Query, _querynode is NULL");
 
             _query.Query(_querynode);
         }

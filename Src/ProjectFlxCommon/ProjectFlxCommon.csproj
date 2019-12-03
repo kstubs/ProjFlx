@@ -35,8 +35,10 @@
       <HintPath>..\..\..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Net" />
+    <Reference Include="System.Runtime.Caching" />
     <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -47,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Class1.cs" />
+    <Compile Include="Configuration.cs" />
     <Compile Include="DBInterfaces.cs" />
     <Compile Include="Exceptions\InvalidRolesException.cs" />
     <Compile Include="Exceptions\LogonRequiredException.cs" />
@@ -63,7 +66,9 @@
     </Compile>
     <Compile Include="Schema\ProjectFlxSqlExt.cs" />
     <Compile Include="Utility\Caching.cs" />
+    <Compile Include="Utility\Closure\ClosureCompiler.cs" />
     <Compile Include="Utility\hash.cs" />
+    <Compile Include="Utility\Closure\Joiner.cs" />
     <Compile Include="Utility\Paths.cs" />
     <Compile Include="Utility\Timing.cs" />
   </ItemGroup>
@@ -75,7 +80,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
+    <PostBuildEvent>Xcopy "$(ProjectDir)Schema\*.xsd" "E:\Websites\www.meetscoresonline.com\" /C /Y</PostBuildEvent>
   </PropertyGroup>
 </Project>

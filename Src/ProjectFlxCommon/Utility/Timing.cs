@@ -179,9 +179,11 @@ namespace ProjectFlx.Utility
         {
             var writer = new StringWriter();
             var jwriter = new Newtonsoft.Json.JsonTextWriter(writer);
+            jwriter.WriteStartObject();
 
             Serialize(jwriter, TimingDebuggerObj);
-            
+            jwriter.WriteEndObject();
+
             jwriter.Flush();
             writer.Flush();
             
