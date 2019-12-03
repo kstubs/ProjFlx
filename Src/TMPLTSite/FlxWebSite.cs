@@ -1703,9 +1703,9 @@ namespace ProjectFlx
 
         private static object _lock = new object();
 
-        protected void SaveCache(string Key, Object Value, double CacheMinutes)
+        protected void SaveCache(string Key, Object Value, double CacheMinutes, bool ForceUseCache = false)
         {
-            if (!_projFlxUseCache)
+            if (!_projFlxUseCache && !ForceUseCache)
                 return;
 
             lock (_lock)
