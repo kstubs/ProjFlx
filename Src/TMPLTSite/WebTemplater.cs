@@ -17,8 +17,8 @@ namespace ProjectFlx
 	{
 		protected XmlDocument clsBrowserVarsXML;
 		protected HttpContext httpC;
-        //protected XslCompiledTransform _xslt;
-        protected xmlTransformerMvp _xslt;
+        protected XslCompiledTransform _xslt;
+        //protected xmlTransformerMvp _xslt;
         protected XsltArgumentList _args;
         protected StringWriter _writer;
         private string _domain;
@@ -269,7 +269,8 @@ namespace ProjectFlx
 
             _loaded = false;
             _args = new XsltArgumentList();
-            _xslt = new xmlTransformerMvp();
+            //_xslt = new xmlTransformerMvp();
+            _xslt = new XslCompiledTransform();
             
 			persistBrowserVars();
 			AddXML("proj",clsBrowserVarsXML);
@@ -295,9 +296,9 @@ namespace ProjectFlx
         {
             XsltSettings settings = new XsltSettings(true, true);
 
-            _xslt.XSLSource = XsltPath;
-            _xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
-            //_xslt.Load(XsltPath, settings, new XmlUrlResolver());
+            //_xslt.XSLSource = XsltPath;
+            //_xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
+            _xslt.Load(XsltPath, settings, new XmlUrlResolver());
             _loaded = true;
 
             this.AddCommentTag("XsltPath", XsltPath, "ProjectFlx.FlxTemplater", "setXslt");
@@ -366,10 +367,12 @@ namespace ProjectFlx
 
             using (_writer = new StringWriter())
             {
-                //_xslt.Transform(_xml.CreateNavigator(),_args, _writer);
-                _xslt.xslTransformer(_xml.CreateNavigator(), _args);
-                _xslt.XMLObjectSource = _xml;
-                _writer.Write(_xslt.ResultText);
+                _xslt.Transform(_xml.CreateNavigator(),_args, _writer);
+
+                // TODO: cleanup
+                //_xslt.xslTransformer(_xml.CreateNavigator(), _args);
+                //_xslt.XMLObjectSource = _xml;
+                //_writer.Write(_xslt.ResultText);
             }
         }
 
