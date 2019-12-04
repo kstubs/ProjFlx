@@ -17,11 +17,11 @@ namespace ProjectFlx
 	{
 		protected XmlDocument clsBrowserVarsXML;
 		protected HttpContext httpC;
-        protected XslCompiledTransform _xslt;
+        //protected XslCompiledTransform _xslt;
         //protected xmlTransformerMvp _xslt;
         protected XsltArgumentList _args;
-        protected StringWriter _writer;
         private string _domain;
+        string _result = null;
 
         protected string Domain
         {
@@ -29,13 +29,14 @@ namespace ProjectFlx
         }
         protected string _subDomain;
         private bool _loaded = false;
+        private string _xsltpath;
 
 
-		#region Private Methods and Functions
+        #region Private Methods and Functions
 
-		/// <summary>
-		/// Persist browser vars to local browser variable
-		/// </summary>
+        /// <summary>
+        /// Persist browser vars to local browser variable
+        /// </summary>
         private void persistBrowserVars()
         {
 
@@ -270,7 +271,7 @@ namespace ProjectFlx
             _loaded = false;
             _args = new XsltArgumentList();
             //_xslt = new xmlTransformerMvp();
-            _xslt = new XslCompiledTransform();
+            //_xslt = new XslCompiledTransform();
             
 			persistBrowserVars();
 			AddXML("proj",clsBrowserVarsXML);
@@ -298,8 +299,10 @@ namespace ProjectFlx
 
             //_xslt.XSLSource = XsltPath;
             //_xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
-            _xslt.Load(XsltPath, settings, new XmlUrlResolver());
+            //_xslt.Load(XsltPath, settings, new XmlUrlResolver());
             _loaded = true;
+
+            this._xsltpath = XsltPath;
 
             this.AddCommentTag("XsltPath", XsltPath, "ProjectFlx.FlxTemplater", "setXslt");
         }
@@ -347,11 +350,12 @@ namespace ProjectFlx
 		public virtual void ProcessTemplate()
 		{
 
-			if (_xslt == null)
-			{
-				ProjectExceptionArgs args = new ProjectExceptionArgs("XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
-                throw new ProjectException(args);
-			}
+            // TEMP!
+			//if (_xslt == null)
+			//{
+			//	ProjectExceptionArgs args = new ProjectExceptionArgs("XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+   //             throw new ProjectException(args);
+			//}
 
 			//initialize xslt global param vars
 			string doc_folder = httpC.Request.Path;
@@ -365,15 +369,36 @@ namespace ProjectFlx
 			//Current Folder - DOC_FOLDER
             _args.AddParam("DOC_FOLDER", "", doc_folder);
 
-            using (_writer = new StringWriter())
-            {
-                _xslt.Transform(_xml.CreateNavigator(),_args, _writer);
+            //using (var _writer = new StringWriter())
+            //using (var xwriter = XmlWriter.Create(_writer))
+            //{
+                var destination = new Saxon.Api.DomDestination();
+                
+
+                var processor = new Saxon.Api.Processor();
+
+                var compiler = processor.NewXsltCompiler();
+                var stylesheet = compiler.Compile(new Uri(_xsltpath));
+                var transformer = stylesheet.Load30();
+                
+                using (var mem = new MemoryStream())
+                {
+                    _xml.Save(mem);
+                    mem.Flush();
+                    mem.Position = 0;
+
+                    transformer.ApplyTemplates(mem, destination);
+                    //transformer.Transform(, destination);
+                }
+                _result = destination.XmlDocument.OuterXml;
+
+                //_xslt.Transform(_xml.CreateNavigator(),_args, _writer);
 
                 // TODO: cleanup
                 //_xslt.xslTransformer(_xml.CreateNavigator(), _args);
                 //_xslt.XMLObjectSource = _xml;
                 //_writer.Write(_xslt.ResultText);
-            }
+            //}
         }
 
         internal void AddWBTXml(XmlDocument newXML)
@@ -1052,8 +1077,8 @@ namespace ProjectFlx
 		public String Result
 		{
 			get 
-			{
-                return _writer.ToString();
+			{                
+                return _result;
 			}			
 		}
 		#endregion
@@ -1068,8 +1093,6 @@ namespace ProjectFlx
             try
             {
                 _xml = null;
-                if (_writer != null)
-                    _writer.Dispose();
             }
             finally
             {

@@ -56,6 +56,7 @@
     <Reference Include="Charts">
       <HintPath>..\..\..\Compile\Charts.dll</HintPath>
     </Reference>
+    <Reference Include="IKVM.OpenJDK.Core, Version=8.1.5717.0, Culture=neutral, PublicKeyToken=13235d27fcbfff58" />
     <Reference Include="Mvp.Xml, Version=2.3.1.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\MiscellaneousProjects\Mvp.Xml-2.3-Src\Mvp.Xml-2.3-Src\Library\Main\Source\bin\Release\Mvp.Xml.dll</HintPath>
@@ -65,6 +66,14 @@
     </Reference>
     <Reference Include="NLipsum.Core">
       <HintPath>..\..\..\Binaries\NLipsum.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="saxon9he, Version=9.9.1.5, Culture=neutral, PublicKeyToken=e1fdd002d5083fe6, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\Saxonica\SaxonHE9.9N\bin\saxon9he.dll</HintPath>
+    </Reference>
+    <Reference Include="saxon9he-api, Version=9.9.1.5, Culture=neutral, PublicKeyToken=e1fdd002d5083fe6, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\Saxonica\SaxonHE9.9N\bin\saxon9he-api.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
