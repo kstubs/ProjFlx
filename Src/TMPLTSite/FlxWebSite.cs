@@ -1289,6 +1289,9 @@ namespace ProjectFlx
                     {
                         if (!foundXml && _resources.Exists(String.Format("{0}.xml", s)))
                         {
+                            if (s == "default")
+                                resultcontentpath = "default";
+
                             if (_useCdn)
                                 content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
                             else
