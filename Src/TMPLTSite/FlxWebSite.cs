@@ -479,7 +479,7 @@ namespace ProjectFlx
                     catch { }
 
                     Timing.Start("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
-                    TMPLT.ProcessTemplate();
+                    TMPLT.ProcessTemplateExternal();
                     Timing.End("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
                     Response.ContentType = "text/html";
                     Response.Write(TMPLT.Result);
@@ -1419,7 +1419,7 @@ namespace ProjectFlx
                         Response.Clear();
                         Response.ContentType = "text/xml";
                         TMPLT.AddXslParameter("OUT", "XML");
-                        TMPLT.ProcessTemplate();
+                        TMPLT.ProcessTemplateExternal();
                         Response.Write(TMPLT.Result);
                         Response.Flush();
                         ClearProcess = true;

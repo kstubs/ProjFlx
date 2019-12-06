@@ -34,11 +34,16 @@
     <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\..\..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="protobuf-net, Version=2.4.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\protobuf-net.2.4.4\lib\net40\protobuf-net.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Net" />
     <Reference Include="System.Runtime.Caching" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
     <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -69,6 +74,9 @@
     <Compile Include="Utility\Closure\ClosureCompiler.cs" />
     <Compile Include="Utility\hash.cs" />
     <Compile Include="Utility\Closure\Joiner.cs" />
+    <Compile Include="Utility\Stream.cs" />
+    <Compile Include="Utility\TransformerPayload.cs" />
+    <Compile Include="Utility\web.cs" />
     <Compile Include="Utility\Paths.cs" />
     <Compile Include="Utility\Timing.cs" />
   </ItemGroup>

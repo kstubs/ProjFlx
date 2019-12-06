@@ -4,9 +4,14 @@ using System.Web;
 using System.Xml;
 using System.Xml.XPath;
 using System.Xml.Xsl;
+using System.Linq;
 using System.Text.RegularExpressions;
 using ProjectFlx.Exceptions;
 using System.Text;
+using System.Net;
+using System.Collections.Specialized;
+using System.Collections.Generic;
+using ProjectFlx.Utility;
 
 namespace ProjectFlx
 {
@@ -19,7 +24,7 @@ namespace ProjectFlx
 		protected HttpContext httpC;
         protected XslCompiledTransform _xslt;
         //protected xmlTransformerMvp _xslt;
-        protected XsltArgumentList _args;
+        protected TransformPayload _args;
         protected StringWriter _writer;
         private string _domain;
 
@@ -268,7 +273,7 @@ namespace ProjectFlx
             _subDomain = httpC.Request.Url.GetLeftPart(UriPartial.Scheme);
 
             _loaded = false;
-            _args = new XsltArgumentList();
+            _args = new TransformPayload();
             //_xslt = new xmlTransformerMvp();
             _xslt = new XslCompiledTransform();
             
@@ -292,14 +297,16 @@ namespace ProjectFlx
             }
         }
 
+        string _xsltPath;
         public void setXslt(string XsltPath)
         {
-            XsltSettings settings = new XsltSettings(true, true);
+            _xsltPath = XsltPath;
+            //XsltSettings settings = new XsltSettings(true, true);
 
-            //_xslt.XSLSource = XsltPath;
-            //_xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
-            _xslt.Load(XsltPath, settings, new XmlUrlResolver());
-            _loaded = true;
+            ////_xslt.XSLSource = XsltPath;
+            ////_xslt.AddXslParameter("source.xsl", Path.GetFileName(XsltPath));
+            //_xslt.Load(XsltPath, settings, new XmlUrlResolver());
+            //_loaded = true;
 
             this.AddCommentTag("XsltPath", XsltPath, "ProjectFlx.FlxTemplater", "setXslt");
         }
@@ -317,63 +324,145 @@ namespace ProjectFlx
             if(value == null)
                 return;
 
-            var arg = _args.GetParam(name, "");
+            var item = _args.Items.FirstOrDefault(f => f.Name.Equals(name));
+            _args.Items.Remove(item);
 
-            if (arg != null)
-                _args.RemoveParam(name, "");
-
-            _args.AddParam(name, "", value);
+            if (value is XmlNode || value is XmlElement)
+            {
+                var obj = new XmlDocument();
+                var newnode = obj.ImportNode((XmlNode)value, true);
+                obj.AppendChild(newnode);
+                _args.Add(name, obj);
+            }
+            else
+            {
+                _args.Add(name, value);
+            }
 		}
 
+        // TODO: support AddXslParameter
+        //public void AddXslParameter(string name, XPathNodeIterator nodeit)
+        //{
+        //          if (String.IsNullOrEmpty(name) || nodeit == null)
+        //              return;
 
-		public void AddXslParameter(string name, XPathNodeIterator nodeit)
-		{
-            if (String.IsNullOrEmpty(name) || nodeit == null)
-                return;
+        //          var arg = _args.GetParam(name, "");
 
-            var arg = _args.GetParam(name, "");
+        //          if (arg != null)
+        //              _args.RemoveParam(name, "");
 
-            if (arg != null)
-                _args.RemoveParam(name, "");
+        //          _args.AddParam(name, "", nodeit);
+        //      }
 
-            _args.AddParam(name, "", nodeit);
-        }
+        // TODO: support extensions 
+        //public void AddXslExtension(string Namespace, Object obj)
+        //{
+        //    _args.AddExtensionObject(Namespace, obj);   
+        //}
 
-        public void AddXslExtension(string Namespace, Object obj)
+        //public virtual void ProcessTemplate()
+        //{
+
+        //	if (_xslt == null)
+        //	{
+        //		ProjectExceptionArgs args = new ProjectExceptionArgs("XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+        //              throw new ProjectException(args);
+        //	}
+
+        //	//initialize xslt global param vars
+        //	string doc_folder = httpC.Request.Path;
+
+        //	//strip application name
+        //	doc_folder = doc_folder.Substring(0,doc_folder.LastIndexOf("/") + 1);
+
+        //          AddXslParameter("DOC_ACTION", httpC.Request.Path);
+        //          AddXslParameter("DOC_FOLDER", doc_folder);
+
+        //          var xslargs = new XsltArgumentList();
+        //          foreach(var key in _args.AllKeys)
+        //              xslargs.AddParam(key, "", _args[key]);
+
+        //          using (_writer = new StringWriter())
+        //          {
+        //              _xslt.Transform(_xml.CreateNavigator(), xslargs, _writer);
+        //          }
+        //      }
+
+        public virtual void ProcessTemplateExternal()
         {
-            _args.AddExtensionObject(Namespace, obj);   
-        }
-		
-		public virtual void ProcessTemplate()
-		{
 
-			if (_xslt == null)
-			{
-				ProjectExceptionArgs args = new ProjectExceptionArgs("XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
-                throw new ProjectException(args);
-			}
+            //strip application name
+            //doc_folder = doc_folder.Substring(0, doc_folder.LastIndexOf("/") + 1);
+            //AddXslParameter("DOC_ACTION", httpC.Request.Path);
+            //AddXslParameter("DOC_FOLDER", doc_folder);
+            //AddXslParameter("transform-xslt-uri", _xsltPath);
 
-			//initialize xslt global param vars
-			string doc_folder = httpC.Request.Path;
-			
-			//strip application name
-			doc_folder = doc_folder.Substring(0,doc_folder.LastIndexOf("/") + 1);
+            var dic = new Dictionary<string, Object>();
 
-    		//Current Page - DOC_ACTION
-            _args.AddParam("DOC_ACTION", "", httpC.Request.Path);
-
-			//Current Folder - DOC_FOLDER
-            _args.AddParam("DOC_FOLDER", "", doc_folder);
-
-            using (_writer = new StringWriter())
+            // embed Xml
+            using (var mem = new MemoryStream())
             {
-                _xslt.Transform(_xml.CreateNavigator(),_args, _writer);
+                _xml.Save(mem);
+                mem.Flush();
+                mem.Seek(0, SeekOrigin.Begin);
 
-                // TODO: cleanup
-                //_xslt.xslTransformer(_xml.CreateNavigator(), _args);
-                //_xslt.XMLObjectSource = _xml;
-                //_writer.Write(_xslt.ResultText);
+                byte[] bytes = new byte[mem.Length];
+                mem.Read(bytes, 0, bytes.Length);
+
+                // convert xml to file 
+                var xmlfile = new Utility.Web.FileParameter(bytes);
+                xmlfile.ContentType = "application/xml";
+                dic.Add("xml", xmlfile);
             }
+
+            // passing xml?
+            foreach(var arg in _args.Items.ToList())
+            {
+                if(arg.Value is XmlDocument)
+                {
+                    using (var mem = new MemoryStream())
+                    {
+                        ((XmlDocument)arg.Value).Save(mem);
+                        mem.Flush();
+                        mem.Seek(0, SeekOrigin.Begin);
+
+                        byte[] bytes = new byte[mem.Length];
+                        mem.Read(bytes, 0, bytes.Length);
+
+                        // convert xml to file 
+                        var xmlfile = new Utility.Web.FileParameter(bytes);
+                        xmlfile.ContentType = "application/xml";
+                        dic.Add(arg.Name, xmlfile);
+                    }
+                    _args.Items.Remove(arg);
+                    _args.Add(arg.Name, "EMBEDDED XML");
+                }
+            }
+
+            // embed payload
+            string doc_folder = httpC.Request.Path;
+            doc_folder = doc_folder.Substring(0, doc_folder.LastIndexOf("/") + 1);
+
+            var payload = _args;
+
+            payload.Add("DOC_ACTION", httpC.Request.Path);
+            payload.Add("DOC_FOLDER", doc_folder);
+            payload.Add("transform-xslt-uri", _xsltPath);
+
+            // convert payload to file
+            var payloadfile = new Utility.Web.FileParameter(payload.SerializeToByteArray());
+            dic.Add("payload", payloadfile);
+
+            var response = Utility.Web.MultipartFormDataPost(App.Config["transformer"], "ProjFlx", dic);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                using (var reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8, false))
+                {
+                    _writer = new StringWriter();
+                    _writer.Write(reader.ReadToEnd());
+                }
+            }
+
         }
 
         internal void AddWBTXml(XmlDocument newXML)
