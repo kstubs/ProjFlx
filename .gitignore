@@ -7,7 +7,10 @@
 obj/
 debug/
 packages/
+Binaries/
+bin/
 *.dll
 *.pdb
 *.dll
 *.pdb
+*.cache

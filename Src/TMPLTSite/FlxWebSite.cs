@@ -483,6 +483,7 @@ namespace ProjectFlx
                     Timing.End("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
                     Response.ContentType = "text/html";
                     Response.Write(TMPLT.Result);
+                    Response.Flush();
                 }
             }
 			catch(Exception unhandled)
@@ -1878,7 +1879,7 @@ namespace ProjectFlx
             }
         }
 
-        public void ProcessRequest(HttpContext context)
+        public virtual void ProcessRequest(HttpContext context)
         {
             Current = context;
             Server = context.Server;
