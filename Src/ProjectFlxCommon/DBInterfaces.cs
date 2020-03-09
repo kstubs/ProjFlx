@@ -44,6 +44,7 @@ namespace ProjectFlx.DB
         void clearParameters();
         void fillParms();
         void fillParms(Object someObject);
+
         ProjectFlx.Schema.SchemaQueryType SchemaQuery { get; }
     }
 

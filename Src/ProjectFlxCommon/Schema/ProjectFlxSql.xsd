@@ -27,6 +27,7 @@
         <xs:element ref="subresult"/>
 			</xs:sequence>
 			<xs:attribute name="name" type="xs:NCName"/>
+      <xs:attribute name="project" type="xs:NCName"/>
 			<xs:attribute name="ProjectSqlFile" type="file"/>
 		</xs:complexType>
 	</xs:element>
@@ -132,6 +133,7 @@
       <xs:attribute name="type" type="queryActionType" use="required"/>
       <xs:attribute name="query" type="xs:NCName" use="required"/>
       <xs:attribute name="queryPrimaryKey" type="xs:NCName" use="required"/>
+      <xs:attribute name="LookupIndex" type="xs:string" use="required"/>
     </xs:complexType>
   </xs:element>
   

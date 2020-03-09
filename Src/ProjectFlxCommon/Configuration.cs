@@ -203,6 +203,28 @@ public class Config
         }
     }
 
+    public T GetValue<T>(string Name, T DefaultValue)
+    {
+        T result;
+        var val = App.Config[Name];
+
+        if (String.IsNullOrEmpty(val))
+            result = DefaultValue;
+        else
+        {
+            try
+            {
+                result = (T)System.ComponentModel.TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(val);
+            }
+            catch
+            {
+                result = DefaultValue;
+            }
+        }
+
+        return result;
+    }
+
     public int GetValue(string Property, int DefaultValue)
     {
         var val = this[Property];

@@ -291,7 +291,7 @@ namespace ProjectFlx.DB
     public class DatabaseQuery : IDatabaseQueryPaging, IDatabaseQuery, IDisposable
     {
         #region members
-        string _sqlProjName = null;
+        string _ProjName = null;
         DatabaseConnection _database = null;
         private SqlCommand _command = null;
         XmlDocument _xmRegX = null;
@@ -435,8 +435,8 @@ namespace ProjectFlx.DB
             int endread = startread + _pagingLimit;
 
             //build result node
-            MemoryStream stream = new MemoryStream();
-            XmlTextWriter w = new XmlTextWriter(stream, Encoding.UTF8);
+            var stream = new MemoryStream();
+            var w = new XmlTextWriter(stream, Encoding.UTF8);
 
             XmlNodeList fieldNodes;
 
@@ -613,6 +613,13 @@ namespace ProjectFlx.DB
             w.WriteEndElement();
             w.Flush();
 
+            //add stream xml to return xml
+            XmlDocument xmStreamObj = new XmlDocument();
+            stream.Seek(0, SeekOrigin.Begin);
+            xmStreamObj.Load(stream);
+
+            pushToTree(xmStreamObj, subqueryIndex);
+
             // include sub results (StoredProcedure returns more than one Result Set)
             while (dr.NextResult())
             {
@@ -621,12 +628,6 @@ namespace ProjectFlx.DB
             }
 
 
-            //add stream xml to return xml
-            XmlDocument xmStreamObj = new XmlDocument();
-            stream.Seek(0, SeekOrigin.Begin);
-            xmStreamObj.Load(stream);
-
-            pushToTree(xmStreamObj, subqueryIndex);
 
         }
 
@@ -635,8 +636,13 @@ namespace ProjectFlx.DB
             //import result xml to original xml obj
             XmlNode import = _xmresult.ImportNode(xmStreamObj.DocumentElement, true);
             XmlNode elm;
-            if (subqueryIndex > 0 && _xmresult.SelectSingleNode("results/subquery") == null)
-                elm = _xmresult.SelectSingleNode("results").AppendChild(_xmresult.CreateElement("subquery"));
+            if (subqueryIndex > 0)
+            {
+                if (_xmresult.SelectSingleNode("results/subquery") == null)
+                    _xmresult.SelectSingleNode("results").AppendChild(_xmresult.CreateElement("subquery"));
+
+                elm = _xmresult.SelectSingleNode("results/subquery");
+            }
             else
                 elm = _xmresult.SelectSingleNode("results");
 
@@ -1171,8 +1177,8 @@ namespace ProjectFlx.DB
                 //    schemanode.AppendChild(newnode);
                 //}
 
-                if (!String.IsNullOrEmpty(_sqlProjName))
-                    _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
+                if (!String.IsNullOrEmpty(_ProjName))
+                    _xmresult.DocumentElement.SetAttribute("project", _ProjName);
 
                 return;
             }
@@ -1181,8 +1187,8 @@ namespace ProjectFlx.DB
             if (xmresult.DocumentElement != null)
             {
                 _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
-                if (!String.IsNullOrEmpty(_sqlProjName))
-                    _xmresult.DocumentElement.SetAttribute("ProjectSqlFile", _sqlProjName);
+                if (!String.IsNullOrEmpty(_ProjName))
+                    _xmresult.DocumentElement.SetAttribute("project", _ProjName);
             }
         }
 
@@ -1324,17 +1330,6 @@ namespace ProjectFlx.DB
                 _currentPage = value;
             }
         }
-        public string SqlProjectName
-        {
-            get
-            {
-                return _sqlProjName;
-            }
-            set
-            {
-                _sqlProjName = value;
-            }
-        }
         #endregion
 
         #region IDatabaseQueryPaging Members
@@ -1353,6 +1348,18 @@ namespace ProjectFlx.DB
             set
             {
                 _pagingLimit = value;
+            }
+        }
+
+        public string Project
+        {
+            get
+            {
+                return _ProjName;
+            }
+            set
+            {
+                _ProjName = value;
             }
         }
 

@@ -125,6 +125,7 @@ namespace ProjectFlx.DB.SchemaBased
                 _Projresults.results.Add(rslts = new ProjectFlx.Schema.results());
                 rslts.schema.Add(query);
                 rslts.name = query.name;
+                rslts.project = query.project;
 
                 // cache results
                 cachekey = cacheKeyHelper(query);

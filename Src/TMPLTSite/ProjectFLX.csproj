@@ -139,8 +139,8 @@
     <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)bin\" /C /Y
 xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
 
-REM del "$(SolutionDir)Binaries\*.pdb" /F
-REM del "$(SolutionDir)Binaries\*.xml" /F</PostBuildEvent>
+del "$(SolutionDir)Binaries\*.pdb" /F
+del "$(SolutionDir)Binaries\*.xml" /F</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

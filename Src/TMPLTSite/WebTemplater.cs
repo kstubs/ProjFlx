@@ -55,7 +55,7 @@ namespace ProjectFlx
             HttpRequest requestObj = httpC.Request;
 
             // append user local time
-            DateTime date = DateTime.Now;
+            DateTime date = DateTime.UtcNow;
             DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, 0);
             TimeSpan span = (date - epoch);
             double unixTime = span.TotalSeconds;

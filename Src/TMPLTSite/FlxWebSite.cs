@@ -236,6 +236,7 @@ namespace ProjectFlx
                 }
 
                 TMPLT.AddBrowserPageItem("HTTP_METHOD", _requestType.ToString());
+                TMPLT.AddTag("NET_VERSION", Environment.Version.ToString());
 
                 // deal with banned IPs
                 var bannedips = GetConfigValue("banned_ips","");
@@ -981,8 +982,7 @@ namespace ProjectFlx
                 // oerriden by query parameter
                 projsql.fillParms(Request.QueryString);
 
-                projsql.fillParms(Request.QueryString);
-                if (!isUpdateQuery)      // form vars reserved for update query actions
+                if (isUpdateQuery)      // form vars reserved for update query actions
                     projsql.fillParms(Request.Form);
 
                 try
@@ -1853,6 +1853,17 @@ namespace ProjectFlx
                     return _pageHeirarchy[3];
                 else
                     return null;
+            }
+        }
+        public string PageLink
+        {
+            get
+            {
+                var nodes = TMPLT.DOCxml.SelectNodes("/flx/proj/browser/item");
+                if (nodes.Count == 0)
+                    return "/";
+                else
+                    return nodes[nodes.Count - 1].Attributes["link"].Value;
             }
         }
 
