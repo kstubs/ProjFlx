@@ -91,11 +91,14 @@ namespace ProjectFlx.DB
         public XObject(DatabaseQuery Query, string ProjectSqlPath, string ProjectSqlName)
         {
             _query = Query;
+            _query.Project = ProjectSqlName;
             if (Timing == null && Query.Timing != null)
                 Timing = Query.Timing;
             _projectSqlName = ProjectSqlName;
 
             XmlDocument xm = new XmlDocument();
+
+            // CONSIDER: this is loading xml everytime - should be cached
             xm.Load(ProjectSqlPath);
 
             string xpath = String.Format("/projectSql/child::node()[local-name()='{0}']", _projectSqlName);

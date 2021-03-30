@@ -211,7 +211,8 @@ namespace ProjectFlx.Schema
                 }
                 finally
                 {
-                    Timing.End("getResultGrouped");
+                    if(Timing != null)
+                        Timing.End("getResultGrouped");
                 }
             }
 

@@ -125,6 +125,7 @@ namespace ProjectFlx.DB.SchemaBased
                 _Projresults.results.Add(rslts = new ProjectFlx.Schema.results());
                 rslts.schema.Add(query);
                 rslts.name = query.name;
+                rslts.project = query.project;
 
                 // cache results
                 cachekey = cacheKeyHelper(query);
@@ -370,12 +371,11 @@ namespace ProjectFlx.DB.SchemaBased
                 _command = _database.Connection.CreateCommand();
                 _command.CommandType = CommandType.Text;
 
+                _database.Open();
+
                 if (_database.WithTransaction)
                     _command.Transaction = _database.Transaction;
             }
-
-            if (_command.Connection.State == ConnectionState.Closed)
-                _command.Connection.Open();
         }
 
 

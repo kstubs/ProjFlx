@@ -236,6 +236,7 @@ namespace ProjectFlx
                 }
 
                 TMPLT.AddBrowserPageItem("HTTP_METHOD", _requestType.ToString());
+                TMPLT.AddTag("NET_VERSION", Environment.Version.ToString());
 
                 // deal with banned IPs
                 var bannedips = GetConfigValue("banned_ips","");
@@ -483,6 +484,7 @@ namespace ProjectFlx
                     Timing.End("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
                     Response.ContentType = "text/html";
                     Response.Write(TMPLT.Result);
+                    Response.Flush();
                 }
             }
 			catch(Exception unhandled)
@@ -980,8 +982,7 @@ namespace ProjectFlx
                 // oerriden by query parameter
                 projsql.fillParms(Request.QueryString);
 
-                projsql.fillParms(Request.QueryString);
-                if (!isUpdateQuery)      // form vars reserved for update query actions
+                if (isUpdateQuery)      // form vars reserved for update query actions
                     projsql.fillParms(Request.Form);
 
                 try
@@ -1706,9 +1707,9 @@ namespace ProjectFlx
 
         private static object _lock = new object();
 
-        protected void SaveCache(string Key, Object Value, double CacheMinutes)
+        protected void SaveCache(string Key, Object Value, double CacheMinutes, bool ForceUseCache = false)
         {
-            if (!_projFlxUseCache)
+            if (!_projFlxUseCache && !ForceUseCache)
                 return;
 
             lock (_lock)
@@ -1854,6 +1855,17 @@ namespace ProjectFlx
                     return null;
             }
         }
+        public string PageLink
+        {
+            get
+            {
+                var nodes = TMPLT.DOCxml.SelectNodes("/flx/proj/browser/item");
+                if (nodes.Count == 0)
+                    return "/";
+                else
+                    return nodes[nodes.Count - 1].Attributes["link"].Value;
+            }
+        }
 
         public bool ClearProcess
         {
@@ -1878,7 +1890,7 @@ namespace ProjectFlx
             }
         }
 
-        public void ProcessRequest(HttpContext context)
+        public virtual void ProcessRequest(HttpContext context)
         {
             Current = context;
             Server = context.Server;

@@ -8,6 +8,7 @@ using Mvp.Xml.Common.Xsl;
 
 namespace ProjectFlx
 {
+    [Obsolete]
     public class xmlTransformerMvp : xmlTransformer
     {
 
