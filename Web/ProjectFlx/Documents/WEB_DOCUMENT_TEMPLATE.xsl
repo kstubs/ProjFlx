@@ -7,8 +7,10 @@
 	<xsl:include href="WBT_TABLES.xsl"/>
 	<xsl:include href="WBT_LINKS.xsl"/>
 	<xsl:include href="WBT_PAGING.xsl"/>
+	<xsl:include href="WBT_Debug.xsl"/>
 	<xsl:include href="BS_TWITTER_3.1.xsl"/>
 
+	<xsl:strip-space elements="*"/><!-- IMPORTANT! use of xsl:attribute breaks when white-space introduced -->
 	<xsl:output method="html" indent="yes" encoding="utf-8"/>
 
 	<xsl:param name="wrap-content" select="false()"/>
@@ -22,7 +24,13 @@
 	<xsl:param name="LoggedOnUser" select="false()"/>
 	<xsl:param name="AuthenticatedUser" select="false()"/>
 	<xsl:param name="DEBUG" select="false()"/>
-
+	<xsl:param name="is-mobile" select="boolean(key('wbt:capable', 'IsMobile') = 'True')"/>
+	
+	<xsl:param name="source-xml"/>
+	
+	<xsl:variable name="wbt:name">WEB_DOCUMENT_TEMPLATE.xsl</xsl:variable>
+	<xsl:variable name="UNIX_TIME" select="/flx/proj/browser/@unix_time"/>
+	<xsl:variable name="UNIX_TIME2" select="substring-before(/flx/proj/browser/@unix_time, '.')"/>
 	<xsl:variable name="HTTP_METHOD" select="/flx/proj/browser/page/HTTP_METHOD/item[1]"/>
 	<xsl:variable name="BrowserPage" select="/flx/proj/browser/page/PAGE_HEIRARCHY/item"/>
 	<xsl:variable name="PageHeirarchyCombined">
@@ -32,6 +40,21 @@
 				<xsl:text>.</xsl:text>
 			</xsl:if>
 		</xsl:for-each>
+	</xsl:variable>
+	
+	
+	<xsl:variable name="HTTPS_IS_ON" select="boolean(key('wbt:key_ServerVars', 'HTTPS') = 'on') or 
+		boolean(key('wbt:key_ServerVars', 'HTTP_X_FORWARDED_PROTO') = 'https')"/>
+	
+	<xsl:variable name="protocol">
+		<xsl:choose>
+			<xsl:when test="$HTTPS_IS_ON">
+				<xsl:text>https:</xsl:text>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:text>http:</xsl:text>
+			</xsl:otherwise>
+		</xsl:choose>
 	</xsl:variable>
 	
 	<!-- Browser Vars -->
@@ -54,6 +77,8 @@
 	<!-- KEYS for Results -->
 	<xsl:key name="wbt:key_QueryResults" match="wbt:app/projectResults/results" use="@name"/>
 	<xsl:key name="wbt:key_Results" match="results" use="@name"/>
+	<xsl:key name="wbt:key_ProjResults" match="results" use="concat(@project, '.', @name)"/>
+	<xsl:key name="wbt:key_Row" match="row" use="ancestor::results/@name"/>
 	<xsl:key name="wbt:key_Paging" match="paging" use="parent::results/@name"/>
 	<xsl:key name="wbt:key_Schema" match="schema" use="query/@name"/>
 	<xsl:key name="wbt:key_SchemaParameters" match="parameters" use="ancestor::query/@name"/>
@@ -151,30 +176,9 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:bootstrap</xsl:with-param>
 		</xsl:call-template>
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" type="text/css"/>
-		<xsl:text>&#10;</xsl:text>
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css" type="text/css"/>
-		<xsl:text>&#10;</xsl:text>
-		<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" type="text/css"/>
-		<xsl:text>&#10;</xsl:text>
-		<script src="//cdn.xportability.com/js/protoscripty__130455207001161849.js" type="text/javascript"/>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/transition_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/affix_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/alert_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/carousel_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/button_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/collapse_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/scrollspy_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/bootstrap-prototype/3.3.1/dropdown_prototype.js" type="text/javascript"></script>
-		<xsl:text>&#10;</xsl:text>
+		<!-- CSS only -->
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous"></link>
+		<link href="https://stackpath.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1" crossorigin="anonymous"></link>
 	</xsl:template>
 
 	<xsl:template name="wbt:metatags">
@@ -271,33 +275,65 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:javascript</xsl:with-param>
 		</xsl:call-template>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
-		<xsl:text>&#10;</xsl:text>
-		<script src="http://www2.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js" type="text/javascript"/>
-		<xsl:text>&#10;</xsl:text>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/protobootstrap__132490265329769314.js"></script>
 
+		<!--<script src="/ProjectFLX/Bootstrap/transition_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/affix_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/alert_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/carousel_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/button_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/collapse_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/scrollspy_prototype.js"></script>
+		<script src="/ProjectFLX/Bootstrap/dropdown_prototype.js"></script>-->
+		
+		
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js?v=1.1" type="text/javascript"/>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_COUNTDOWN.js?v=1.2" type="text/javascript"/>
+		
 		<!--Embeded javascript-->
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Embeded javascript</xsl:with-param>
 		</xsl:call-template>
+		
+		<!--Proj Browser Script Item -->
 		<xsl:for-each select="/flx/proj/browser/page/SCRIPT/item">
 			<xsl:text>&#10;</xsl:text>
-			<script src="{.}"/>
+			<xsl:variable name="src">
+				<xsl:choose>
+					<xsl:when test="starts-with(., 'http:')">
+						<xsl:value-of select="concat($protocol, substring-after(., 'http:'))"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="."/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
+			<script src="{$src}"/>
 		</xsl:for-each>
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Raw javascript</xsl:with-param>
 		</xsl:call-template>
 		<xsl:for-each select="/flx/proj/browser/page/RAW_SCRIPT/item">
-			<xsl:text>&#10;</xsl:text>
 			<script><xsl:value-of select="." disable-output-escaping="yes"/></script>
 		</xsl:for-each>
-
+		
+		<xsl:if test="/flx/app/compilationResult/compiledCode">
+			<xsl:call-template name="wbt:comment">
+				<xsl:with-param name="comment">GC Compiled javascript</xsl:with-param>
+			</xsl:call-template>
+			<xsl:for-each select="/flx/app/compilationResult/compiledCode">
+				<xsl:text>&#10;</xsl:text>
+				<script><xsl:value-of select="." disable-output-escaping="yes"/></script>
+			</xsl:for-each>
+		</xsl:if>
+		
 		<!--Site level javascript-->
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Site level javascript</xsl:with-param>
 		</xsl:call-template>
 		<xsl:call-template name="sbt:javascript"/>
-		<xsl:text>&#10;</xsl:text>
 
 		<!--Page level javascript-->
 		<xsl:call-template name="wbt:comment">
@@ -307,7 +343,7 @@
 
 		<!--Backend pass-through script-->
 		<xsl:call-template name="wbt:comment">
-			<xsl:with-param name="comment">Backend pass-through script</xsl:with-param>
+			<xsl:with-param name="comment">Backend pass-through script [001]</xsl:with-param>
 		</xsl:call-template>
 		<script type="text/javascript">
             <xsl:text>&#10;wbt.queryvars={</xsl:text>
@@ -339,16 +375,27 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:style</xsl:with-param>
 		</xsl:call-template>
+		
 		<!-- TODO: map this to CDN repo -->
-		<link rel="stylesheet" href="http://www2.meetscoresonline.com/ProjectFLX/Documents/WBT_STYLE.css" type="text/css"/>
+		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_STYLE.css?v=1.1" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
-		<link rel="stylesheet" href="http://www2.meetscoresonline.com/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
+		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
 		<xsl:call-template name="sbt:style"/>
 		<xsl:call-template name="pbt:style"/>
 		<xsl:for-each select="/flx/proj/browser/page/STYLE/item">
+			<xsl:variable name="src">
+				<xsl:choose>
+					<xsl:when test="starts-with(., 'http:')">
+						<xsl:value-of select="concat($protocol, substring-after(., 'http:'))"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="."/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
 			<xsl:text>&#10;</xsl:text>
-			<link rel="stylesheet" href="{.}" type="text/css"/>
+			<link rel="stylesheet" href="{$src}" type="text/css"/>
 		</xsl:for-each>
 		<xsl:call-template name="sbt:media-style"/>
 		<xsl:apply-templates select="/flx/client//pbt:style"/>
@@ -356,9 +403,7 @@
 
 	<xsl:template name="sbt:media-style"/>
 	<xsl:template name="sbt:style"/>
-	<xsl:template name="pbt:style">
-		<link href="http://getbootstrap.com/assets/css/docs.min.css" rel="stylesheet" type="text/css"/>
-	</xsl:template>
+	<xsl:template name="pbt:style"/>
 
 	<!-- This is a main template.  Override this to setup a header for your website -->
 	<xsl:template match="/" mode="wbt:header">
@@ -414,7 +459,7 @@
 		</xsl:call-template>
 		<div class="footer">
 			<div class="container">
-				<blockquote class="pull-right">
+				<blockquote class="float-end">
 					<p>Now get to building that website!</p>
 					<small>ProjectFlx</small>
 				</blockquote>
@@ -446,7 +491,7 @@
 				<xsl:text> </xsl:text>
 				<xsl:value-of select="@match"/>
 				<xsl:if test="@mode">
-					<small class="pull-right">
+					<small class="float-end">
 						<xsl:value-of select="@mode"/>
 					</small>
 				</xsl:if>
@@ -519,15 +564,22 @@
 		<xsl:param name="Display"/>
 		<xsl:param name="url"/>
 		<xsl:param name="Query"/>
+		<xsl:param name="hash"/>
 		<xsl:param name="onclick"/>
 		<xsl:param name="onmouseover"/>
 		<xsl:param name="class"/>
+		<xsl:param name="target"/>
 		<xsl:variable name="q">
 			<xsl:if test="string($Query)">
 				<xsl:value-of select="concat('?',normalize-space($Query))"/>
 			</xsl:if>
 		</xsl:variable>
-		<a href="{$url}{$q}">
+		<xsl:variable name="h">
+			<xsl:if test="string($hash)">
+				<xsl:value-of select="concat('#', $hash)"/>
+			</xsl:if>
+		</xsl:variable>
+		<a href="{$url}{$q}{$h}">
 			<xsl:if test="string($onclick)">
 				<xsl:attribute name="onclick">
 					<xsl:value-of select="normalize-space($onclick)"/>
@@ -543,18 +595,41 @@
 					<xsl:value-of select="$class"/>
 				</xsl:attribute>
 			</xsl:if>
+			<xsl:if test="$target">
+				<xsl:attribute name="target">
+					<xsl:value-of select="$target"/>
+				</xsl:attribute>
+			</xsl:if>
 			<xsl:value-of select="$Display"/>
 		</a>
 	</xsl:template>
 
 	<!-- convert browsersvars to querystring -->
 	<xsl:template name="wbt:AllBrowserVars_ToQueryString">
-		<xsl:apply-templates select="/ROOT/TMPLT/BROWSER/node()[name() = 'FORMVARS' or name() = 'QUERYVARS']/ELEMENT" mode="wbt:QueryString"/>
+		<xsl:param name="name"/>
+		<xsl:param name="value"/>
+		<xsl:apply-templates select="/flx/proj/browser//node()[name() = 'formvars' or name() = 'queryvars']/element" mode="wbt:QueryString">
+			<xsl:with-param name="name" select="$name"/>
+			<xsl:with-param name="value" select="$value"/>
+		</xsl:apply-templates>
+		<!-- add name / value if not replaced -->
+		<xsl:if test="not(key('wbt:key_FormAndQueryVars', $name)) and string-length($name) &gt; 0">
+			<xsl:value-of select="concat('&amp;', $name, '=', $value)"/>
+		</xsl:if>
 	</xsl:template>
 
-	<xsl:template match="ELEMENT" mode="wbt:QueryString">
-		<xsl:value-of select="concat(@name, '=', .)"/>
-		<xsl:value-of select="name()"/>
+	<xsl:template match="element" mode="wbt:QueryString">
+		<xsl:param name="name"/>
+		<xsl:param name="value"/>
+		<xsl:choose>
+			<!-- replace name/value -->
+			<xsl:when test="$name=@name">
+				<xsl:value-of select="concat($name, '=', $value)"/>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:value-of select="concat(@name, '=', .)"/>				
+			</xsl:otherwise>
+		</xsl:choose>
 		<xsl:if test="not(position() = last())">
 			<xsl:text>&amp;</xsl:text>
 		</xsl:if>
@@ -586,7 +661,7 @@
 				</xsl:call-template>
 			</xsl:when>
 			<xsl:when test="$type = 'int'">
-				<xsl:value-of select="val"/>
+				<xsl:value-of select="$val"/>
 			</xsl:when>
 			<xsl:when test="$type = 'date'">
 				<xsl:variable name="new_dt">
@@ -646,17 +721,120 @@
 
 	</xsl:template>
 
-	<xsl:template match="@* | node()" mode="identity-translate">
+	<xsl:template match="@* | node()" mode="identity-copy" priority="-1">
 		<xsl:param name="ignore-name-space" select="false()"/>
 		<xsl:if test="$ignore-name-space or not(string(namespace-uri()))">
 			<xsl:copy>
-				<xsl:apply-templates select="@* | node()" mode="identity-translate"/>
+				<xsl:apply-templates select="@* | node()" mode="identity-copy"/>
 			</xsl:copy>
 		</xsl:if>
 	</xsl:template>
 
+	
+	<xsl:template match="*" mode="identity-translate">
+		<xsl:comment>identity-translate [*] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:choose>
+			<xsl:when test="@valid-on">
+				<xsl:call-template name="valid-on"/>
+			</xsl:when>
+			<xsl:when test="@keep-as">
+				<xsl:call-template name="identity-template.keep-as"/>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:call-template name="identity-translate"/>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+
+	<xsl:template name="valid-on">
+		<xsl:param name="valid-on" select="@valid-on"/>
+		<xsl:param name="keep-as" select="@keep-as"/>
+		<xsl:param name="valid-on-title" select="@valid-on-title"/>
+		<xsl:param name="valid-on-description" select="@valid-on-description"/>
+		<xsl:param name="content" select="/.." />
+		
+		<xsl:comment>identity-translate [valid-on] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:choose>
+			<xsl:when test="number($valid-on) &lt; number($UNIX_TIME)">
+				<xsl:choose>
+					<xsl:when test="$keep-as">
+						<xsl:call-template name="identity-template.keep-as"/>
+					</xsl:when>
+					<xsl:when test="$content">
+						<xsl:apply-templates select="$content" mode="identity-translate"/>					
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:call-template name="identity-translate"/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:when>
+			<xsl:otherwise>
+				<div class="bg-light p-5 rounded-lg m-3">
+					<h1 class="display-4">
+					<xsl:choose>
+						<xsl:when test="$valid-on-title">
+							<xsl:value-of select="$valid-on-title"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:text>Time Sensitive Material</xsl:text>
+						</xsl:otherwise>
+					</xsl:choose>
+					</h1>
+					<p class="lead">
+					<xsl:choose>
+						<xsl:when test="$valid-on-description">
+							<xsl:value-of select="$valid-on-description"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:text>This content will be available in the future!</xsl:text>							
+						</xsl:otherwise>
+					</xsl:choose>
+					</p>
+					<hr class="my-4"/>
+					<div data-unix-time="{$UNIX_TIME}" data-valid-on="{$valid-on}" class="wbt-countdown countdown-days countdown-hours countdown-minutes countdown-seconds "/>
+					<div class="clearfix"/>
+				</div>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template name="identity-template.keep-as">
+		<xsl:comment>identity-translate [keep-as] keep-as: <xsl:value-of select="@keep-as"/> is-mobile: <xsl:value-of select="$is-mobile"/> - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:choose>
+			<xsl:when test="local-name()='mobile' or local-name()='Mobile'">
+				<xsl:if test="$is-mobile">
+					<xsl:element name="{@keep-as}">
+						<xsl:attribute name="id"><xsl:value-of select="local-name()"/></xsl:attribute>
+						<xsl:apply-templates select="@*" mode="identity-translate"/>
+						<xsl:apply-templates select="node()" mode="identity-translate"/>
+					</xsl:element>				
+				</xsl:if>
+			</xsl:when>
+			<xsl:otherwise>				
+				<xsl:element name="{@keep-as}">
+					<xsl:attribute name="id"><xsl:value-of select="local-name()"/></xsl:attribute>
+					<xsl:apply-templates select="@*" mode="identity-translate"/>
+					<xsl:apply-templates select="node()" mode="identity-translate"/>
+				</xsl:element>				
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+
+	<xsl:template match="@* | node()" name="identity-translate" mode="identity-translate" priority="-1">
+		<xsl:param name="ignore-name-space" select="false()"/>
+		<xsl:if test="$ignore-name-space or not(string(namespace-uri()))">
+			<xsl:copy>
+				<xsl:apply-templates select="@*" mode="identity-translate"/>
+				<xsl:apply-templates select="node()" mode="identity-translate"/>
+			</xsl:copy>
+		</xsl:if>
+	</xsl:template>
+	
 	<xsl:template match="sbt:* | wbt:* | pbt:*" mode="identity-translate"/>
 
+	<xsl:template match="pbt:javascript | pbt:style" priority="1" mode="identity-translate"/>
+	<xsl:template match="pbt:javascript | pbt:style" priority="1"/>
+	
 	<xsl:template match="sbt:* | wbt:* | pbt:*">
 		<xsl:element name="div">
 			<xsl:attribute name="class">
@@ -705,10 +883,10 @@
 	<xsl:template match="Crumbs" mode="identity-translate">
 		<ol class="breadcrumb">
 			<xsl:for-each select="$BrowserPage">
-				<li>
+				<li class="breadcrumb-item">
 					<xsl:choose>
 						<xsl:when test="position() = last()">
-							<xsl:attribute name="class">active</xsl:attribute>
+							<xsl:attribute name="class">breadcrumb-item active</xsl:attribute>
 							<xsl:value-of select="@title"/>
 						</xsl:when>
 						<xsl:otherwise>
@@ -749,6 +927,7 @@
     -->
 	<xsl:template name="wbt:walk-content">
 		<xsl:param name="type">content</xsl:param>
+		<xsl:comment>wbt:walk-content - <xsl:value-of select="$wbt:name"/></xsl:comment>
 		<xsl:apply-templates select="$BrowserPage[1]" mode="wbt:walk-content">
 			<xsl:with-param name="type" select="$type"/>
 		</xsl:apply-templates>
@@ -759,6 +938,7 @@
 		<xsl:param name="path" select="text()"/>
 		<xsl:param name="context" select="/flx/client/*[local-name() = 'page' or local-name() = 'content'][translate(@name, $ABC, $abc) = current()/text()][not(@active='false')]"/>
 		<xsl:param name="title">
+			<xsl:comment><xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 			<xsl:choose>
 				<xsl:when test="$context/@title">
 					<xsl:value-of select="$context/@title"/>
@@ -774,48 +954,59 @@
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:param>
-		<xsl:if test="$type = 'breadcrumb'">
-			<li>
-				<xsl:choose>
-					<xsl:when test="following-sibling::item">
-						<a href="{$path}">
-							<xsl:value-of select="$title"/>
-						</a>
-					</xsl:when>
-					<xsl:otherwise>
-						<xsl:attribute name="class">active</xsl:attribute>
-						<xsl:value-of select="$title"/>
-					</xsl:otherwise>
-				</xsl:choose>
-			</li>
-		</xsl:if>
 		<xsl:choose>
+			<xsl:when test="$type = 'breadcrumb'">
+				<li>
+					<xsl:choose>
+						<xsl:when test="following-sibling::item">
+							<a href="{$path}">
+								<xsl:value-of select="$title"/>
+							</a>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:attribute name="class">active</xsl:attribute>
+							<xsl:value-of select="$title"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</li>
+			</xsl:when>
 			<!-- scenario 1 -->
 			<xsl:when test="not($context) and following-sibling::item[1]">
+				<xsl:comment>wbt:walk-content [scenario 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="path"
+						select="concat($path, '/', following-sibling::item[1]/text())"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<!-- senarioi 2 -->
-			<xsl:when test="translate($context/@name, $ABC, $abc) != self::node()/text() and following-sibling::item">
+			<xsl:when
+				test="translate($context/@name, $ABC, $abc) != self::node()/text() and following-sibling::item">
+				<xsl:comment>wbt:walk-content [scenario 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="path"
+						select="concat($path, '/', following-sibling::item[1]/text())"/>
 					<xsl:with-param name="context" select="$context"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<!-- scenario 3 -->
-			<xsl:when test="translate($context/@name, $ABC, $abc) = self::node()/text() and $context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]">
+			<xsl:when
+				test="translate($context/@name, $ABC, $abc) = self::node()/text() and $context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]">
+				<xsl:comment>wbt:walk-content [scenario 3] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
-					<xsl:with-param name="context" select="$context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]"/>
+					<xsl:with-param name="path"
+						select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="context"
+						select="$context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<xsl:otherwise>
 				<xsl:call-template name="wbt:apply-content">
-					<xsl:with-param name="context" select="$context | /flx/client/page | /flx/client/content[not(@active='false')]"/>
+					<xsl:with-param name="context"
+						select="$context | /flx/client/page | /flx/client/content[not(@active = 'false')]"
+					/>
 				</xsl:call-template>
 			</xsl:otherwise>
 		</xsl:choose>
@@ -825,18 +1016,22 @@
 		<xsl:param name="context"/>
 		<xsl:choose>
 			<xsl:when test="($context/@authenticateduser = 'true' or $context/@wbt:authenticateduser = 'true') and not($AuthenticatedUser)">
+				<xsl:comment>wbt:apply-content [protected-content 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
 			<xsl:when test="($context/@loggedonuser = 'true' or $context/@loggedinuser = 'true' or $context/@wbt:loggedonuser = 'true') and not($LoggedOnUser)">
+				<xsl:comment>wbt:apply-content [protected-content 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
 			<xsl:otherwise>
+				<xsl:comment>wbt:apply-content [otherwise] - <xsl:value-of select="$wbt:name"/></xsl:comment>				
 				<xsl:apply-templates select="$context" mode="wbt:apply-content"/>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
 	
 	<xsl:template match="page | content" mode="wbt:apply-content">
+		<xsl:comment>wbt:apply-content [page | content - <xsl:value-of select="local-name()"/> ] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 		<xsl:choose>
 			<xsl:when test="$wrap-content">
 				<xsl:element name="div">
@@ -862,7 +1057,8 @@
 		</xsl:choose>
 	</xsl:template>	
 
-	<xsl:template match="content" mode="identity-build-nav">
+	<xsl:template match="content" mode="identity-build-nav" name="identity-build-nav">
+		<xsl:param name="class"/>
 		<xsl:variable name="nav_link_part1">
 			<xsl:text>/</xsl:text>
 			<xsl:apply-templates select="ancestor-or-self::*" mode="identity-build-nav.link"/>
@@ -902,10 +1098,10 @@
 					((ancestor-or-self::*/@authenticateduser = 'true' or ancestor-or-self::*/@wbt:authenticateduser = 'true') and $AuthenticatedUser)
 					or ((ancestor-or-self::*/@authenticateduser = 'false' or ancestor-or-self::*/@wbt:authenticateduser = 'false'))
 					or (not(ancestor-or-self::*/@authenticateduser))">
-					<li>
+					<li class="nav-item">
 						<!-- if content has no html child elements then no link -->
 						<xsl:choose>
-							<xsl:when test="content and (count(*) = count(content))">
+							<xsl:when test="not(*)">
 								<xsl:attribute name="class">
 									<xsl:value-of select="concat('content-group content-group-', @name)"/>
 								</xsl:attribute>
@@ -916,13 +1112,13 @@
 									<xsl:when test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
 										<xsl:attribute name="class">
 											<xsl:text>active</xsl:text>
-											<xsl:if test="content">
+											<xsl:if test="*">
 												<xsl:text> content-parent</xsl:text>
 											</xsl:if>
 										</xsl:attribute>
 									</xsl:when>
 									<xsl:otherwise>
-										<xsl:if test="content">
+										<xsl:if test="*">
 											<xsl:attribute name="class">
 												<xsl:text>content-parent</xsl:text>
 											</xsl:attribute>
@@ -931,6 +1127,7 @@
 								</xsl:choose>
 								<xsl:call-template name="wbt:build_url">
 									<xsl:with-param name="icon-class" select="@icon-class"/>
+									<xsl:with-param name="class" select="$class"/>
 									<xsl:with-param name="display" select="$title"/>
 									<xsl:with-param name="url" select="$nav_link"/>
 								</xsl:call-template>
@@ -940,7 +1137,7 @@
 				</xsl:if>
 			</xsl:if>
 		</xsl:if>
-		<xsl:apply-templates select="content" mode="identity-build-nav"/>
+		<xsl:apply-templates select="*" mode="identity-build-nav"/>
 	</xsl:template>
 	
 	<xsl:template match="*" mode="identity-build-nav.link"/>
@@ -1044,24 +1241,28 @@
 		</xsl:if>
 	</xsl:template>
 
-	<xsl:template match="Redirect" mode="identity-translate">
-		<xsl:variable name="time">
+	<xsl:template match="Redirect" name="Redirect" mode="identity-translate">
+		<xsl:param name="time" select="@time"/>
+		<xsl:param name="href" select="@href  | text()"/>
+		
+		<xsl:variable name="timex">
 			<xsl:choose>
-				<xsl:when test="number(@time)">
-					<xsl:value-of select="number(@time * 1000)"/>
+				<xsl:when test="number($time)">
+					<xsl:value-of select="$time * 1000"/>
 				</xsl:when>
 				<xsl:otherwise>
-					<xsl:value-of select="number(1000)"/>
+					<xsl:value-of select="1000"/>
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>
+		
 		<script type="text/javascript">
-            setTimeout(function() { 
-            location.href = '<xsl:value-of select="@href | text()"/>'
-			}, <xsl:value-of select="$time"/>);
-        </script>
+			setTimeout(function() { 
+			location.href = '<xsl:value-of select="$href"/>'
+			}, <xsl:value-of select="$timex"/>);
+		</script>
 	</xsl:template>
-
+	
 	<xsl:template match="LoggedOn | LoggedIn | LoggedInUser | LoggedOut | LoggedOff | LoggedOffUser" mode="identity-translate">
 		<xsl:if test="(name() = 'LoggedIn' or name() = 'LoggedOn' or name() = 'LoggedOnUser' or name() = 'LoggedInUser') and $LoggedOnUser">
 			<xsl:apply-templates mode="identity-translate"/>
@@ -1080,7 +1281,7 @@
 		<div class="container">
 			<div class="jumbotron">
 				<h1>Protected Content</h1>
-				<span class="pull-right">|<em> A valid logon to these pages required </em>|</span>
+				<span class="float-end">|<em> A valid logon to these pages required </em>|</span>
 			</div>
 		</div>
 	</xsl:template>
@@ -1123,10 +1324,10 @@
 		<xsl:param name="title" select="@title | text()" />
 		<xsl:choose>
 			<xsl:when test="string($href)">
-				<a href="{$href}" class="btn btn-default back-button"><i class="glyphicon glyphicon-chevron-left"/> <xsl:value-of select="$title"/></a>
+				<a href="{$href}" class="btn btn-secondary back-button"><i class="fa fa-chevron-left"/> <xsl:value-of select="$title"/></a>
 			</xsl:when>
 			<xsl:otherwise>
-				<a href="#" onclick="history.back(); return false;" class="btn btn-default back-button"><i class="glyphicon glyphicon-chevron-left"/> Back</a>
+				<a href="#" onclick="history.back(); return false;" class="btn btn-secondary back-button"><i class="fa fa-chevron-left"/> Back</a>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
@@ -1162,6 +1363,7 @@
 					}]]>
 				</script>
 				<xsl:variable name="site-key" select="@site-key"/>
+				<script src="https://www.google.com/recaptcha/api.js"/>
 				<form id="GOOGLE_RECAPTCHA" method="POST" action="/googRecaptcha.aspx" style="margin-left:auto; margin-right:auto; width:294px">
 					<div class="g-recaptcha" data-callback="gCaptchaResponse" data-sitekey="{$site-key}"/>
 					<p class="lead"> This one time test will insure that you are not a bot. Data integrity is important to us. </p>
@@ -1215,7 +1417,7 @@
 		</xsl:element>
 	</xsl:template>
 	
-	<xsl:template name="JumpOut" match="JumpOut" mode="identity-translate">
+	<xsl:template name="JumpOut" match="JumpOut | PopOut" mode="identity-translate">
 		<xsl:param name="href" select="."/>
 		<xsl:param name="title" select="@title"/>
 		<a>
@@ -1227,32 +1429,33 @@
 			<xsl:if test="string($title)">
 				<xsl:value-of select="concat($title, ' ')"/>
 			</xsl:if>
-			<i class="glyphicon glyphicon-new-window"/>
+			<i class="fa fa-external-link"/>
 		</a>
 	</xsl:template>
 	
 	<xsl:template match="wbt:ProjSql" mode="identity-translate">
-		<div class="row">
-			<div class="col-md-12">
-				<nav class="navbar navbar-default">
-					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-						<ul class="nav navbar-nav">
-							<xsl:apply-templates select="$projSql/*" mode="projsql-nav"/>
-						</ul>
-					</div>
-				</nav>
+		<nav class="navbar navbar-expand navbar-dark bg-dark">
+			<div class="collapse navbar-collapse">
+				<ul class="navbar-nav">
+					<xsl:apply-templates select="$projSql/descendant-or-self::projectSql/*"
+						mode="projsql-nav"/>
+				</ul>
 			</div>
-		</div>
+		</nav>
+	</xsl:template>
+	
+	<xsl:template match="KeyHole | Keyhole | keyhole" mode="identity-translate">
+		<iframe name="keyhole" src="about:blank" width="0" height="0" style="border:none"/>
 	</xsl:template>
 	
 	<xsl:template match="*" mode="projsql-nav">
-		<li class="dropdown">
-			<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><xsl:value-of select="local-name()"/> <span class="caret"></span></a>
+		<li class="nav-item dropdown">
+			<a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><xsl:value-of select="local-name()"/> <span class="caret"></span></a>
 			<ul class="dropdown-menu">
 				<xsl:apply-templates select="query[command/action='Result']" mode="projsql-nav"/>
-				<li class="divider"></li>
-				<li class="dropdown-submenu">
-					<a href="#" tabindex="-1">Execute</a>
+				<li class="dropdown-divider"></li>
+				<li class="dropdown-item dropdown-submenu">
+					<a class="dropdown-toggle" data-toggle="dropdown" href="#" tabindex="-1">Execute</a>
 					<ul class="dropdown-menu">
 						<xsl:apply-templates select="query[command/action='Scalar'] | query[command/action='NonQuery']" mode="projsql-nav"/>
 					</ul>
@@ -1262,7 +1465,7 @@
 	</xsl:template>
 	
 	<xsl:template match="query" mode="projsql-nav">
-		<li><a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}"><xsl:value-of select="@name"/></a></li>
+		<li class="dropdown-item"><a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}"><xsl:value-of select="@name"/></a></li>
 	</xsl:template>
 	
 	<xsl:template match="@actionx" mode="identity-translate">
@@ -1366,4 +1569,5 @@
 			<xsl:value-of select="$current/@*[name()=$field]"/>
 		</xsl:attribute>
 	</xsl:template>
+	
 </xsl:stylesheet>

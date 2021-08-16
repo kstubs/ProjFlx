@@ -220,7 +220,7 @@ namespace ProjectFlx
             {
                 Timing.Start("ProjectFlx.FlxMain.TMPLT_INIT");
 
-                _debug = GetConfigValue<bool>("debug", false);
+                _debug = GetConfigValue<bool>("debug", false || _debug);
 
                 switch (Request.RequestType)
                 {
@@ -1446,6 +1446,10 @@ namespace ProjectFlx
 
                     // Page Terminate Event - overrideable
                     PAGE_TERMINATE();
+                }
+                catch (Exception unhandled)
+                {
+                    TMPLT.AddException(unhandled);
                 }
                 finally
                 {

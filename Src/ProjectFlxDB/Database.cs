@@ -510,7 +510,24 @@ namespace ProjectFlx.DB
                                             val = dr[m.GetAttribute("field")].ToString().Trim();
                                             val = Regex.Replace(val, m.GetAttribute("regex").ToString(), m.GetAttribute("replace").ToString());
                                         }
-                                        w.WriteAttributeString(m.GetAttribute("name").ToString(), String.IsNullOrEmpty(val) ? "" : safeXmlCharacters(val.ToString().Trim()));
+
+                                        var fieldtype = m.GetAttribute("type").ToString();
+                                        string text = null;
+
+                                        switch(fieldtype)
+                                        {
+                                            case "date":
+                                                var dt = DateTime.MinValue;
+                                                if (DateTime.TryParse(val, out dt) && !dt.Equals(DateTime.MinValue))
+                                                    text = dt.ToString("MM/dd/yyy");
+                                                break;
+                                            default:
+                                                text = safeXmlCharacters(val.ToString().Trim());
+                                                break;
+                                        }
+
+
+                                        w.WriteAttributeString(m.GetAttribute("name").ToString(), text ?? "");
                                     }
 
 

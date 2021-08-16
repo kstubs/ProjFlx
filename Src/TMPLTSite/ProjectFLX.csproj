@@ -134,11 +134,12 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)bin\" /C /Y
-xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
+    <PostBuildEvent>xcopy "$(TargetDir)*.*" "$(SolutionDir)Binaries\" /C /Y
 
 del "$(SolutionDir)Binaries\*.pdb" /F
-del "$(SolutionDir)Binaries\*.xml" /F</PostBuildEvent>
+del "$(SolutionDir)Binaries\*.xml" /F
+
+xcopy "$(SolutionDir)Binaries\*.*" "D:\Websites\www.projflx.com\bin" /C /Y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

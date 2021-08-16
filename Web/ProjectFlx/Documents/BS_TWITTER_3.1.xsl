@@ -15,9 +15,9 @@
 			<xsl:apply-templates select="@*[not(local-name()='class')]" mode="identity-translate"></xsl:apply-templates>
 			<xsl:if test="@title">
 				<div class="panel-heading">
-					<h1>
+					<h3>
 						<xsl:value-of select="@title"/>
-					</h1>
+					</h3>
 				</div>
 			</xsl:if>
 			<div class="panel-body">

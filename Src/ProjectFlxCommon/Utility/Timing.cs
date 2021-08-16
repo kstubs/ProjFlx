@@ -60,6 +60,18 @@ namespace ProjectFlx.Utility
             }
         }
 
+        public double ExecutionTime(String Name)
+        {
+            double result = 0;
+            var timing = _list.Where(t => t.Name == Name).FirstOrDefault();
+            if (timing != null)
+            {
+                result = timing.ExecutionTime;
+            }
+
+            return result;
+        }
+
         public Timing End(String Name)
         {
             Stop(Name);

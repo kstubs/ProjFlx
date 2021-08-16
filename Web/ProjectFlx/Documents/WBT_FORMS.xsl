@@ -1,9 +1,7 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 	xmlns:wbt="myWebTemplater.1.0" exclude-result-prefixes="wbt">
 	
-	<!-- EXTERNAL SUPPORT DOCUMENTS AND SOURCE -->
     <xsl:variable name="wbt:dbxmSTATES" select="document('dbXML_states.xml')/states"/>
-        
     <!-- EXTENDED FORM OBJECT -->
     <xsl:template name="wbt:DD_STATES">
         <xsl:param name="title"/>
@@ -37,10 +35,11 @@
                     <xsl:value-of select="$class"/>
                 </xsl:attribute>
             </xsl:if>
-            <option value="">
+        	<xsl:call-template name="eval-disabled-input"/>
+        	<option value="">
                 <xsl:value-of select="$title"/>
             </option>
-            <xsl:for-each select="$wbt:dbxmSTATES//state">
+        	<xsl:for-each select="document('dbXML_states.xml')/states/state">
                 <option value="{@value}">
                     <xsl:if test="$input_value=@value or $input_value=@text">
                         <xsl:attribute name="selected">selected</xsl:attribute>
@@ -69,7 +68,7 @@
                     </xsl:otherwise>
                 </xsl:choose>                
             </xsl:variable>
-            <div class="form-group">
+            <div class="mb-3">
                 <xsl:if test="$mapped-field/@ForView='False'">
                     <xsl:attribute name="style">display:none</xsl:attribute>
                 </xsl:if>
@@ -114,7 +113,7 @@
 				<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 				<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 			</xsl:apply-templates>
-			<input type="submit" class="btn btn-primary pull-right" value="Execute"/>
+			<input type="submit" class="btn btn-primary float-end" value="Execute"/>
 			<input type="hidden" name="wbt_update_token" value="{key('wbt:key_CookieVars', 'wbt_edits_token')}"/>
 			<input type="hidden" name="wbt_execute_project" value="{$project}"/>
 			<input type="hidden" name="wbt_execute_query" value="{$query}"/>
@@ -133,7 +132,7 @@
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
-					<input type="submit" class="btn btn-primary pull-right" value="Update Record"/>
+					<input type="submit" class="btn btn-primary float-end" value="Update Record"/>
 					<input type="hidden" name="wbt_update_token" value="{key('wbt:key_CookieVars', 'wbt_edits_token')}"/>
 					<input type="hidden" name="wbt_update_project" value="{$project}"/>
 					<input type="hidden" name="wbt_update_query" value="{$query}"/>
@@ -146,7 +145,7 @@
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
-					<input type="submit" class="btn btn-primary pull-right" value="Insert Record"/>
+					<input type="submit" class="btn btn-primary float-end" value="Insert Record"/>
 					<input type="hidden" name="wbt_update_token" value="{key('wbt:key_CookieVars', 'wbt_edits_token')}"/>
 					<input type="hidden" name="wbt_update_project" value="{$project}"/>
 					<input type="hidden" name="wbt_update_query" value="{$query}"/>
@@ -159,7 +158,7 @@
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
 					</xsl:apply-templates>
-					<input type="submit" class="btn btn-danger pull-right" value="Delete Record"/>
+					<input type="submit" class="btn btn-danger float-end" value="Delete Record"/>
 					<input type="hidden" name="wbt_update_token" value="{key('wbt:key_CookieVars', 'wbt_edits_token')}"/>
 					<input type="hidden" name="wbt_update_project" value="{$project}"/>
 					<input type="hidden" name="wbt_update_query" value="{$query}"/>
@@ -195,11 +194,11 @@
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>
-		<div class="form-group">
+		<div class="mb-3 row">
 			<xsl:if test="$param/@ForView='false'">
 				<xsl:attribute name="style">display:none</xsl:attribute>
 			</xsl:if>
-			<label for="{@name}" class="col-sm-3">
+			<label for="{@name}" class="col-lg-3 col-form-label">
 				<xsl:choose>
 					<xsl:when test="string(@display)">
 						<xsl:value-of select="@display"/>						
@@ -209,15 +208,13 @@
 					</xsl:otherwise>
 				</xsl:choose>
 			</label>
-			<div class="col-sm-9">
+			<div class="col-lg-9">
 				<div>
 					<xsl:if test="$required or $email">
 						<xsl:attribute name="class">input-group</xsl:attribute>
 					</xsl:if>
 					<xsl:if test="$email">
-						<div class="input-group-addon">
-							<span>@</span>
-						</div>
+						<span class="input-group-text">@</span>
 					</xsl:if>
 					<xsl:choose>
 						<xsl:when test="@display_type='select-states'">
@@ -255,28 +252,56 @@
 						</xsl:otherwise>
 					</xsl:choose>
 					<xsl:if test="$required">
-						<div class="input-group-addon required">
-							<i class="fa fa-exclamation-circle" title="This is a required field"/>
-						</div>
+						<span class="input-group-text required"><i class="fa fa-exclamation-circle" title="This is a required field"/></span>
 					</xsl:if>
 				</div>
 			</div>
 		</div>
 	</xsl:template>
 	
-	<xsl:template match="input[@type='text' or @type='hidden']" mode="identity-translate">
-        <xsl:copy>
-            <xsl:apply-templates select="@*[name()!='value']" mode="identity-translate"/>
-            <xsl:attribute name="value">
-            	<xsl:value-of select="@value | key('wbt:key_FormVars', @name) | key('wbt:key_QueryVars', @name)"/>
-            </xsl:attribute>            
-        </xsl:copy>
-    </xsl:template>
+	<xsl:template match="input[@type='text' or @type='select' or @type='hidden' or not(@type)]" mode="identity-translate" priority="1">
+		<xsl:copy>
+			<xsl:apply-templates select="@*[name()!='value']" mode="identity-translate"/>
+			<xsl:attribute name="value">
+				<xsl:choose>
+					<xsl:when test="@type='hidden' and string(@value)!=''">
+						<xsl:value-of select="@value"/>						
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="@value | key('wbt:key_FormVars', @name) | key('wbt:key_QueryVars', @name)"/>						
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:attribute>
+			<xsl:call-template name="eval-disabled-input"/>
+		</xsl:copy>
+	</xsl:template>
+
+	<xsl:template match="input[@type='button' or @type='submit']" mode="identity-translate" priority="1">
+		<xsl:copy>
+			<xsl:apply-templates select="@*[name()!='value']" mode="identity-translate"/>
+			<xsl:call-template name="eval-disabled-input"/>
+		</xsl:copy>
+	</xsl:template>
+	
+	<xsl:template match="textarea" mode="identity-translate" priority="1">
+		<xsl:copy>
+			<xsl:apply-templates select="@*" mode="identity-translate"/>
+			<xsl:call-template name="eval-disabled-input"/>
+			<xsl:apply-templates select="*" mode="identity-translate"/>			
+		</xsl:copy>
+	</xsl:template>
     
-    <xsl:template match="input[@type='text' and @name='state']" mode="identity-translate">
+	<xsl:template match="input[@type='text' and @name='state']" mode="identity-translate" priority="1">
         <xsl:call-template name="wbt:DD_STATES">
             <xsl:with-param name="input_value" select="@value" />
         </xsl:call-template>
     </xsl:template>
+	
+	<xsl:template name="eval-disabled-input">
+		<xsl:if test="ancestor::form[@disabled = 'disabled']">
+			<xsl:attribute name="disabled">disabled</xsl:attribute>
+		</xsl:if>
+	</xsl:template>
+    
     
 </xsl:stylesheet>

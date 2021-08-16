@@ -1,6 +1,8 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:wbt="myWebTemplater.1.0" exclude-result-prefixes="wbt">
+	<xsl:variable name="wbt:inc-name">WBT_TABLES.xsl</xsl:variable>
 	
 	<xsl:template match="wbt:default-table" mode="identity-translate">		
+		<xsl:comment>Identity Translate: wbt:default-table - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:choose>
 			<xsl:when test="@force-grid-view">
 				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table">
@@ -15,13 +17,22 @@
 	</xsl:template>
 
 	<xsl:template match="wbt:query" mode="identity-translate">
+		<xsl:comment>Identity Translate: wbt:query - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:variable name="project" select="@project"/>
-		<xsl:variable name="query" select="@query"/>
-		<xsl:variable name="projsql" select="$projSql/*[local-name() = $project]/query[@name = $query]"/>
-		<xsl:variable name="results" select="key('wbt:key_QueryResults', @query)[schema/query[@project = $project]]"/>
+		<xsl:variable name="query">
+			<xsl:choose>
+				<xsl:when test="string(@name)">
+					<xsl:value-of select="@name"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="@query"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<xsl:variable name="projsql" select="$projSql/descendant-or-self::projectSql/*[local-name() = $project]/query[@name = $query]"/>
+		<xsl:variable name="results" select="key('wbt:key_QueryResults', $query)"/>
 		<xsl:variable name="numrows" select="count($results/result/row)"/>
 		<xsl:variable name="force-grid-view" select="$results/schema/query/@force-grid-view = 'true' or @force-grid-view = 'true'"/>
-
 
 		<xsl:if test="not(@hide-empty-results = 'yes' and $numrows=0)">
 			<div class="container">
@@ -35,54 +46,55 @@
 					</li>
 				</ol>
 			</div>
-
-			<div>
-				<a href="#" class="pull-right" wbt-toggle="search_options">
-					<i class="fa fa-bars"/>
-				</a>
-			</div>
-			<div class="row clear" id="search_options">
-				<xsl:if test="$numrows > 0 or @hide-options = 'true'">
-					<xsl:attribute name="style">display:none</xsl:attribute>
-				</xsl:if>
-				<div class="col-md-4">
-					<xsl:choose>
-						<xsl:when test="@action = 'NonQuery' or @action = 'Scalar'">
-							<xsl:apply-templates select="." mode="wbt:execute">
-								<xsl:with-param name="project" select="$project"/>
-								<xsl:with-param name="query" select="$query"/>
-								<xsl:with-param name="action" select="@action"/>
-							</xsl:apply-templates>
-						</xsl:when>
-						<xsl:otherwise>
-							<xsl:apply-templates select="$projsql/parameters" mode="wbt:default-table-search">
-								<xsl:with-param name="context" select="."/>
-								<xsl:with-param name="project" select="$project"/>
-								<xsl:with-param name="query" select="$query"/>
-							</xsl:apply-templates>
-						</xsl:otherwise>
-					</xsl:choose>
+			
+			<xsl:if test="$projsql">
+				<div>
+					<a href="#" class="float-end" wbt-toggle="search_options">
+						<i class="fa fa-bars"/>
+					</a>
 				</div>
-				<div class="col-md-8">
-					<div class="panel">
-						<xsl:if test="string($projsql/comment())">
-							<pre>
+				<div class="row clear" id="search_options">
+					<xsl:if test="$numrows > 0 or @hide-options = 'true'">
+						<xsl:attribute name="style">display:none</xsl:attribute>
+					</xsl:if>
+					<div class="col-md-4">
+						<xsl:choose>
+							<xsl:when test="@action = 'NonQuery' or @action = 'Scalar'">
+								<xsl:apply-templates select="." mode="wbt:execute">
+									<xsl:with-param name="project" select="$project"/>
+									<xsl:with-param name="query" select="$query"/>
+									<xsl:with-param name="action" select="@action"/>
+								</xsl:apply-templates>
+							</xsl:when>
+							<xsl:otherwise>
+								<xsl:apply-templates select="$projsql/parameters" mode="wbt:default-table-search">
+									<xsl:with-param name="context" select="."/>
+									<xsl:with-param name="project" select="$project"/>
+									<xsl:with-param name="query" select="$query"/>
+								</xsl:apply-templates>
+							</xsl:otherwise>
+						</xsl:choose>
+					</div>
+					<div class="col-md-8">
+						<div class="panel">
+							<xsl:if test="string($projsql/comment())">
+								<pre>
 								<xsl:value-of select="$projsql/comment()"/>					
 							</pre>
-						</xsl:if>
-					</div>
-					<div class="panel">
-						<pre>
+							</xsl:if>
+						</div>
+						<div class="panel">
+							<pre>
 							<xsl:apply-templates select="$projsql" mode="simple-wbt-defaultquery"/>
 						</pre>
-						<hr/>
-						<pre>
+							<hr/>
+							<pre>
 							<xsl:apply-templates select="$projsql" mode="simple-wbt-query"/>
 						</pre>
+						</div>
 					</div>
 				</div>
-			</div>
-
+			</xsl:if>
 			<xsl:variable name="actions" select="$projSql/*[local-name() = $project]/query[@name = $query]/actions"/>
 
 			<div class="clear tab-control">
@@ -179,6 +191,7 @@
 		<xsl:param name="context" select="/.."/>
 		<xsl:param name="project" />
 		<xsl:param name="query" />
+		<xsl:comment>Template Match 'default-table-search': parameters - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<form method="GET" action="">
 			<xsl:attribute name="name">
 				<xsl:value-of select="ancestor::query/@name"/>
@@ -188,7 +201,7 @@
 				<xsl:with-param name="context" select="$context"/>
 			</xsl:apply-templates>
 			<div class="form-group col-md-offset-9 col-md-3">
-				<input type="submit" class="btn btn-primary form-control pull-right" name="submit" value="submit"/>
+				<input type="submit" class="btn btn-primary form-control float-end" name="submit" value="submit"/>
 			</div>
 			<input type="hidden" name="wbt_project" value="{$project}"/>
 			<input type="hidden" name="wbt_query" value="{$query}"/>
@@ -197,6 +210,7 @@
 	
 	<xsl:template match="parameter" mode="wbt:default-table-search">
 		<xsl:param name="context" select="/.."/>
+		<xsl:comment>Template Match 'default-table-search': parameter - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:variable name="parm-name" select="@name"/>
 		<xsl:variable name="context-parm" select="$context/parameters/parameter[@name=$parm-name]"/>
 		<div class="form-group">
@@ -242,19 +256,21 @@
 	</xsl:template>
 	
 	<!-- Table Matches -->
-    <xsl:template match="results" mode="wbt:default-table">
+    <xsl:template match="results | result" mode="wbt:default-table">
         <xsl:param name="force-grid-view" select="false()"/>
         <xsl:param name="caption" select="@name"/>
-		
-		<xsl:apply-templates select="." mode="wbt:default-table.table">
+    	<xsl:comment>Template Match 'wbt:default-table': results - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+    	
+    	<xsl:apply-templates select="." mode="wbt:default-table.table">
 			<xsl:with-param name="force-grid-view" select="$force-grid-view"/>
 			<xsl:with-param name="caption" select="$caption"/>
 		</xsl:apply-templates>
     </xsl:template>
 	
-	<xsl:template match="results" mode="wbt:default-table.table">
+	<xsl:template match="results | result" mode="wbt:default-table.table">
 		<xsl:param name="force-grid-view" select="false()"/>
 		<xsl:param name="caption" select="@name"/>
+		<xsl:comment>Template Match 'default-table.table': results - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:if test="$caption">
 	        <h3>
 	            <xsl:value-of select="$caption"/>
@@ -262,24 +278,27 @@
 		</xsl:if>
         <table class="table table-bordered table-hover table-striped" wbt-query="{@name}">
             <xsl:choose>
-                <xsl:when test="count(result/row) &gt; 1 or $force-grid-view">
-                    <tr>
-                    	<xsl:if test="schema/query/actions/action">
+                <xsl:when test="count(descendant-or-self::result/row) &gt; 1 or $force-grid-view">
+                    <tr>                    	
+                    	<xsl:if test="schema/query/actions/action[@type='link']">
+                    		<th>-</th>
+                    	</xsl:if>
+                    	<xsl:if test="schema/query/actions/action[@type[.='update' or .='insert' or .='delete']]">
                     		<th>-</th>
                     	</xsl:if>
                     	<xsl:apply-templates select="schema/query/fields/field" mode="wbt:default-table-multirow-header"/>
                     	<xsl:if test="not(schema/query/fields/field)">
-                    		<xsl:apply-templates select="result/row[1]" mode="wbt:default-table-multirow-header"/>
+                    		<xsl:apply-templates select="descendant-or-self::result/row[1]" mode="wbt:default-table-multirow-header"/>
                     	</xsl:if>
                     </tr>
-                    <xsl:apply-templates select="result/row" mode="wbt:default-table-multirow"/>                    
+                	<xsl:apply-templates select="descendant-or-self::result/row" mode="wbt:default-table-multirow"/>                    
                 </xsl:when>
             	<xsl:otherwise>
-                    <xsl:apply-templates select="result/row" mode="wbt:default-table"/>
+            		<xsl:apply-templates select="descendant-or-self::result/row" mode="wbt:default-table"/>
                 </xsl:otherwise>
             </xsl:choose>
 
-        	<xsl:if test="count(result/row) = 0">
+        	<xsl:if test="count(result/row | row) = 0">
             	<xsl:variable name="offset-count">
             		<xsl:choose>
             			<xsl:when test="schema/query/actions/action">1</xsl:when>
@@ -301,6 +320,8 @@
 	<xsl:template name="wbt:default-table.no-results">
 		<xsl:param name="col-count" select="1"/>
 		<xsl:param name="help-text"/>
+		<xsl:comment>Template Name 'wbt:default-table.no-results' - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+		<xsl:comment>Project: <xsl:value-of select="@project"/>, Query: <xsl:value-of select="@name"/></xsl:comment>
 		<tr>
 			<td colspan="{$col-count}">
 				<div class="jumbotron">
@@ -374,26 +395,33 @@
     	</xsl:if>
     </xsl:template>
 
-    <xsl:template match="row" mode="wbt:default-table-multirow">
-    	<xsl:variable name="action" select="ancestor::results/schema/query/actions/action"/>
-        <tr>
-        	<xsl:apply-templates select="." mode="wbt:default-table-multirow.attributes"/>
-        	<xsl:if test="$action[@type='link']">
-        		<xsl:apply-templates select="." mode="wbt:default-table-multirow.link"/>
-        	</xsl:if>
-        	<xsl:if test="$action[@type='update' or @type='delete' or @type='insert']">
-        		<xsl:apply-templates select="." mode="wbt:default-table-multirow.editable"/>
-        	</xsl:if>        	
-        	<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table-multirow">
-                <xsl:with-param name="current" select="."/>
-            </xsl:apply-templates>
-        	<!-- write out every field on the row when no fields defined in schema -->
-        	<xsl:if test="not(ancestor::results[1]/schema/query/fields/field)">
-        		<xsl:apply-templates select="@*" mode="wbt:default-table-multirow"/>
-        	</xsl:if>
-        </tr>
-    </xsl:template>
-	
+	<xsl:template match="row" mode="wbt:default-table-multirow">
+		<xsl:variable name="action" select="ancestor::results/schema/query/actions/action"/>
+		<tr>
+			<xsl:apply-templates select="." mode="wbt:default-table-multirow.attributes"/>
+			<xsl:if test="$action[@type='link']">
+				<xsl:apply-templates select="." mode="wbt:default-table-multirow.link"/>
+			</xsl:if>
+			<xsl:if test="$action[@type='update' or @type='delete' or @type='insert']">
+				<xsl:apply-templates select="." mode="wbt:default-table-multirow.editable"/>
+			</xsl:if>
+			<xsl:choose>
+				<xsl:when test="ancestor::subquery">
+					<xsl:apply-templates select="@*" mode="wbt:default-table-multirow"/>
+				</xsl:when>
+				<xsl:otherwise>                    
+					<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table-multirow">
+						<xsl:with-param name="current" select="."/>
+					</xsl:apply-templates>
+					<!-- write out every field on the row when no fields defined in schema -->
+					<xsl:if test="not(ancestor::results[1]/schema/query/fields/field)">
+						<xsl:apply-templates select="@*" mode="wbt:default-table-multirow"/>
+					</xsl:if>
+				</xsl:otherwise>
+			</xsl:choose>
+		</tr>
+	</xsl:template>
+
 	<xsl:template match="row" mode="wbt:default-table-multirow.attributes">
 		<xsl:param name="current" select="."/>
 	</xsl:template>
@@ -409,7 +437,13 @@
 		<xsl:variable name="action.link" select="concat('wbt_project=',$result.project, '&amp;wbt_query=', $action/@query)"/>		
 		<xsl:variable name="primary-id" select="@*[local-name() = $action/@primaryKey]"/>				
 		<th>
-			<a href="?{$action.link}&amp;{$action/@queryPrimaryKey}={$primary-id}">
+			<a>
+				<xsl:attribute name="href">
+					<xsl:value-of select="concat('?', $action.link, '&amp;', $action/@queryPrimaryKey, '=', $primary-id)"/>
+					<xsl:value-of select="concat('&amp;', 'LookupIndex=', $action/@LookupIndex)"/>
+					<xsl:if test="$action/@LookupIndex">
+					</xsl:if>
+				</xsl:attribute>
 				<i class="fa fa-link"/>
 			</a>
 		</th>		
@@ -432,7 +466,8 @@
 
     <!-- Query Vars -->
     <xsl:template match="BROWSER" mode="wbt:default-table">
-        <h3>BROWSER VARS</h3>
+    	<xsl:comment>Template Match 'wbt:default-table' BROWSER - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+    	<h3>BROWSER VARS</h3>
         <table class="table table-borders table-hover">
             <!-- detail -->
             <xsl:apply-templates mode="wbt:default-table"/>
@@ -440,7 +475,8 @@
     </xsl:template>
 
     <xsl:template match="FORMVARS | QUERYVARS | COOKIEVARS | SESSIONVARS" mode="wbt:default-table">
-        <tr>
+    	<xsl:comment>Template Match 'wbt:default-table' <xsl:value-of select="name()"/> - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+    	<tr>
             <th colspan="2">
                 <xsl:value-of select="name()"/>
             </th>
@@ -461,7 +497,8 @@
 
     <!-- tags -->
     <xsl:template match="TAGS" mode="wbt:default-table">
-        <h3>TAGS</h3>
+    	<xsl:comment>Template Match 'wbt:default-table' <xsl:value-of select="name()"/> - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+    	<h3>TAGS</h3>
         <table class="table table-borders table-hover">
             <!-- detail -->
             <xsl:apply-templates mode="wbt:default-table"/>
