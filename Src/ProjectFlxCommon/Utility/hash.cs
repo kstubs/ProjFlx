@@ -241,7 +241,6 @@ namespace ProjectFlx.Utility
 
         public static string ComputeCrc32Hash(String Value)
         {
-            string hash = String.Empty;
             byte[] byteValue = Encoding.UTF8.GetBytes(Value);
 
             Crc32 crc = new Crc32();

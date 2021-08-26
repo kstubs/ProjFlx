@@ -26,7 +26,7 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryXml
         {
-            public static Utility.Timing Timing { get; set; }
+            public static Utility.TimingCollection Timing { get; set; }
 
             public static void getProjectGrouped(projectResults ProjectResults, XmlWriter XWriter, params string[] Grouped)
             {
@@ -42,7 +42,7 @@ namespace ProjectFlx.Schema
                 }
                 finally
                 {
-                    Timing.End("getResultGrouped");
+                    Timing.Stop("getResultGrouped");
                 }
             }
 
@@ -59,7 +59,7 @@ namespace ProjectFlx.Schema
                 var groupingValues = new Dictionary<string, string>();
                 foreach(var s in Grouped)
                     groupingValues.Add(s.Trim(), null);
-                int depth = 0;
+                int depth;
 
                 // check for differences - open element if null
                 for (int x = 0; x < groupingValues.Count; x++)
@@ -131,9 +131,6 @@ namespace ProjectFlx.Schema
 
                     if (!Groups.Any(a => a.Name.Equals(name) && a.Value.Equals(val)))
                     {
-                        //string subval = null;
-                        var isEqual = true;
-
                         Schema.Grouped g;
                         Groups.Add(g = new Schema.Grouped()
                         {
@@ -183,7 +180,7 @@ namespace ProjectFlx.Schema
                      */
                     var list = new List<Grouped>();
 
-                    var groupingValues = new Dictionary<string, string>();
+                    //var groupingValues = new Dictionary<string, string>();
 
                     getSubGroups(Results, list, null, 0, Grouped);
 
@@ -203,7 +200,7 @@ namespace ProjectFlx.Schema
                     writeResultsGrouped(XWriter, list);
 
                     if (Timing != null)
-                        Timing.End("writeResultsGrouped");
+                        Timing.Stop("writeResultsGrouped");
 
 
                     XWriter.WriteEndElement();
@@ -212,7 +209,7 @@ namespace ProjectFlx.Schema
                 finally
                 {
                     if(Timing != null)
-                        Timing.End("getResultGrouped");
+                        Timing.Stop("getResultGrouped");
                 }
             }
 
@@ -367,7 +364,7 @@ namespace ProjectFlx.Schema
                             case fieldType.tryjson:
                                 try
                                 {
-                                    var jsonObj = Newtonsoft.Json.Linq.JObject.Parse(att.Value);
+                                    Newtonsoft.Json.Linq.JObject.Parse(att.Value);
                                     json.WriteRawValue(att.Value);
                                 }
                                 catch
@@ -377,19 +374,19 @@ namespace ProjectFlx.Schema
                                 break;
                             case fieldType.date:
                                 var dt = new DateTime(1970, 1, 1);
-                                DateTime.TryParse(att.Value, out dt);
-                                if (dt.ToString("d").Equals("1/1/1970"))
-                                    json.WriteValue(att.Value);
-                                else
-                                    json.WriteValue(dt.ToString("d"));
+                                if (DateTime.TryParse(att.Value, out dt) &&
+                                    dt.ToString("d").Equals("1/1/1970"))
+                                        json.WriteValue(att.Value);
+                                    else
+                                        json.WriteValue(dt.ToString("d"));
                                 break;
                             case fieldType.datetime:
                                 var dttime = new DateTime(1970, 1, 1);
-                                DateTime.TryParse(att.Value, out dttime);
-                                if (dttime.ToString("d").Equals("1/1/1970"))
-                                    json.WriteValue(att.Value);
-                                else
-                                    json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
+                                if(DateTime.TryParse(att.Value, out dttime) &&
+                                    dttime.ToString("d").Equals("1/1/1970"))
+                                        json.WriteValue(att.Value);
+                                    else
+                                        json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
                                 break;
                             default:
                                 json.WriteValue(att.Value.Trim());

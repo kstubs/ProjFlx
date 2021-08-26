@@ -27,7 +27,7 @@ namespace ProjectFlx.DB
         #endregion
         #region public members
 
-        public ProjectFlx.Utility.Timing Timing { get; set; }
+        public ProjectFlx.Utility.TimingCollection Timing { get; set; }
 
         #region Cache Object
         private Cache _cache { get; set; }
@@ -361,6 +361,18 @@ namespace ProjectFlx.DB
         {
             _parameterName = DBParamName;
             _aliasName = AliasName;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is DBParameterField))
+                return false;
+
+            var thisobj = (DBParameterField)obj;
+
+            return
+                thisobj.AliasName.Equals(this.AliasName) &&
+                thisobj.ParameterName.Equals(this.ParameterName);
         }
     }
     

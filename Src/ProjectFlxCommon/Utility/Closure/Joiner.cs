@@ -11,7 +11,6 @@ namespace ProjectFlx.Utility.Closure
 {
     public class Joiner
     {
-        XmlDocument _compilerXml = null;
         public struct JoinerFile : IComparable<JoinerFile>
         {
             string _File;

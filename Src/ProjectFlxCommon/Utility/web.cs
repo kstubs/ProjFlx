@@ -234,6 +234,87 @@ namespace ProjectFlx.Utility
             }
         }
 
+        public static string HASH_NAME_SEPARATOR = "____";
+
+
+        /// <summary>
+        /// Set a cookie value, all cookie values are hashed
+        /// </summary>
+        /// <param name="CookieName"></param>
+        /// <param name="CookieValue"></param>
+        /// <param name="ExpireHours"></param>
+        public static void setCookieValue(string CookieName, object CookieValue, int ExpireMinutes, bool Protected, string Domain, byte[] CookieSalt = null)
+        {
+            var response = HttpContext.Current.Response;
+
+            var cookie = new HttpCookie(CookieName, CookieValue.ToString()); // HttpUtility.UrlEncode(CookieValue.ToString()));
+            cookie.Domain = Domain;
+            cookie.Expires = DateTime.Now.AddMinutes(ExpireMinutes);
+            cookie.HttpOnly = true;
+            response.Cookies.Add(cookie);
+
+            // if cookie is meant to be protected then save hash copy of it for verification purposes
+            if (Protected)
+            {
+                var sb = new StringBuilder();
+                var names = new List<string>();
+                var dts = new List<DateTime>();
+                dts.Add(cookie.Expires);
+
+                // create our protected projFlx object
+                var flxCookie = response.Cookies["ProjFLX"];
+                if (flxCookie == null)
+                    flxCookie = new HttpCookie("ProjFLX");
+
+                if (!String.IsNullOrEmpty(flxCookie.Value))
+                {
+                    var raw = Encoding.UTF8.GetString(Convert.FromBase64String(flxCookie.Value));
+                    var vals = Regex.Split(raw, Utility.Web.HASH_NAME_SEPARATOR);
+
+                    foreach(var n in vals[1].Split(','))
+                    {
+                        var c = response.Cookies[n];
+                        sb.AppendFormat("{0}{1}", n, c.Value.ToString());
+                        names.Add(n);
+                        dts.Add(c.Expires);
+                    }
+                }
+
+                sb.AppendFormat("{0}{1}", CookieName, CookieValue.ToString());
+                names.Add(CookieName);
+
+                if (CookieSalt == null)
+                    throw new Exception("CookieSalt byte[] Required for Protected Cookie");
+                
+                var value = SimpleHash.ComputeHash(CookieValue.ToString(), "MD5", CookieSalt);
+                var cookie_h = CookieName + "_h";
+                cookie = new HttpCookie(cookie_h, value); // HttpUtility.UrlEncode(value));
+                cookie.Domain = Domain;
+                cookie.Expires = DateTime.Now.AddMinutes(ExpireMinutes);
+                cookie.HttpOnly = true;
+                response.Cookies.Add(cookie);
+
+                sb.AppendFormat("{0}{1}", cookie_h, value);
+                names.Add(cookie_h);
+
+                var hash = Utility.SimpleHash.ComputeHash(sb.ToString(), "MD5", CookieSalt);
+                var bytes = Encoding.UTF8.GetBytes(hash + Utility.Web.HASH_NAME_SEPARATOR + String.Join(",", names.ToArray()));
+
+                System.Diagnostics.Debug.WriteLine(sb.ToString());
+                System.Diagnostics.Debug.WriteLine(hash);
+
+                // ProjFLX cookie "the glue"
+                flxCookie.Expires = dts.Min();
+                if (flxCookie.Expires < DateTime.Now)
+                    flxCookie.Expires = DateTime.Now.AddMinutes(300);    // some default expires date time greater than now
+
+                flxCookie.Domain = Domain;
+                flxCookie.HttpOnly = true;
+                flxCookie.Value = Convert.ToBase64String(bytes);
+
+                response.Cookies.Add(flxCookie);
+            }
+        }
     }
 
 }

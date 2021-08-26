@@ -53,6 +53,7 @@
     <Compile Include="Class1.cs" />
     <Compile Include="Configuration.cs" />
     <Compile Include="DBInterfaces.cs" />
+    <Compile Include="Exceptions\CookieTamperedException.cs" />
     <Compile Include="Exceptions\InvalidRolesException.cs" />
     <Compile Include="Exceptions\LogonRequiredException.cs" />
     <Compile Include="Exceptions\ProjectException.cs" />
@@ -72,10 +73,10 @@
     <Compile Include="Utility\hash.cs" />
     <Compile Include="Utility\Closure\Joiner.cs" />
     <Compile Include="Utility\Stream.cs" />
+    <Compile Include="Utility\Timing.cs" />
     <Compile Include="Utility\TransformerPayload.cs" />
     <Compile Include="Utility\web.cs" />
     <Compile Include="Utility\Paths.cs" />
-    <Compile Include="Utility\Timing.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

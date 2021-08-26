@@ -486,9 +486,9 @@ namespace ProjectFlx.DB
                                             }
                                             w.WriteAttributeString(m.GetAttribute("name").ToString(), json);
                                         }
-                                        catch (IndexOutOfRangeException handled)
+                                        catch (IndexOutOfRangeException)
                                         {
-                                            throw handled;
+                                            throw;
                                         }
                                         catch (Exception unhandled)
                                         {
@@ -817,28 +817,11 @@ namespace ProjectFlx.DB
         }
         private bool validInputTestNumber(string Value)
         {
-            bool result = false;
-
-            try
-            {
-                int x = Int32.Parse(Value);
-                result = true;  // we only get this far of Parse is successfull
-            }
-            catch { }
-
-            return result;
+            return int.TryParse(Value, out _);
         }
         private bool validInputTestDate(string Value)
         {
-            bool result = false;
-            try
-            {
-                DateTime dt = DateTime.Parse(Value);
-                result = true;  // we only get here if DateTime Parse is successfull
-            }
-            catch { }
-
-            return result;
+            return DateTime.TryParse(Value, out _);
         }
         private bool validInputTestRegX(string Subject, string RegX)
         {
@@ -946,15 +929,19 @@ namespace ProjectFlx.DB
             
             if (CommandAction == "Result")
             {
-                string cachekey = cacheKeyHelper(Query);
-                var cachedBuilder = GetCache(cachekey);
-                if (cachedBuilder != null && _cachingEnabled)
+                if (_cachingEnabled)
                 {
-                    SetupResults(_xmresult, Query);
-                    pushToTree(cachedBuilder);
-                    if (Timing != null)
-                        Timing.End(timingToken);
-                    return;
+                    string cachekey = cacheKeyHelper(Query);
+                    var cachedBuilder = GetCache(cachekey);
+
+                    if (cachedBuilder != null)
+                    {
+                        SetupResults(_xmresult, Query);
+                        pushToTree(cachedBuilder);
+                        if (Timing != null)
+                            Timing.Stop(timingToken);
+                        return;
+                    }
                 }
             }
 
@@ -1040,7 +1027,7 @@ namespace ProjectFlx.DB
                     if (_command.CommandType == CommandType.Text)
                     {
                         string replaceparam = "[" + node.Attributes["name"].Value + "]";
-                        _commandtext.Replace(replaceparam, node.InnerText);
+                        _commandtext = _commandtext.Replace(replaceparam, node.InnerText);
                     }
                     else
                     {
@@ -1057,7 +1044,6 @@ namespace ProjectFlx.DB
                 _command.CommandText = _commandtext;
 
                 // prepare result xml document
-                XmlNode importnode;
                 XmlNode newElm;
                 SetupResults(_xmresult, Query);
 
@@ -1069,10 +1055,12 @@ namespace ProjectFlx.DB
                 {
                     case ("Scalar"):
                         var obj = _command.ExecuteScalar();
-                        int.TryParse(obj == null ? "0" : obj.ToString(), out scalar);
-                        _scalar = scalar;
-                        if (scalar > 0)
-                            rows = 1;
+                        if(int.TryParse(obj == null ? "0" : obj.ToString(), out scalar))
+                        {
+                            _scalar = scalar;
+                            if (scalar > 0)
+                                rows = 1;
+                        }
                         _rowsaffected = rows;
 
                         // set result in xml 
@@ -1167,7 +1155,7 @@ namespace ProjectFlx.DB
                 _xmresult = new XmlDocument();
                 _xmresult.LoadXml("<results><schema/></results>");
 
-                var schemanode = _xmresult.SelectSingleNode("results/schema");
+                //var schemanode = _xmresult.SelectSingleNode("results/schema");
                 var importnode = _xmresult.ImportNode(Query, true);
 
                 _xmresult.DocumentElement.SetAttribute("name", Query.Attributes["name"].Value);
@@ -1393,7 +1381,7 @@ namespace ProjectFlx.DB
             if(_command != null)
                 _command.Dispose();
         }
-        public Utility.Timing Timing { get; set; }
+        public Utility.TimingCollection Timing { get; set; }
     }
 
     // TODO: fill paging web from web post or other

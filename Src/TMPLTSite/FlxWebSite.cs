@@ -47,7 +47,7 @@ namespace ProjectFlx
         private Dictionary<CacheKeyEnum, String> _cacheKeys = new Dictionary<CacheKeyEnum, string>();
 
         protected Utility.TimingDebugger TimingDebugger { get; set; }
-        protected Utility.Timing Timing { get; set; }
+        protected Utility.TimingCollection Timing { get; set; }
 
         public FlxMain()
         {
@@ -170,7 +170,6 @@ namespace ProjectFlx
                         }
                         catch { }
                     }
-                    Timing = Timing.End("FLX");
                     FlxWebFinal();
                 }
             }
@@ -220,7 +219,7 @@ namespace ProjectFlx
             {
                 Timing.Start("ProjectFlx.FlxMain.TMPLT_INIT");
 
-                _debug = GetConfigValue<bool>("debug", false || _debug);
+                _debug = GetConfigValue<bool>("debug", false) || _debug;
 
                 switch (Request.RequestType)
                 {
@@ -433,7 +432,10 @@ namespace ProjectFlx
                 foreach (XmlNode node in nodes)
                 {
                     var paracount = 1;
-                    int.TryParse((node.Attributes["p"] == null) ? "1" : node.Attributes["p"].Value, out paracount);
+                    if(!int.TryParse((node.Attributes["p"] == null) ? "1" : node.Attributes["p"].Value, out paracount))
+                    {
+                        paracount = 1;
+                    }
 
                     var paralength = (node.Attributes["Size"] == null) ? "Medium" : node.Attributes["Size"].Value;
 
@@ -473,15 +475,15 @@ namespace ProjectFlx
 
                 if (!clsClearProcess)
                 {
-                    try
-                    {
-                        TMPLT.AddXMLJson(ProjectFlx.Utility.TimingDebugger.Serialize(TimingDebugger));
-                    }
-                    catch { }
+                    // secure cookies
+                    secureCookies();
 
-                    Timing.Start("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
+                    Timing.Stop("FLX");
+                    if (_debug)
+                        TMPLT.AddXML(Utility.TimingDebugger.Serialize(TimingDebugger));
+
                     TMPLT.ProcessTemplate();
-                    Timing.End("ProjectFlx.FlxMain.TMPLT_TERMINATE.ProcessTemplate");
+
                     Response.ContentType = "text/html";
                     Response.Write(TMPLT.Result);
                     Response.Flush();
@@ -490,11 +492,135 @@ namespace ProjectFlx
 			catch(Exception unhandled)
 			{
 				_exceptionInTerminate = true;
-				throw unhandled;
-			}
+                HandleUnHandledErrors(unhandled);
+            }
             finally
             {
                 Timing.Stop("ProjectFlx.FlxMain.TMPLT_TERMINATE");
+            }
+        }
+
+        byte[] saltbyte = Encoding.UTF8.GetBytes("browncow");
+
+        protected void SetSalty(String Salty)
+        {
+            saltbyte = Encoding.UTF8.GetBytes(Salty);
+        }
+        private void secureCookies()
+        {
+
+            var cookienodes = TMPLT.DOCxml.SelectNodes("/flx/proj/browser/cookievars/element[@protected='true']");
+            var sb = new StringBuilder();
+            var names = new List<string>();
+            var expiredates = new List<DateTime>();
+
+            if (cookienodes != null && cookienodes.Count > 0)
+            {
+                foreach (XmlNode node in cookienodes)
+                {
+                    var name = node.Attributes["name"].Value;
+                    if (name.Equals("ProjFLX"))
+                        continue;
+                    names.Add(name);
+                    sb.AppendFormat("{0}{1}", name, node.InnerText);
+
+                    var cook = Response.Cookies[name];
+                    if (cook != null)
+                        expiredates.Add(cook.Expires);
+                }
+
+                var dtexpires = DateTime.Now.AddMinutes(30);
+                if (expiredates.Count > 0)
+                {
+                    dtexpires = expiredates.Min();
+                }
+
+                var hash = Utility.SimpleHash.ComputeHash(sb.ToString(), "MD5", saltbyte);
+                
+                var cookie = new HttpCookie("ProjFLX");
+                cookie.Domain = TMPLT.Domain;
+                var bytes = Encoding.UTF8.GetBytes(hash + Utility.Web.HASH_NAME_SEPARATOR + String.Join(",", names.ToArray()));
+                cookie.HttpOnly = true;
+                cookie.Value = Convert.ToBase64String(bytes);
+                cookie.Expires = dtexpires;
+                Response.Cookies.Add(cookie);
+
+                // coordinate expire dates for for protected cookies
+                foreach (XmlNode node in cookienodes)
+                {
+                    var name = node.Attributes["name"].Value;
+                    var cook = Response.Cookies[name];
+                    if (cook != null)
+                        cook.Expires = dtexpires;
+                }
+
+            }
+            }
+
+        private void AssertValidCookies()
+        {
+            if (!App.Config.GetValue<bool>("Secure-Cookies", false))
+                return;
+
+            try
+            {
+                var cookxpath = String.Format("/flx/proj/browser/cookievars/element", TMPLT.Domain);
+                var cookienodes = TMPLT.DOCxml.SelectNodes(cookxpath);
+                var sb = new StringBuilder();
+
+                string[] h = new string[2];
+                if (cookienodes != null && cookienodes.Count > 0)
+                {
+                    // we need a ProjFLX cookie
+                    var projflxcookie = TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/cookievars/element[@name='ProjFLX']");
+                    if (projflxcookie == null)
+                        return;
+
+                    // decipher projflx cookie
+                    h[0] = projflxcookie.InnerText;
+                    var raw = Encoding.UTF8.GetString(Convert.FromBase64String(h[0]));
+                    var vals = Regex.Split(raw, Utility.Web.HASH_NAME_SEPARATOR);
+                    if (vals.Length != 2)
+                        throw new CookieTamperedException("Cookies Tampered - ProjFLX Cookie Tampered");
+
+                    var protectednames = vals[1].Split(',');
+
+                    foreach (var name in protectednames)
+                    {
+                        var xpath = String.Format("/flx/proj/browser/cookievars/element[@name='{0}']", name);
+                        var node = TMPLT.DOCxml.SelectSingleNode(xpath);
+
+                        if (node == null)
+                            throw new Exception("Cookies Tampered - Cookie Deleted");
+
+                        sb.AppendFormat("{0}{1}", name, node.InnerText);
+                    }
+
+
+                    var hash = Utility.SimpleHash.ComputeHash(sb.ToString(), "MD5", saltbyte);
+
+                    System.Diagnostics.Debug.WriteLine(sb.ToString());
+                    System.Diagnostics.Debug.WriteLine(hash);
+                    
+                    var bytes = Encoding.UTF8.GetBytes(hash + Utility.Web.HASH_NAME_SEPARATOR + String.Join(",", protectednames.ToArray()));
+                    h[1] = Convert.ToBase64String(bytes);
+
+                    if (h[0].Equals(h[1]))
+                        return;
+
+                    // if we made it this far there is a problem
+                    throw new CookieTamperedException("Cookies Tampered - Cookie Values Don't Match");
+                }
+            } 
+            catch(ProjectException handled)
+            {
+                TMPLT.ClearCookieVars();
+                throw handled;
+            }
+            catch (Exception)
+            {
+                TMPLT.ClearCookieVars();
+                throw new CookieTamperedException("Cookies Tampered");
             }
         }
 
@@ -689,6 +815,9 @@ namespace ProjectFlx
                         TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
                 }
 
+                // Do this after we've established context
+                AssertValidCookies();
+
                 // pickup script from local content
                 foreach (string s in _resources.collectResources("script", ".js"))
                         TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
@@ -747,6 +876,7 @@ namespace ProjectFlx
 
                 }
 
+                // TODO: examine use of Page Roles
 				// get page roles (if exist)
 				getPageRoles();
 				AssertRoles();		// throws an exception - should be handled
@@ -944,7 +1074,7 @@ namespace ProjectFlx
 
             // embeded queries (action result only)
             var queries = current.SelectNodes("descendant-or-self::wbt:query", NSMGR);
-            TMPLT.AddCookie("wbt_edits_token", Guid.NewGuid().ToString(), DateTime.Now.AddMinutes(3), true);
+            TMPLT.AddCookie("wbt_edits_token", Guid.NewGuid().ToString(), DateTime.Now.AddMinutes(3));
 
             foreach (XmlNode q in queries)
             {
@@ -1007,7 +1137,7 @@ namespace ProjectFlx
         private void AssertProtectedContent(XmlNode current)
         {
             // check if logged on user required
-            var contentnode = current.SelectSingleNode("content");
+            var contentnode = current.SelectSingleNode("page | content");
 
             if (contentnode != null)
             {
@@ -1433,8 +1563,6 @@ namespace ProjectFlx
 
                 try
                 {
-                    Timing = Timing.New("ProjectFlx.FlxMain.PAGE");
-
                     var current = TMPLT.DOCxml.SelectSingleNode("/flx/client");
                     wbtQuery(current);
 
@@ -1453,7 +1581,7 @@ namespace ProjectFlx
                 }
                 finally
                 {
-                    Timing = Timing.End("ProjectFlx.FlxMain.PAGE");
+                    Timing.Stop("ProjectFlx.FlxMain.PAGE");
                 }
             }
             finally
@@ -1534,7 +1662,7 @@ namespace ProjectFlx
                 var gc = GetCache<closure.ClosureCompiler>(CacheKeyEnum.ScriptCacheKey);
                 TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/page/SCRIPT").RemoveAll();
                 TMPLT.AddXML(gc.Xml);
-                Timing.End("setupScript");
+                Timing.Stop("setupScript");
                 return;
             }
 
@@ -1606,7 +1734,7 @@ namespace ProjectFlx
             }
             finally
             {
-                Timing.End("setupScript");
+                Timing.Stop("setupScript");
             }
 
         }
@@ -1784,6 +1912,7 @@ namespace ProjectFlx
             {
                 Response.Write("<div style='margin-top:10px; padding-top:5px; font-family:arial;'>");
                 Response.Write(e.StackTrace.ToString());
+                Response.Write("<p style='font-style:italic; color:#888;'>To customize this message, override _HandleUnHandledErrors</p>");
                 Response.Write(@"</div>");
             }
 
@@ -1966,7 +2095,7 @@ namespace ProjectFlx
         private double _cacheJscriptMinutes;
         private double _cacheContentMinutes;
         private bool _SiteMap;
-        private bool _validUserAgent;
+
         protected FileResources ProjectFlxResources
         {
             get
@@ -1981,7 +2110,8 @@ namespace ProjectFlx
 
         public XmlNamespaceManager NSMGR { get; private set; }
         public string ResourceContentPath { get; private set; }
-		protected List<int> PageRoles { get => _pageRoles; }
+		// TODO: examine user and page roles usage
+        protected List<int> PageRoles { get => _pageRoles; }
 		protected List<int> UserRoles
 		{
 			get => _userRoles; set
@@ -2000,14 +2130,15 @@ namespace ProjectFlx
 
         private List<int> _pageRoles = new List<int>();
 		private List<int> _userRoles = new List<int>();
+        private bool _validUserAgent;
 
-		/// <summary>
-		/// Check that user is in stated roles
-		/// This is an assertion method and will throw custom message
-		/// </summary>
-		/// <param name="Role"></param>
-		/// <exception cref="Exceptions.InvalidRolesException"></exception>
-		protected virtual void AssertRoles()
+        /// <summary>
+        /// Check that user is in stated roles
+        /// This is an assertion method and will throw custom message
+        /// </summary>
+        /// <param name="Role"></param>
+        /// <exception cref="Exceptions.InvalidRolesException"></exception>
+        protected virtual void AssertRoles()
 		{
 			// no foul - no roles to assert
 			if (PageRoles.Count == 0)

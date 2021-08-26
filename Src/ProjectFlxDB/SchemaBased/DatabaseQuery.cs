@@ -129,27 +129,30 @@ namespace ProjectFlx.DB.SchemaBased
 
                 // cache results
                 cachekey = cacheKeyHelper(query);
-                var cacheresult = GetCache<result>(cachekey);
-                if (cacheresult != null && CachingEnabled)
+                if (CachingEnabled)
                 {
-                    rslts.result = cacheresult;
-
-                    // subquery caching
-                    int subindex = 0;
-                    do
+                    var cacheresult = GetCache<result>(cachekey);
+                    if (cacheresult != null)
                     {
-                        var cachesubkey = String.Format("{0}_sub{1}", cachekey, subindex++);
-                        var subcacheresult = GetCache<subresult>(cachesubkey);
-                        if (subcacheresult == null)
-                            break;
-                        rslts.subresult.row = subcacheresult.row;
+                        rslts.result = cacheresult;
 
-                    } while (true);
+                        // subquery caching
+                        int subindex = 0;
+                        do
+                        {
+                            var cachesubkey = String.Format("{0}_sub{1}", cachekey, subindex++);
+                            var subcacheresult = GetCache<subresult>(cachesubkey);
+                            if (subcacheresult == null)
+                                break;
+                            rslts.subresult.row = subcacheresult.row;
+
+                        } while (true);
 
 
-                    if (Timing != null)
-                        Timing.End(timingToken);
-                    return;
+                        if (Timing != null)
+                            Timing.Stop(timingToken);
+                        return;
+                    }
                 }
 
                 InitializeCommand();
@@ -210,10 +213,9 @@ namespace ProjectFlx.DB.SchemaBased
                                 dtValue = value;
 
                             var dt = DateTime.Parse("1970-1-1 01:01:01");
-                            DateTime.TryParse(dtValue, out dt);
-
-                            if (dt.ToString("d").Equals("1/1/1970") && dt.ToString("t").Equals("1:1 AM"))
-                                throw new Exception("Could not parse date: " + value);
+                            if(DateTime.TryParse(dtValue, out dt))
+                                if (dt.ToString("d").Equals("1/1/1970") && dt.ToString("t").Equals("1:1 AM"))
+                                    throw new Exception("Could not parse date: " + value);
 
                             inoutparm = _command.Parameters.AddWithValue(parm.name, dt);
                         }
@@ -251,7 +253,8 @@ namespace ProjectFlx.DB.SchemaBased
                         {
                             try
                             {
-                                var jsonObj = Newtonsoft.Json.Linq.JObject.Parse(Schema.Helper.FlattenList(parm.Text));
+                                Newtonsoft.Json.Linq.JObject.Parse(Schema.Helper.FlattenList(parm.Text));
+                                
                             }
                             catch (Exception handled)
                             {
@@ -261,12 +264,13 @@ namespace ProjectFlx.DB.SchemaBased
                     }
                 }
 
-                int result = 0;
+                //int result = 0;
 
                 switch (query.command.action)
                 {
                     case ProjectFlx.Schema.actionType.NonQuery:
-                        result = _command.ExecuteNonQuery();
+                        //result = _command.ExecuteNonQuery();
+                        _command.ExecuteNonQuery();         // TODO: return result
                         if (IgnoreResults == true) return;
                         // populate output parameter values
                         foreach (SqlParameter parm in _command.Parameters)
@@ -325,9 +329,12 @@ namespace ProjectFlx.DB.SchemaBased
                     case ProjectFlx.Schema.actionType.Scalar:
                         Object objresult = _command.ExecuteScalar();
 						int scalar = 0;
-						int.TryParse(objresult == null ? "0" : objresult.ToString(), out scalar);
-						_scalar = scalar;
+
+						if(int.TryParse(objresult == null ? "0" : objresult.ToString(), out scalar))
+						    _scalar = scalar;
+
                         if (IgnoreResults == true) return;
+
                         var r = new ProjectFlx.Schema.result();
                         var i = new ProjectFlx.Schema.row();
                         XmlDocument xm = new XmlDocument();
@@ -648,30 +655,24 @@ namespace ProjectFlx.DB.SchemaBased
 
         public bool ResultGreaterThan(Object Value)
         {
-            try
-            {
-                float[] vals = new float[2] { 0, 0 };
+            float[] vals = new float[2] { 0, 0 };
 
-                float.TryParse(ResultValue(), out vals[0]);
-                float.TryParse(Value.ToString(), out vals[1]);
-
+            if (float.TryParse(ResultValue(), out vals[0]) &&
+                float.TryParse(Value.ToString(), out vals[1]))
                 return vals[0] > vals[1];
-            }
-            catch { return false; }
+
+            return false;
         }
 
         public bool ResultLessThan(Object Value)
         {
-            try
-            {
-                float[] vals = new float[2] { 0, 0 };
+            float[] vals = new float[2] { 0, 0 };
 
-                float.TryParse(ResultValue(), out vals[0]);
-                float.TryParse(Value.ToString(), out vals[1]);
-
+            if (float.TryParse(ResultValue(), out vals[0]) &&
+                float.TryParse(Value.ToString(), out vals[1]))
                 return vals[0] < vals[1];
-            }
-            catch { return false; }
+
+            return false;
         }
 
         private string cacheKeyHelper(SchemaQueryType query)
@@ -784,7 +785,7 @@ namespace ProjectFlx.DB.SchemaBased
 
         #endregion
 
-        public Utility.Timing Timing { get; set; }
+        public Utility.TimingCollection Timing { get; set; }
 		public int Scalar { get => _scalar; }
 	}
 
