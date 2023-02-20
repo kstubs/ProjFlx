@@ -62,6 +62,12 @@ namespace ProjectFlx.Schema
             parm.Text = new List<string>();
             parm.Text.Add(Value);
         }
+
+        public parameters Clone()
+        {
+            var text = this.Serialize();
+            return Deserialize(text);
+        }
     }
 
     public partial class SchemaQueryType
@@ -179,6 +185,25 @@ namespace ProjectFlx.Schema
         }
     }
 
+    public partial class SchemaType
+    {
+        public static SchemaType GetSchemaType(string ProjSqlPath, string Name)
+        {
+            var xm = new XmlDocument();
+            xm.Load(ProjSqlPath);
+            var xpath = string.Format("/*/*[local-name()='{0}']", Name);
+            var node = xm.SelectSingleNode(xpath);
+
+            var schemanode = xm.CreateElement("schema");
+            foreach (XmlNode node2 in node.SelectNodes("query"))
+            {
+                schemanode.AppendChild(node2);
+            }
+
+            return SchemaType.Deserialize(schemanode.OuterXml);
+        }
+    }
+
     public partial class result
     {
         /// <summary>
@@ -225,7 +250,18 @@ namespace ProjectFlx.Schema
                     var row = Result.row[0];
                     return row.AnyAttr.LookupValue(Name);
                 }
-                catch { return null; }
+                catch { return string.Empty; }
+            }
+
+            /// <summary>
+            /// Return value for given attribute by name
+            /// </summary>
+            /// <param name="Row"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static string LookupValue(this row Row, string Name)
+            {
+                return Row.AnyAttr.LookupValue(Name);
             }
             /// <summary>
             /// Return value for give attribute by name
@@ -238,9 +274,14 @@ namespace ProjectFlx.Schema
                 try
                 {
                     var x = Attributes.Find(a => a.Name.Equals(Name));
-                    return x.Value.ToString();
+                    return x == null ? string.Empty : x.Value.ToString();
                 }
-                catch { return null; }
+                catch { return string.Empty; }
+            }
+
+            public static XmlAttribute GetAttribute(this row Row, string Name)
+            {
+                return Row.AnyAttr.FirstOrDefault(a => a.Name == Name);
             }
 
             /// <summary>
@@ -263,10 +304,7 @@ namespace ProjectFlx.Schema
             public static string LookupValue(this parameters Parameters, string Name)
             {
                 var parm = Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
-                if (parm != null && parm.Text.Count > 0)
-                    return parm.Text.Flatten();
-                else
-                    return null;
+                return parm.Value();
             }
 
             public static string Value(this parameter Parameter)
@@ -322,6 +360,15 @@ namespace ProjectFlx.Schema
 
                 return result.schema[0].parameters;
             }
+
+            public static List<field> getFields(this projectResults Results, String ResultsName)
+            {
+                var result = Results.results.Find((f) => { return f.name == ResultsName; });
+                if (result == null)
+                    return null;
+
+                return result.schema[0].fields;
+            }
         }
 
         public class commonProj : ProjectFlx.DB.IProject
@@ -359,6 +406,8 @@ namespace ProjectFlx.Schema
 
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = _catalog.LocalName;
             } 
 
@@ -369,6 +418,8 @@ namespace ProjectFlx.Schema
 
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = Catalog;
             }
 
@@ -376,6 +427,8 @@ namespace ProjectFlx.Schema
             {
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = _catalog.LocalName;
             }
 
@@ -515,6 +568,8 @@ namespace ProjectFlx.Schema
                     return (XmlNode)_xm.DocumentElement;
                 }
             }
+
+            public string Tag { get; set; }
 
             public void checkInputParms()
             {

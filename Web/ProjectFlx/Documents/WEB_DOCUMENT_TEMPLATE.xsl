@@ -105,9 +105,10 @@
 			</head>
 			<body>
 				<xsl:call-template name="wbt:body-class"/>
-				<xsl:call-template name="wbt:errors"/>
+				<xsl:call-template name="wbt:errors"/>				
 				<xsl:apply-templates select="." mode="wbt:header"/>
 				<xsl:call-template name="wbt:body"/>
+				<xsl:call-template name="flx-timing"/>
 				<xsl:apply-templates select="." mode="wbt:footer"/>
 				<xsl:call-template name="Google-Analytics"/>
 			</body>
@@ -135,7 +136,7 @@
 									<xsl:choose>
 										<xsl:when test="@Name[. = 'ProjectFLX_ERROR' or . = 'UNHANDLED_ERROR']">
 											<th>
-												<xsl:value-of select="@Name"/>
+												<xsl:value-of select="concat(@Name, ' ', @Exception)"/>
 											</th>
 											<td>
 												<xsl:value-of select="@Class"/>
@@ -1023,11 +1024,22 @@
 				<xsl:comment>wbt:apply-content [protected-content 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
-			<xsl:otherwise>
-				<xsl:comment>wbt:apply-content [otherwise] - <xsl:value-of select="$wbt:name"/></xsl:comment>				
+			<xsl:when test="$context">
+				<xsl:comment>wbt:apply-content [$context] - <xsl:value-of select="$wbt:name"/></xsl:comment>				
 				<xsl:apply-templates select="$context" mode="wbt:apply-content"/>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:comment>wbt:apply-content [otherwise] - <xsl:value-of select="$wbt:name"/></xsl:comment>	
+				<xsl:call-template name="wbt:no-content"/>
 			</xsl:otherwise>
 		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template name="wbt:no-content">
+		<xsl:comment>Template wbt:no-content - <xsl:value-of select="$wbt:name"/></xsl:comment>		
+		<div class="m-5 p-5" id="WBT_NO_CONTENT">
+			<h1 class="m-5 p-5 display-3 text-center text-warning text-muted bold text-uppercase">no content found</h1>
+		</div>
 	</xsl:template>
 	
 	<xsl:template match="page | content" mode="wbt:apply-content">
@@ -1070,76 +1082,54 @@
 		</xsl:variable>
 		<xsl:variable name="nav_link" select="concat($nav_link_part1, $nav_link_part2)"/>
 		<xsl:variable name="title">
-			<xsl:choose>
-				<xsl:when test="@title">
-					<xsl:value-of select="@title"/>
-				</xsl:when>
-				<xsl:when
-					test="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']">
-					<xsl:value-of
-						select="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']/text()"
-					/>
-				</xsl:when>
-				<xsl:otherwise>
-					<xsl:value-of select="@name"/>
-				</xsl:otherwise>
-			</xsl:choose>
+			<xsl:value-of select="@title"/>
 		</xsl:variable>
 		
 		<!-- draw navigation - test for authenticated user, logged on user, and nav choice -->
-		<xsl:if test="not(@nav = 'false') and not(@active='false')">
-			<xsl:if
-				test="
-					((ancestor-or-self::*/@loggedonuser = 'true' or ancestor-or-self::*/@wbt:loggedonuser = 'true') and $LoggedOnUser)
-					or ((ancestor-or-self::*/@loggedonuser = 'false' or ancestor-or-self::*/@wbt:loggedonuser = 'false'))
-					or (not(ancestor-or-self::*/@loggedonuser))">
-				<xsl:if
-					test="
-					((ancestor-or-self::*/@authenticateduser = 'true' or ancestor-or-self::*/@wbt:authenticateduser = 'true') and $AuthenticatedUser)
-					or ((ancestor-or-self::*/@authenticateduser = 'false' or ancestor-or-self::*/@wbt:authenticateduser = 'false'))
-					or (not(ancestor-or-self::*/@authenticateduser))">
-					<li class="nav-item">
-						<!-- if content has no html child elements then no link -->
+		<xsl:variable name="test1">
+			<xsl:call-template name="wbt:content-loggedon"/>
+			<xsl:call-template name="wbt:content-authenticated"/>/
+		</xsl:variable>
+		<xsl:variable name="valid-for-content" select="not(contains($test1, 'false'))"/>
+		<xsl:if test="not(@nav = 'false') and not(@active = 'false') and $valid-for-content">
+			<li class="nav-item">
+				<!-- if content has no html child elements then no link -->
+				<xsl:choose>
+					<xsl:when test="@flx_empty_content='true'">
+						<span class="nav-link" title="No Content"><xsl:value-of select="$title"/></span>
+					</xsl:when>
+					<xsl:otherwise>
 						<xsl:choose>
-							<xsl:when test="not(*)">
+							<xsl:when
+								test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
 								<xsl:attribute name="class">
-									<xsl:value-of select="concat('content-group content-group-', @name)"/>
+									<xsl:text>active temp_5</xsl:text>
+									<xsl:if test="content">
+										<xsl:text> content-parent</xsl:text>
+									</xsl:if>
 								</xsl:attribute>
-								<xsl:value-of select="$title"/>
 							</xsl:when>
 							<xsl:otherwise>
-								<xsl:choose>
-									<xsl:when test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
-										<xsl:attribute name="class">
-											<xsl:text>active</xsl:text>
-											<xsl:if test="*">
-												<xsl:text> content-parent</xsl:text>
-											</xsl:if>
-										</xsl:attribute>
-									</xsl:when>
-									<xsl:otherwise>
-										<xsl:if test="*">
-											<xsl:attribute name="class">
-												<xsl:text>content-parent</xsl:text>
-											</xsl:attribute>
-										</xsl:if>
-									</xsl:otherwise>
-								</xsl:choose>
-								<xsl:call-template name="wbt:build_url">
-									<xsl:with-param name="icon-class" select="@icon-class"/>
-									<xsl:with-param name="class" select="$class"/>
-									<xsl:with-param name="display" select="$title"/>
-									<xsl:with-param name="url" select="$nav_link"/>
-								</xsl:call-template>
+								<xsl:if test="content">
+									<xsl:attribute name="class">
+										<xsl:text>content-parent temp_6</xsl:text>
+									</xsl:attribute>
+								</xsl:if>
 							</xsl:otherwise>
 						</xsl:choose>
-					</li>
-				</xsl:if>
-			</xsl:if>
+						<xsl:call-template name="wbt:build_url">
+							<xsl:with-param name="icon-class" select="@icon-class"/>
+							<xsl:with-param name="class" select="$class"/>
+							<xsl:with-param name="display" select="$title"/>
+							<xsl:with-param name="url" select="$nav_link"/>
+						</xsl:call-template>
+					</xsl:otherwise>
+				</xsl:choose>
+			</li>
 		</xsl:if>
-		<xsl:apply-templates select="*" mode="identity-build-nav"/>
+		<xsl:apply-templates select="content" mode="identity-build-nav"/>
 	</xsl:template>
-	
+		
 	<xsl:template match="*" mode="identity-build-nav.link"/>
 	<xsl:template match="content[@nav='false' or @active='false']" mode="identity-build-nav.link"/>
 	<xsl:template match="page | content" mode="identity-build-nav.link">
@@ -1568,6 +1558,86 @@
 		<xsl:attribute name="data-{$field}">
 			<xsl:value-of select="$current/@*[name()=$field]"/>
 		</xsl:attribute>
+	</xsl:template>
+	
+	<xsl:template name="flx-timing">
+		<xsl:if test="$DEBUG">
+			<xsl:apply-templates select="/flx/app/TimingDebugger[*]" mode="flx-timing"/>
+		</xsl:if>
+	</xsl:template>
+	
+	<xsl:template match="TimingDebugger" mode="flx-timing">
+		<div class="container-fluid">
+			<table class="table table-info border">
+				<caption>Timing Debugger</caption>
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Time</th>
+					</tr>
+				</thead>
+				<tbody>
+					<xsl:apply-templates mode="flx-timing"/>
+				</tbody>
+			</table>
+		</div>
+	</xsl:template>
+	
+	<xsl:template match="Name | ExecutionTime" mode="flx-timing"/>
+	
+	<xsl:template match="TimingGroup" mode="flx-timing">
+		<tr class="table-info">
+			<th><xsl:value-of select="@Name"/></th>
+			<th><xsl:value-of select="@ExecutionTime"/></th>
+		</tr>
+		<xsl:apply-templates  mode="flx-timing"/>
+	</xsl:template>
+	
+	<xsl:template match="Timing" mode="flx-timing">
+		<xsl:if test="not(position()=1)">
+		<tr class="table-light">
+			<xsl:choose>
+				<xsl:when test="ExecutionTime &gt; 2000">
+					<xsl:attribute name="class">table-danger</xsl:attribute>
+				</xsl:when>
+				<xsl:when test="ExecutionTime &gt; 750">
+					<xsl:attribute name="class">table-warning</xsl:attribute>
+				</xsl:when>
+			</xsl:choose>
+			<td><xsl:value-of select="Name"/></td>
+			<td><xsl:value-of select="ExecutionTime"/></td>
+		</tr>
+		</xsl:if>
+	</xsl:template>
+
+	<xsl:template name="wbt:content-loggedon">
+		<xsl:choose>
+			<xsl:when
+				test="
+					((ancestor-or-self::*/@loggedonuser = 'true' or ancestor-or-self::*/@wbt:loggedonuser = 'true') and $LoggedOnUser)
+					or ((ancestor-or-self::*/@loggedonuser = 'false' or ancestor-or-self::*/@wbt:loggedonuser = 'false'))
+					or (not(ancestor-or-self::*/@loggedonuser))">
+				<xsl:text>true</xsl:text>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:text>false</xsl:text>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template name="wbt:content-authenticated">
+		<xsl:choose>
+			<xsl:when
+				test="
+					((ancestor-or-self::*/@authenticateduser = 'true' or ancestor-or-self::*/@wbt:authenticateduser = 'true') and $AuthenticatedUser)
+					or ((ancestor-or-self::*/@authenticateduser = 'false' or ancestor-or-self::*/@wbt:authenticateduser = 'false'))
+					or (not(ancestor-or-self::*/@authenticateduser))">
+				<xsl:text>true</xsl:text>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:text>false</xsl:text>
+			</xsl:otherwise>
+		</xsl:choose>
 	</xsl:template>
 	
 </xsl:stylesheet>

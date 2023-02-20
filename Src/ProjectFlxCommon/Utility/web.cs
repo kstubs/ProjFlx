@@ -196,6 +196,19 @@ namespace ProjectFlx.Utility
                     // Write the file data directly to the Stream, rather than serializing it to a string.
                     formDataStream.Write(fileToUpload.File, 0, fileToUpload.File.Length);
                 }
+                else if(param.Value.GetType().IsArray)
+                {
+                    var array = (Array)param.Value; 
+                    foreach(var a in array)
+                    {
+                        string postData = string.Format("--{0}\r\nContent-Disposition: form-data; name=\"{1}[]\"\r\n\r\n{2}",
+                            boundary,
+                            param.Key,
+                            a);
+                        formDataStream.Write(encoding.GetBytes(postData), 0, encoding.GetByteCount(postData));
+                    }
+
+                }
                 else
                 {
                     string postData = string.Format("--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
@@ -262,31 +275,31 @@ namespace ProjectFlx.Utility
                 dts.Add(cookie.Expires);
 
                 // create our protected projFlx object
-                var flxCookie = response.Cookies["ProjFLX"];
-                if (flxCookie == null)
-                    flxCookie = new HttpCookie("ProjFLX");
+                ////var flxCookie = response.Cookies["ProjFLX"];
+                ////if (flxCookie == null)
+                ////    flxCookie = new HttpCookie("ProjFLX");
 
-                if (!String.IsNullOrEmpty(flxCookie.Value))
-                {
-                    var raw = Encoding.UTF8.GetString(Convert.FromBase64String(flxCookie.Value));
-                    var vals = Regex.Split(raw, Utility.Web.HASH_NAME_SEPARATOR);
+                ////if (!String.IsNullOrEmpty(flxCookie.Value))
+                ////{
+                ////    var raw = Encoding.UTF8.GetString(Convert.FromBase64String(flxCookie.Value));
+                ////    var vals = Regex.Split(raw, Utility.Web.HASH_NAME_SEPARATOR);
 
-                    foreach(var n in vals[1].Split(','))
-                    {
-                        var c = response.Cookies[n];
-                        sb.AppendFormat("{0}{1}", n, c.Value.ToString());
-                        names.Add(n);
-                        dts.Add(c.Expires);
-                    }
-                }
+                ////    foreach(var n in vals[1].Split(','))
+                ////    {
+                ////        var c = response.Cookies[n];
+                ////        sb.AppendFormat("{0}{1}", n, c.Value.ToString());
+                ////        names.Add(n);
+                ////        dts.Add(c.Expires);
+                ////    }
+                ////}
 
                 sb.AppendFormat("{0}{1}", CookieName, CookieValue.ToString());
                 names.Add(CookieName);
 
                 if (CookieSalt == null)
                     throw new Exception("CookieSalt byte[] Required for Protected Cookie");
-                
-                var value = SimpleHash.ComputeHash(CookieValue.ToString(), "MD5", CookieSalt);
+
+                var value = HttpUtility.UrlEncode(SimpleHash.ComputeHash(CookieValue.ToString(), "MD5", CookieSalt));
                 var cookie_h = CookieName + "_h";
                 cookie = new HttpCookie(cookie_h, value); // HttpUtility.UrlEncode(value));
                 cookie.Domain = Domain;
@@ -303,16 +316,16 @@ namespace ProjectFlx.Utility
                 System.Diagnostics.Debug.WriteLine(sb.ToString());
                 System.Diagnostics.Debug.WriteLine(hash);
 
-                // ProjFLX cookie "the glue"
-                flxCookie.Expires = dts.Min();
-                if (flxCookie.Expires < DateTime.Now)
-                    flxCookie.Expires = DateTime.Now.AddMinutes(300);    // some default expires date time greater than now
+                ////// ProjFLX cookie "the glue"
+                ////flxCookie.Expires = dts.Min();
+                ////if (flxCookie.Expires < DateTime.Now)
+                ////    flxCookie.Expires = DateTime.Now.AddMinutes(300);    // some default expires date time greater than now
 
-                flxCookie.Domain = Domain;
-                flxCookie.HttpOnly = true;
-                flxCookie.Value = Convert.ToBase64String(bytes);
+                ////flxCookie.Domain = Domain;
+                ////flxCookie.HttpOnly = true;
+                ////flxCookie.Value = Convert.ToBase64String(bytes);
 
-                response.Cookies.Add(flxCookie);
+                ////response.Cookies.Add(flxCookie);
             }
         }
     }

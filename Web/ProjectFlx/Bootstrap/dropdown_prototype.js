@@ -24,8 +24,10 @@ window.BootStrap = window.BootStrap || { };
  BootStrap.Dropdown = Class.create({
   VERSION: '3.4.1',
   initialize : function (element) {
-    this.$element = $(element)
-    this.$element.store('bootstrap:button',this)
+    this.$element = $(element);
+    this.$element.store('bootstrap:button',this);
+
+    this.menu = this.$element.next('.dropdown-menu');
 
     document.observe('click',this.clearMenus.bind(this));
     this.$element.on('click',this.toggle.bind(this));
@@ -50,6 +52,8 @@ window.BootStrap = window.BootStrap || { };
     clearMenus : function() {
       // TODO: if mouse right click return
       $$('.dropdown-backdrop').invoke('remove');
+      $$('.dropdown-menu').invoke('removeClassName', 'show');
+
       var parent = this.getParent();
       parent.removeClassName('open');
 
@@ -76,6 +80,7 @@ window.BootStrap = window.BootStrap || { };
         element.insert({'before':backdrop});
       }
 
+      this.menu.addClassName('show');
       parent.addClassName('open');
       element.fire('focus');
       element.writeAttribute('aria-expanded', 'true');

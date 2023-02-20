@@ -11,6 +11,7 @@ using ProjectFlx.DB;
 using System.Text.RegularExpressions;
 using System.Web.Caching;
 using ProjectFlx.Schema;
+using System.Collections.Specialized;
 
 namespace ProjectFlx.DB.SchemaBased
 {
@@ -77,11 +78,13 @@ namespace ProjectFlx.DB.SchemaBased
 
         public void Query(ProjectFlx.DB.IProject ProjectSchemaQueryObject)
         {
+            ProjectSchemaQueryObject.SchemaQuery.Tag = ProjectSchemaQueryObject.Tag;
             _Query(ProjectSchemaQueryObject.SchemaQuery, false);
         }
 
         public void Query(ProjectFlx.DB.IProject ProjectSchemaQueryObject, bool IgnoreResults)
         {
+            ProjectSchemaQueryObject.SchemaQuery.Tag = ProjectSchemaQueryObject.Tag;
             _Query(ProjectSchemaQueryObject.SchemaQuery, IgnoreResults);
         }
 
@@ -102,10 +105,11 @@ namespace ProjectFlx.DB.SchemaBased
             }
         }
         void _Query(ProjectFlx.Schema.SchemaQueryType query, bool IgnoreResults)
-        {
+        {            
             string timingToken = String.Format("ProjectFlxDB.DB.SchemaBase.DatabaseQuery {0}.{1}", query.project, query.name);
             string cachekey;
 
+            this.Tag = query.Tag;
             if (Timing != null)
                 Timing.Start(timingToken);
 
@@ -126,6 +130,7 @@ namespace ProjectFlx.DB.SchemaBased
                 rslts.schema.Add(query);
                 rslts.name = query.name;
                 rslts.project = query.project;
+                rslts.Tag = query.Tag;
 
                 // cache results
                 cachekey = cacheKeyHelper(query);
@@ -168,6 +173,7 @@ namespace ProjectFlx.DB.SchemaBased
                         _command.CommandType = System.Data.CommandType.StoredProcedure;
                         break;
                     case ProjectFlx.Schema.commandType.Select:
+                        //_command.CommandText = ProjectFlx.Schema.Helper.safeQuery(ProjectFlx.Schema.Helper.FlattenList(query.command.text.Text));
                         _command.CommandText = ProjectFlx.Schema.Helper.FlattenList(query.command.text.Text);
                         _command.CommandType = System.Data.CommandType.Text;
                         break;
@@ -265,9 +271,10 @@ namespace ProjectFlx.DB.SchemaBased
                 }
 
                 //int result = 0;
-
+                
                 switch (query.command.action)
                 {
+                    
                     case ProjectFlx.Schema.actionType.NonQuery:
                         //result = _command.ExecuteNonQuery();
                         _command.ExecuteNonQuery();         // TODO: return result
@@ -299,9 +306,9 @@ namespace ProjectFlx.DB.SchemaBased
                         using (SqlDataReader reader = _command.ExecuteReader())
                         {
                             if (IgnoreResults == true) return;
-
+                            
                             readerToResult(reader, rslts.result, query.fields, query.paging);
-
+                            
                             if (_cache != null && _cachingEnabled)
                             {
                                 var key = cacheKeyHelper(query);
@@ -313,7 +320,9 @@ namespace ProjectFlx.DB.SchemaBased
                             int subindex = 0;
                             while (reader.NextResult())
                             {
-                                if (query.subquery != null)
+                                
+                                // original subquery code (1st next results query)
+                                if (subindex == 0 && query.subquery != null && query.subquery.fields != null && query.subquery.fields.Count > 0)
                                 {
                                     readerToResult(reader, rslts.subresult, query.subquery.fields, query.paging);
 
@@ -322,6 +331,20 @@ namespace ProjectFlx.DB.SchemaBased
                                         var key = cacheKeyHelper(query, subindex);
                                         SaveCache(key, rslts.subresult);
                                     }
+                                    subindex++;
+                                } else
+                                {
+                                    // add to subresult2
+                                    if (rslts.subresult2 == null)
+                                    {
+                                        rslts.subresult2 = new subresult2();
+                                        rslts.subresult2.result = new List<result>();
+                                    }
+
+                                    result result2;
+                                    rslts.subresult2.result.Add(result2 = new result());
+
+                                    readerToResult(reader, result2, query.subquery.fields, query.paging);
                                 }
                             }
                         }
@@ -367,6 +390,7 @@ namespace ProjectFlx.DB.SchemaBased
                     Timing.Stop(timingToken);
             }
         }
+
 
         public void InitializeCommand()
         {
@@ -460,10 +484,29 @@ namespace ProjectFlx.DB.SchemaBased
                     {
                         for (int fld = 0; fld < reader.FieldCount; fld++)
                         {
-                            string fname = String.Format("field_{0:d3}", fld);
+                            string fname = XmlConvert.EncodeName(reader.GetName(fld)); // String.Format("field_{0:d3}", fld);
                             XmlAttribute att = xm.CreateAttribute(fname);
                             att.Value = reader[fld].ToString();
                             r.AnyAttr.Add(att);
+
+                            // try to expand fields that resemble json
+                            if(att.Value != null)
+                                if(att.Value.Trim().StartsWith("{") && att.Value.Trim().EndsWith("}"))
+                                {
+                                    try
+                                    {
+                                        var json = att.Value.Trim();
+                                        if (String.IsNullOrEmpty(json))
+                                            json = "{}";
+                                        else
+                                            Newtonsoft.Json.Linq.JObject.Parse(json);
+
+                                        string jsonDetails = String.Format("{{\"{0}\":{1}}}", fname, json);
+                                        var innerXml = Newtonsoft.Json.JsonConvert.DeserializeXmlNode(jsonDetails);
+                                        innerNodes.Add((XmlElement)innerXml.DocumentElement);
+                                    } catch { }
+                                }
+
                         }
                     }
 
@@ -587,9 +630,12 @@ namespace ProjectFlx.DB.SchemaBased
             }
 
             // get pages available for reader
+            // COMMENT: SADF1234
+            // TODO: this is getting the wrong total whith subqueries and needs to be fixed.
+            // Disabling paging for now
             int pagescount = (readercount / Paging.limit) + 1;
             Paging.pages.totalpages = pagescount;
-            Paging.pages.totalrecords = readercount;
+            Paging.pages.totalrecords = 0;       //readercount;
 
             for (int x = 1; x <= pagescount; x++)
             {
@@ -767,6 +813,7 @@ namespace ProjectFlx.DB.SchemaBased
         #region IDisposable Members
 
         bool disposed = false;
+        public string Tag { get; set; }
 
         public void Dispose()
         {
@@ -806,12 +853,34 @@ namespace ProjectFlx.DB.SchemaBased
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Arbitrary label for the queryname like queryname#tag
+        /// In SetQuery the name is split and the tag here assigned
+        /// </summary>
+        public string Tag { get; set; }
+
+        private Dictionary<string, parameters> _parms = new Dictionary<string, parameters>();
         public void setQuery(string ProjQueryName)
         {
-            var q = _schema.query.Find(x=>x.name.Equals(ProjQueryName));
+
+            var n = ProjQueryName.Split('#');
+            var queryname = n[0];
+            if (n.Length > 1)
+                this.Tag = n[1];
+
+            var q = _schema.query.Find(x=>x.name.Equals(queryname));
 
             if(q == null)
                 throw new ProjectFlx.Exceptions.ProjectException(new Exceptions.ProjectExceptionArgs("Project Query Not Found " + ProjQueryName, Exceptions.SeverityLevel.Critical));
+
+            if (_parms.ContainsKey(ProjQueryName))
+            {
+                q.parameters = _parms[ProjQueryName];
+            }
+            else if(q.parameters != null)
+            {
+                _parms.Add(ProjQueryName, q.parameters.Clone());
+            }
 
             _schemaQuery = q;
         }
@@ -823,12 +892,17 @@ namespace ProjectFlx.DB.SchemaBased
 
             var p = _schemaQuery.parameters.parameter.Find(x => x.name.Equals(Name));
             if (p != null)
+            {
+                p.Text.Clear();
                 p.Text.Add(Value.ToString());
+            }
 
         }
 
         public void clearParameters()
         {
+            if (_schemaQuery == null) return;
+
             _schemaQuery.parameters = new Schema.parameters();
             _schemaQuery.parameters.parameter = new List<Schema.parameter>();
         }
@@ -852,6 +926,32 @@ namespace ProjectFlx.DB.SchemaBased
 
                 return _schemaQuery;
             }
+        }
+
+        public static void FillParameters(System.Web.HttpContext httpContext, XObject XObject, NameValueCollection NameValue = null)
+        {
+
+            // TODO: consider how to pass null
+            foreach (var parm in XObject.SchemaQuery.parameters.parameter)
+            {
+                string val = null;
+                if (NameValue != null && NameValue[parm.name] != null)
+                    val = NameValue[parm.name];
+                else if (httpContext != null && httpContext.Request.Form[parm.name] != null)
+                    val = httpContext.Request.Form[parm.name];
+
+                if (val != null)
+                {
+                    parm.Text = new List<string>();
+                    parm.Text.Add(val);
+                }
+            }
+
+        }
+
+        public static void FillParameters(XObject XObject, NameValueCollection NameValue)
+        {
+            FillParameters(null, XObject, NameValue);
         }
 
     }

@@ -51,7 +51,12 @@ namespace ProjectFlx
         public int IndexOf { get; set; }
         public bool Exists(string Resource)
         {
-            var name = Utility.Paths.CombinePaths(Root, Resource);
+            string name;
+            if (Path.IsPathRooted(Resource))
+                name = Resource;
+            else
+                name = Utility.Paths.CombinePaths(Root, Resource);
+
             IndexOf = -1;
             IndexOf = _resources.FindIndex(a => { return a.RelativeName.ToLower() == name.ToLower(); });
 

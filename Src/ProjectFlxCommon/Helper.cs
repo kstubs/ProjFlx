@@ -9,6 +9,7 @@ using ProjectFlx.Schema;
 using System.Web;
 using System.Net;
 using ProjectFlx.Schema.Extra;
+using System.Text.RegularExpressions;
 
 namespace ProjectFlx.Schema
 {
@@ -129,9 +130,10 @@ namespace ProjectFlx.Schema
                     var name = Grouped[0];
                     var val = row.AnyAttr.LookupValue(name);
 
-                    if (!Groups.Any(a => a.Name.Equals(name) && a.Value.Equals(val)))
+                    Schema.Grouped g = Groups.FirstOrDefault(a => a.Name.Equals(name) && a.Value.Equals(val));
+
+                    if (g == null)
                     {
-                        Schema.Grouped g;
                         Groups.Add(g = new Schema.Grouped()
                         {
                             Depth = Depth,
@@ -152,6 +154,10 @@ namespace ProjectFlx.Schema
                                 g.Row = new List<row>();
                             g.Row.Add(row);
                         }
+                    } else if(g != null)
+                    {
+                        // existing group found
+                        g.Row.Add(row);
                     }
                 }
 
@@ -254,6 +260,36 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryJsonBuilder
         {
+            public static string getJsonString(result Result, List<field> Fields = null)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+                json.WriteStartObject();
+                json.WritePropertyName("result");
+                getRowJsonStringArray(json, Result, Fields);
+
+                json.WriteEndObject();
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
+            public static string getJsonString(result Result, fields Fields)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+                json.WriteStartObject();
+                json.WritePropertyName("result");
+                getRowJsonStringArray(json, Result, Fields.field);
+
+                json.WriteEndObject();
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
             public static string getJsonString(projectResults ProjectResults)
             {
 
@@ -298,7 +334,6 @@ namespace ProjectFlx.Schema
                     json.WritePropertyName("result");
                     getRowJsonStringArray(json, rslts.result, (rslts.schema.Count > 0) ? rslts.schema[0].fields : ProjectResults.results[0].schema[0].fields);
 
-                    // TODO: add sub results
                     if(rslts.subresult != null)
                     {
                         json.WritePropertyName("subquery");
@@ -306,6 +341,20 @@ namespace ProjectFlx.Schema
                         json.WritePropertyName("result");
                         getRowJsonStringArray(json, rslts.subresult, (rslts.schema.Count > 0) ? rslts.schema[0].subquery.fields : ProjectResults.results[0].schema[0].subquery.fields);
                         json.WriteEndObject();
+                    }
+                    if(rslts.subresult2 != null)
+                    {
+                        json.WritePropertyName("subresults");
+                        json.WriteStartArray();
+
+                        foreach(var result2 in rslts.subresult2.result)
+                        {
+                            json.WriteStartObject();
+                            json.WritePropertyName("result");
+                            getRowJsonStringArray(json, result2,null);
+                            json.WriteEndObject();
+                        }
+                        json.WriteEndArray();
                     }
 
                     json.WriteEndObject();
@@ -346,17 +395,22 @@ namespace ProjectFlx.Schema
                     foreach (XmlAttribute att in schemaRow.AnyAttr)
                     {
                         json.WritePropertyName(att.Name);
-                        var parm = fields.Find(p => p.name.Equals(att.Name));
+                        var fld = default(field);
+                        if(fields != null)
+                            fld = fields.Find(p => p.name.Equals(att.Name));
 
+                        // TODO: reintroduce parmdisplay field names need field name and display name??
+                        //var name = String.IsNullOrEmpty(parm.display) ? att.Name : parm.display;
+                        //json.WritePropertyName(name);
                         // write value as is
-                        if (parm == null)
+                        if (fld == null)
                         {
                             json.WriteValue(att.Value.Trim());
                             continue;
                         }
 
                         // evaluate value for field type
-                        switch (parm.type)
+                        switch (fld.type)
                         {
                             case fieldType.json:
                                 json.WriteRawValue(att.Value);
@@ -530,6 +584,107 @@ namespace ProjectFlx.Schema
                 return Value.Substring(Value.IndexOf("?>") + 2);
 
             return Value;
+        }
+
+        [Obsolete("Do not use, does not work")]
+        public static string safeQuery(String Sql)
+        {
+
+            var sb = new StringBuilder();
+
+            string[] lines = Sql.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            foreach (var line in lines)
+            {
+                sb.AppendLine();
+
+                var splitArray = Regex.Split(line, @"(\bselect\b|\bupdate\b|\binsert\b|\bset\b|\bwhere\b)", RegexOptions.IgnoreCase);
+                if(splitArray.Length == 1)
+                {
+                    sb.Append(line);
+                    continue;
+                }
+
+                foreach (var split in splitArray)
+                {
+                    var splitArray2 = Regex.Split(split, ",");
+                    var itt = 0;
+                    if (splitArray2.Length > 0)
+                    {
+                        foreach (var item in splitArray2)
+                        {
+                            var item2 = item.Trim();
+                            if (string.IsNullOrEmpty(item2))
+                            {
+                                sb.AppendLine();
+                                continue;
+                            }
+
+                            #region REGEX MATCH
+                            /*  
+                                    GROUP[1,2]			[athlete_num]='NGA-116=848'
+                                    GROUP[1,2]			[athlete_num] ='NGA-116=848'
+                                    GROUP[1,2]			athlete_num='NGA-116=848'
+                                    GROUP[1,2]			athlete_num=   'NGA-116=848'
+                                    GROUP[1,2]			[athlete_num]    ='NGA-116=848'
+                                    GROUP[1,2]			athlete_num=     'NGA-116=848'
+                                    GROUP[1,2]			athlete_num     =   'NGA-116=848'
+                                    GROUP[1,2]			athlete_num=99999
+                                    GROUP[1,2]			athlete_num= 89999
+                                    GROUP[1,2]			[athlete_num]= 89999
+                                    GROUP[1,2]			[athlete_num]     =89999
+                                    GROUP[1,2]			[athlete_num]     =    89999
+                                    GROUP[3,4]			'asdfasdf'
+                                    GROUP[3,4]			'asdf_asdf'
+                                    GROUP[3,4]			'asdf987as!@#$2'
+                            */
+                            #endregion
+
+                            var regexObj = new Regex(@"(\[.*\]\s*=\s*|[a-zA-Z_]+\s*=\s*)('(.*)'$)|(^'(.*)'$|^('(.*)'(.*)))");
+                            if (regexObj.IsMatch(item2))
+                            {
+                                var match = regexObj.Match(item2);
+                                if (match.Groups[6].Success)
+                                {
+                                    var innertext = match.Groups[7].Value;
+                                    var sformat = "'{0}'{1}";
+                                    if (match.Groups[8].Success)
+                                        sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"), match.Groups[8].Value);
+                                    else
+                                        sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"), string.Empty);
+                                }
+                                else if (match.Groups[4].Success)
+                                {
+                                    // anthing to escape?
+                                    var innertext = match.Groups[5].Value;
+                                    var sformat = "'{0}'";
+                                    sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"));
+                                }
+                                else
+                                {
+                                    sb.AppendFormat("{0} ", match.Groups[1].Value);
+                                    var innertext = match.Groups[3].Value;
+                                    var sformat = "'{0}'";
+                                    sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"));
+                                }
+
+                            }
+                            else
+                            {
+                                sb.AppendFormat("{0} ", item2);
+                            }
+
+                            if (itt++ < splitArray2.Length - 1)
+                                sb.Append(", ");
+                        }
+                    }
+                    else
+                    {
+                        sb.Append(split);
+                    }
+                }
+            }
+            var temp_string = sb.ToString();
+            return temp_string;
         }
 
 

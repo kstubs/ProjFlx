@@ -566,7 +566,7 @@ namespace ProjectFlx.DB
                         {
                             for (int i = 0; i < dr.FieldCount; i++)
                             {
-                                w.WriteAttributeString(dr.GetName(i), dr[i].ToString().Trim());
+                                w.WriteAttributeString(getFieldName(dr, i), dr[i].ToString().Trim());
                             }
                         }
 
@@ -619,6 +619,7 @@ namespace ProjectFlx.DB
             //add stream xml to return xml
             XmlDocument xmStreamObj = new XmlDocument();
             stream.Seek(0, SeekOrigin.Begin);
+
             xmStreamObj.Load(stream);
 
             pushToTree(xmStreamObj, subqueryIndex);
@@ -629,9 +630,15 @@ namespace ProjectFlx.DB
                 subqueryIndex++;
                 BuildResults(dr, subqueryIndex);
             }
+        }
 
-
-
+        private string getFieldName(SqlDataReader dr, int i)
+        {
+            var name = dr.GetName(i);
+            if (String.IsNullOrEmpty(name))
+                return String.Format("Field_{0}", i);
+            else
+                return name;
         }
 
         private void pushToTree(XmlDocument xmStreamObj, int subqueryIndex)
@@ -893,6 +900,13 @@ namespace ProjectFlx.DB
         #endregion
 
         #region public methods
+        public void Query(XmlNode Query, bool NewResults)
+        {
+            if(NewResults)
+                _xmresult = null;
+
+            this.Query(Query);
+        }
         public void Query(XmlNode Query)
         {
             // command type
@@ -974,7 +988,8 @@ namespace ProjectFlx.DB
                     case (CommandType.Text):
                         xpath = "command/text";
                         elm = (XmlElement)Query.SelectSingleNode(xpath);
-                        _commandtext = Regex.Replace(elm.InnerText, @"^[ \t]+", "", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
+                        //_commandtext = ProjectFlx.Schema.Helper.safeQuery(elm.InnerText);
+                        _commandtext = elm.InnerText;
                         _commandtext = Regex.Replace(_commandtext, @"(\r\n)", " ", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
                         break;
                     default:
@@ -1045,8 +1060,9 @@ namespace ProjectFlx.DB
 
                 // prepare result xml document
                 XmlNode newElm;
+                
                 SetupResults(_xmresult, Query);
-
+                
                 // execute query
                 int scalar = 0;
                 int rows = 0;
@@ -1096,7 +1112,28 @@ namespace ProjectFlx.DB
                     case ("NonQuery"):
 
                     default:
-                        rows = _command.ExecuteNonQuery();
+
+                        // TODO: deadlock retry
+
+                        int trycount = 4;
+                        while (true)
+                            try
+                            {
+                                rows = _command.ExecuteNonQuery();
+                                break;
+                            }
+                            catch (SqlException handled)
+                            {
+                                --trycount;
+
+                                if (trycount <= 0) throw;
+
+                                if (handled.Number != 1205)
+                                    throw;
+
+                                System.Threading.Thread.Sleep(500);
+                            }
+
                         _rowsaffected = rows;
 
                         // set result in xml 
@@ -1232,6 +1269,14 @@ namespace ProjectFlx.DB
             _rowsaffected = 0;
             _results = false;
             _xmresult = null;
+        }
+
+        public void Query(Schema.SchemaQueryType QueryType, bool NewResults)
+        {
+            if (NewResults)
+                _xmresult = null;
+
+            this.Query(QueryType);
         }
 
         public void Query(Schema.SchemaQueryType QueryType)

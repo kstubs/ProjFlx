@@ -36,15 +36,17 @@
 
 		<xsl:if test="not(@hide-empty-results = 'yes' and $numrows=0)">
 			<div class="container">
-				<ol class="breadcrumb">
-					<li>ProjSql</li>
-					<li>
-						<xsl:value-of select="$project"/>
-					</li>
-					<li class="active">
-						<xsl:value-of select="$query"/>
-					</li>
-				</ol>
+				<nav>
+					<ol class="breadcrumb">
+						<li>ProjSql</li>
+						<li class="breadcrumb-item">
+							<xsl:value-of select="$project"/>
+						</li>
+						<li class="breadcrumb-item active">
+							<xsl:value-of select="$query"/>
+						</li>
+					</ol>
+				</nav>
 			</div>
 			
 			<xsl:if test="$projsql">
@@ -213,7 +215,12 @@
 		<xsl:comment>Template Match 'default-table-search': parameter - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:variable name="parm-name" select="@name"/>
 		<xsl:variable name="context-parm" select="$context/parameters/parameter[@name=$parm-name]"/>
-		<div class="form-group">
+		
+		<div>
+			<xsl:attribute name="class">
+				<xsl:text>form-group field-</xsl:text>
+				<xsl:value-of select="@name"/>
+			</xsl:attribute>
 			<label for="{@name}">
 				<xsl:choose>
 					<xsl:when test="string($context-parm/@display)">
@@ -338,6 +345,7 @@
 
 
     <xsl:template match="row" mode="wbt:default-table">
+    	<xsl:comment>Match: row wbt:default-table - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
     	<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table">
             <xsl:with-param name="current" select="."/>
         </xsl:apply-templates>
@@ -396,6 +404,7 @@
     </xsl:template>
 
 	<xsl:template match="row" mode="wbt:default-table-multirow">
+		<xsl:comment>Match: row wbt:default-table-multirow - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:variable name="action" select="ancestor::results/schema/query/actions/action"/>
 		<tr>
 			<xsl:apply-templates select="." mode="wbt:default-table-multirow.attributes"/>

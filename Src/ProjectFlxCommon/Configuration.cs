@@ -131,15 +131,15 @@ public class Config
                 int timeout = 0;
                 if (!int.TryParse(this["app_settings_cache_timeout_seconds"], out timeout))
                     timeout = 30;   // 0 = no timeout, but buffer to 5 seconds to allow multiple internal fetches to grab cache one time
-
-                var totSeconds = DateTime.UtcNow.Subtract(Convert.ToDateTime(_appsettings["app_settings_cached"])).Duration().TotalSeconds;
-                if (totSeconds > timeout)
-                {
-                    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized FALSE after cache expired [{0}]", totSeconds);
-                    result = false;
-                }
-                else
-                    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized TRUE");
+                // TODO: examine use here, this next line is failing, below this line is strictly debug code it seems
+                ////var totSeconds = DateTime.UtcNow.Subtract(Convert.ToDateTime(_appsettings["app_settings_cached"])).Duration().TotalSeconds;
+                ////if (totSeconds > timeout)
+                ////{
+                ////    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized FALSE after cache expired [{0}]", totSeconds);
+                ////    result = false;
+                ////}
+                ////else
+                ////    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized TRUE");
             }
 
             return result;

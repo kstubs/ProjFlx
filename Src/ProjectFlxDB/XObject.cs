@@ -121,6 +121,12 @@ namespace ProjectFlx.DB
         }
 
         /// <summary>
+        /// Arbitrary label for the queryname like queryname#tag
+        /// In SetQuery the name is split and the tag here assigned
+        /// </summary>
+        public string Tag { get; set; }
+
+        /// <summary>
         /// Sets the query in the SqlProjectDocument
         /// </summary>
         /// <param name="QueryName"></param>
@@ -128,13 +134,19 @@ namespace ProjectFlx.DB
         {
             try
             {
+                var q = QueryName.Split('#');
+                var queryname = q[0];
+                if (q.Length > 1)
+                    this.Tag = q[1];
                 _query.Clear();
 
-                string xpath = String.Format("queries/query[@name='{0}']", QueryName);
+                string xpath = String.Format("queries/query[@name='{0}']", queryname);
 
-                _querynode = _xmldocument.SelectSingleNode(xpath);
-                if (_querynode == null)
-                    throw new Exception("Invalid Query: " + QueryName);
+                var tempnode = _xmldocument.SelectSingleNode(xpath);
+                if (tempnode == null)
+                    throw new Exception("Invalid Query: " + queryname);
+
+                _querynode = tempnode.Clone();
 
                 // Build DB Paramter Fields
                 _fields = new DBParameterFields();

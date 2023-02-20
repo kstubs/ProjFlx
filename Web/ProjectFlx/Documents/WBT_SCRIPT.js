@@ -79,7 +79,9 @@ wbt.TargetNewWin = function() {
                 h.set(a[0], isNaN(Number(a[1])) ? a[1] : Number(a[1]));
                 var obj = h.toObject();
 
-                if(obj[a[0]].toUpperCase() === 'MAX') {
+                if(obj[a[0]] && 
+                    Object.isString(obj[a[0]]) && 
+                        obj[a[0]].toUpperCase() === 'MAX') {
                     switch(a[0]) {
                         case 'width':
                             obj[a[0]] == window.innerWidth;
@@ -110,11 +112,11 @@ wbt.TargetNewWin = function() {
         var tmp = Object.toQueryString(features).split('&').join(',');
         if(elm === null) return;
         elm.writeAttribute('target', elm.readAttribute('wbt-targeting'));
-        var win = window.open("about:blank",elm.readAttribute('wbt-targeting'),tmp);
+        var win = window.open(elm.readAttribute('wbt-targeting'), "about:blank",tmp);
         win.document.title = "WBT New Win";
         return true;
     };
-    $$('[wbt-targeting').each(function(elm) {
+    $$('[wbt-targeting]').each(function(elm) {
         switch(elm.tagName)
         {
             case 'FORM':
@@ -272,6 +274,7 @@ wbt.DisplaySize = {
 wbt.calcBrowser = function () {
     wbt.Viewport = document.viewport.getDimensions();
     if (document.loaded) {
+        wbt.Layout = $(document.body).getLayout();
         wbt.Offsets = document.viewport.getScrollOffsets();
         
         if (wbt.Viewport.width < 402) {

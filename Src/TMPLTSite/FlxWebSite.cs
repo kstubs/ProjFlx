@@ -5,20 +5,21 @@ using System.Linq;
 using System.Configuration;
 using System.Collections;
 using System.Collections.Generic;
+
 using System.Web;
 using System.Runtime.Caching;
 using System.Xml;
 using ProjectFlx.Exceptions;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
 using closure = ProjectFlx.Utility.Closure;
+using System.Web.SessionState;
 
 namespace ProjectFlx
 {
     public delegate void FlxTWebSiteExceptions(Exception exc);
 
-    public class FlxMain : IHttpHandler, FlxSiteInterface, FlxPageInterface
+    public class FlxMain : IHttpHandler, IRequiresSessionState, FlxSiteInterface, FlxPageInterface
     {
         // private class variables
         private XmlDocument clsXM = new XmlDocument();
@@ -90,7 +91,7 @@ namespace ProjectFlx
         public bool LoggedOnUser
         {
             get { return _LoggedOnUser; }
-            set 
+            set
             {
                 _LoggedOnUser = value;
                 TMPLT.AddXslParameter("LoggedOnUser", _LoggedOnUser);
@@ -101,7 +102,7 @@ namespace ProjectFlx
         public bool AuthenticatedUser
         {
             get { return _AuthenticatedUser; }
-            set 
+            set
             {
                 _AuthenticatedUser = value;
                 TMPLT.AddXslParameter("AuthenticatedUser", _AuthenticatedUser);
@@ -123,7 +124,7 @@ namespace ProjectFlx
 
         public FlxTemplater TMPLT;
 
-		bool _exceptionInTerminate = false;
+        bool _exceptionInTerminate = false;
 
         public void Main()
         {
@@ -144,13 +145,13 @@ namespace ProjectFlx
                 catch (ProjectException handled)
                 {
                     TMPLT.AddException(handled);
-					if (_exceptionInTerminate)
-					{
-						HandleUnHandledErrors(handled);
-					} else
-					{
-						TMPLT_TERMINATE();
-					}
+                    if (_exceptionInTerminate)
+                    {
+                        HandleUnHandledErrors(handled);
+                    } else
+                    {
+                        TMPLT_TERMINATE();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -199,7 +200,7 @@ namespace ProjectFlx
 
         public virtual void TMPLT_CONFIG()
         {
-            if(!App.Config.Initialized)
+            if (!App.Config.Initialized)
                 App.Config.Setup();
 
             _projFlxUseCache = GetConfigValue<bool>("projectflx-caching", false);
@@ -238,7 +239,7 @@ namespace ProjectFlx
                 TMPLT.AddTag("NET_VERSION", Environment.Version.ToString());
 
                 // deal with banned IPs
-                var bannedips = GetConfigValue("banned_ips","");
+                var bannedips = GetConfigValue("banned_ips", "");
                 if (!string.IsNullOrEmpty(bannedips))
                 {
                     string remoteip = FlxMain.getUserIP();
@@ -257,43 +258,34 @@ namespace ProjectFlx
 
                 _projectFlxPath = Server.MapPath(GetConfigValue("project-flx-path", " /ProjectFLX"));
 
-                // parse the path
-                List<String> aPath = new List<string>();
-                StringBuilder sbpath = null;
-                foreach (char c in Request.Path.ToCharArray())
-                {
-                    switch (c)
-                    {
-                        // path delimiters
-                        case '.':
-                        case '/':
-                            if (sbpath != null && !(sbpath.ToString().Equals("aspx")))
-                                aPath.Add(sbpath.ToString());
-                            sbpath = null;
-                            break;
-                        default:
-                            if (sbpath == null)
-                                sbpath = new StringBuilder();
-                            sbpath.Append(c);
-                            break;
-                    }
-                }
+                _pageHeirarchy = Utility.Paths.SplitExecutionPath(Request.Path);
 
                 StringBuilder linksb = null;
-                foreach (var s in aPath)
+                _pageHeirarchy.ForEach(h =>
                 {
                     if (linksb == null)
-                    {
                         linksb = new StringBuilder("/");
-                    }
                     else
                         linksb.Append(".");     // TODO: delimiter should be dynamic
-                    linksb.Append(s);
-                    _pageHeirarchy.Add(s.ToLower());
-                    TMPLT.AddBrowserPageItem("PAGE_HEIRARCHY", s.ToLower(), null, linksb.ToString(), s);
-                }
+                    linksb.Append(h);
+
+                    TMPLT.AddBrowserPageItem("PAGE_HEIRARCHY", h.ToLower(), null, linksb.ToString(), h);
+                });
 
                 _SiteMap = PageHeirarchyCombined.Equals("sitemap") || PageHeirarchyCombined.Equals("sitemapxml");
+
+                // recover user roles (if exists)
+                if(!String.IsNullOrEmpty(TMPLT.LookupCookieVars("user-roles")))
+                {
+                    var qroles = TMPLT.LookupCookieVars("user-roles");
+                    var jobj = Newtonsoft.Json.Linq.JObject.Parse(qroles);
+                    foreach(var obj in jobj["role"])
+                    {
+                        var x = Convert.ToInt32(obj);
+                        AddUserRole(x);
+                    }
+                }
+
 
                 setupCacheKey(CacheKeyEnum.XmlCacheKey, PageHeirarchyCombined);
                 setupCacheKey(CacheKeyEnum.XslCacheKey, PageHeirarchyCombined);
@@ -328,7 +320,7 @@ namespace ProjectFlx
                 _cacheKeys.Remove(CacheKey);
 
             string format = null;
-            switch(CacheKey)
+            switch (CacheKey)
             {
                 case CacheKeyEnum.XmlCacheKey:
                     format = "cache:{0}__xml";
@@ -422,7 +414,7 @@ namespace ProjectFlx
                     // TODO: support for the following values from System.Runtime.Cache (was available in Web)
                     //TMPLT.AddTag("CacheEffectivePercentagePhysicalMemoryLimit", _cache.EffectivePercentagePhysicalMemoryLimit.ToString());
                     //TMPLT.AddTag("CacheEffectivePrivateBytesLimit", _cache.EffectivePrivateBytesLimit.ToString());
-                    foreach(var cache in _cache)
+                    foreach (var cache in _cache)
                         TMPLT.AddTag("CacheKey", cache.Key.ToString());
                 }
 
@@ -432,7 +424,7 @@ namespace ProjectFlx
                 foreach (XmlNode node in nodes)
                 {
                     var paracount = 1;
-                    if(!int.TryParse((node.Attributes["p"] == null) ? "1" : node.Attributes["p"].Value, out paracount))
+                    if (!int.TryParse((node.Attributes["p"] == null) ? "1" : node.Attributes["p"].Value, out paracount))
                     {
                         paracount = 1;
                     }
@@ -489,9 +481,9 @@ namespace ProjectFlx
                     Response.Flush();
                 }
             }
-			catch(Exception unhandled)
-			{
-				_exceptionInTerminate = true;
+            catch (Exception unhandled)
+            {
+                _exceptionInTerminate = true;
                 HandleUnHandledErrors(unhandled);
             }
             finally
@@ -506,8 +498,14 @@ namespace ProjectFlx
         {
             saltbyte = Encoding.UTF8.GetBytes(Salty);
         }
-        private void secureCookies()
+        protected void SecureCookie()
         {
+            secureCookies(true);
+        }
+        private void secureCookies(bool rebuild = false)
+        {
+            if (!rebuild && Request.Cookies["ProjFLX"] != null)
+                return;
 
             var cookienodes = TMPLT.DOCxml.SelectNodes("/flx/proj/browser/cookievars/element[@protected='true']");
             var sb = new StringBuilder();
@@ -524,38 +522,26 @@ namespace ProjectFlx
                     names.Add(name);
                     sb.AppendFormat("{0}{1}", name, node.InnerText);
 
-                    var cook = Response.Cookies[name];
+                    var cook = Request.Cookies[name];
                     if (cook != null)
                         expiredates.Add(cook.Expires);
                 }
 
-                var dtexpires = DateTime.Now.AddMinutes(30);
-                if (expiredates.Count > 0)
-                {
-                    dtexpires = expiredates.Min();
-                }
-
                 var hash = Utility.SimpleHash.ComputeHash(sb.ToString(), "MD5", saltbyte);
-                
+
                 var cookie = new HttpCookie("ProjFLX");
                 cookie.Domain = TMPLT.Domain;
                 var bytes = Encoding.UTF8.GetBytes(hash + Utility.Web.HASH_NAME_SEPARATOR + String.Join(",", names.ToArray()));
                 cookie.HttpOnly = true;
                 cookie.Value = Convert.ToBase64String(bytes);
-                cookie.Expires = dtexpires;
+                cookie.Expires = TMPLT.MinProtectedCookyExpire;
                 Response.Cookies.Add(cookie);
 
-                // coordinate expire dates for for protected cookies
-                foreach (XmlNode node in cookienodes)
-                {
-                    var name = node.Attributes["name"].Value;
-                    var cook = Response.Cookies[name];
-                    if (cook != null)
-                        cook.Expires = dtexpires;
-                }
 
+                // TODO!  use a session state to secure the cookie
+                // Session["SecureCookie"] = Convert.ToBase64String(bytes);
             }
-            }
+        }
 
         private void AssertValidCookies()
         {
@@ -574,7 +560,14 @@ namespace ProjectFlx
                     // we need a ProjFLX cookie
                     var projflxcookie = TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/cookievars/element[@name='ProjFLX']");
                     if (projflxcookie == null)
-                        return;
+                    {
+                        for(int x = 0; x<Request.Cookies.Keys.Count; x++)
+                        {
+                            var key = Request.Cookies.Keys[x];
+                            if(key.EndsWith("_h"))
+                                throw new CookieTamperedException("Cookies Tampered - ProjFLX Cookie Not Found");
+                        }
+                    }
 
                     // decipher projflx cookie
                     h[0] = projflxcookie.InnerText;
@@ -601,7 +594,7 @@ namespace ProjectFlx
 
                     System.Diagnostics.Debug.WriteLine(sb.ToString());
                     System.Diagnostics.Debug.WriteLine(hash);
-                    
+
                     var bytes = Encoding.UTF8.GetBytes(hash + Utility.Web.HASH_NAME_SEPARATOR + String.Join(",", protectednames.ToArray()));
                     h[1] = Convert.ToBase64String(bytes);
 
@@ -611,8 +604,8 @@ namespace ProjectFlx
                     // if we made it this far there is a problem
                     throw new CookieTamperedException("Cookies Tampered - Cookie Values Don't Match");
                 }
-            } 
-            catch(ProjectException handled)
+            }
+            catch (ProjectException handled)
             {
                 TMPLT.ClearCookieVars();
                 throw handled;
@@ -652,11 +645,12 @@ namespace ProjectFlx
                 Timing.Start("ProjectFlx.FlxMain.SITE_INIT");
 
                 // bots are bad, block bots
+                Timing.Start("ProjectFlx.FlxMain.SITE_INIT.bot-white-list");
                 var whitelist = new List<string>();
                 if (ConfigurationManager.AppSettings["bot-white-list"] != null)
                 {
                     // TODO: update to new caching objects
-                    if(CacheContains("bot-white-list"))
+                    if (CacheContains("bot-white-list"))
                     {
                         whitelist = GetCache<List<string>>("bot-white-list");
                     }
@@ -687,6 +681,7 @@ namespace ProjectFlx
                         TMPLT.AddTag("ISBot", "YES");
                     }
                 }
+                Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.bot-white-list");
 
                 if (_SiteMap)
                     return;
@@ -702,8 +697,20 @@ namespace ProjectFlx
                         throw new Exception("Missing projectFlxTemplates in web config");
 
                     // TODO: cache result of file resources
-                    _resources = FileResources.getFileResources(Server.MapPath(_clientFlxpath), (Request.ServerVariables["HTTPS"] == "on") ? "https://" + Request.ServerVariables["HTTP_HOST"] : "http://" + Request.ServerVariables["HTTP_HOST"], _clientFlxpath);
+                    Timing.Start("ProjectFlx.FlxMain.SITE_INIT.FileResources.getFileResources");
+                    if (CacheContains("file-resources"))
+                    {
+                        _resources = GetCache<FileResources>("file-resources");
+                    }
+                    else
+                    {
+                        _resources = FileResources.getFileResources(Server.MapPath(_clientFlxpath), (Request.ServerVariables["HTTPS"] == "on") ? "https://" + Request.ServerVariables["HTTP_HOST"] : "http://" + Request.ServerVariables["HTTP_HOST"], _clientFlxpath);
+                        SaveCache("file-resources", _resources, 5, true);
+                    }
+                    Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.FileResources.getFileResources");
                 }
+
+                Timing.Start("ProjectFlx.FlxMain.SITE_INIT.xmlDocument-content-setup");
 
                 XmlDocument content = new XmlDocument();
                 content.XmlResolver = new XmlUrlResolver();
@@ -712,7 +719,7 @@ namespace ProjectFlx
                 XmlNode current = null, context = null;
                 ResourceContentPath = getXmlResources(content, ref current);
 
-                TMPLT.AddXML("client-context", getXmlContext(content));
+                TMPLT.AddXML("client-context", getXmlContext(content, current));
 
                 var newAtt = current.OwnerDocument.CreateAttribute("wbt", "loggedonuser", NSMGR.LookupNamespace("wbt"));
                 newAtt.Value = (current.SelectSingleNode("ancestor-or-self::content[@loggedonuser='true' or @loggedinuser='true' or @LoggedOnUser='true' or @LoggedInUser='true'] | ancestor-or-self::LoggedOn | ancestor-or-self::LoggedIn | ancestor-or-self::LoggedInUser") != null).ToString().ToLower();
@@ -725,46 +732,9 @@ namespace ProjectFlx
                 if (content == null)
                     throw new Exception("Project FLX Content not found!  Expecting ProjectFLX XmlDocument resource for the request - and/or - missing ProjectFLX default XmlDocument resource at: /ProjectFlx/ProjectFlx.Xml");
 
+                Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.xmlDocument-content-setup");
+
                 string[] paths = { "", String.IsNullOrEmpty(ResourceContentPath) ? "SKIP__RESOURCE" : ResourceContentPath };
-
-                #region embed required style and scripts
-                foreach (string pickup in paths)
-                {
-                    if (pickup == "SKIP__RESOURCE")
-                        continue;
-
-                    var subs = new String[] { "style", "script" };
-
-                    foreach (var sub in subs)
-                    {
-                        if (_resources.Exists(Utility.Paths.CombinePaths(pickup, sub, "required.txt")))
-                        {
-                            StringReader txtreader;
-                            if (_useCdn)
-                            {
-                                txtreader = new StringReader(Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
-                            }
-                            else
-                            {
-                                // load required scripts
-                                using (StreamReader reader = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
-                                {
-                                    txtreader = new StringReader(reader.ReadToEnd());
-                                }
-                            }
-                            var line = txtreader.ReadLine();
-                            while (line != null)
-                            {
-                                if (line.EndsWith(".js"))
-                                    TMPLT.AddBrowserPageItem("SCRIPT", line.Replace("\\", "/"));
-                                else if(line.EndsWith(".css"))
-                                    TMPLT.AddBrowserPageItem("STYLE", line.Replace("\\", "/"));
-                                line = txtreader.ReadLine();
-                            }
-                        }
-                    }
-                }
-                #endregion
 
                 #region embed inline content xml pbt:javascript and pbt:style
                 if (current != null)
@@ -794,9 +764,11 @@ namespace ProjectFlx
 
                 // pickup style from local content and sub page heirarchy content
 
-                    // default files
-                    foreach (string s in _resources.collectResources("style", ".css"))
-                        TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
+                Timing.Start("ProjectFlx.FlxMain.SITE_INIT.default-files-script-meta-tags");
+
+                // default files
+                foreach (string s in _resources.collectResources("style", ".css"))
+                    TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
                 for (int x = 0; x < _pageHeirarchy.Count; x++)
                 {
@@ -811,16 +783,22 @@ namespace ProjectFlx
                     if (subpage.ToArray().Length > 0)
                         Array.Copy(subpage.ToArray(), 0, a, sub.Length, subpage.ToArray().Length);
 
+                    // required
+                    foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(a), ".txt"))
+                        requiredScript(s);
+
                     foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(a), ".css"))
                         TMPLT.AddBrowserPageItem("STYLE", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
                 }
 
-                // Do this after we've established context
-                AssertValidCookies();
+                // pickup site level default script
+                foreach (string s in _resources.collectResources("script", ".txt"))
+                    requiredScript(s);
+
 
                 // pickup script from local content
                 foreach (string s in _resources.collectResources("script", ".js"))
-                        TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
+                    TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
 
                 for (int x = 0; x < _pageHeirarchy.Count; x++)
                 {
@@ -832,60 +810,77 @@ namespace ProjectFlx
 
                     var a = new String[sub.Length + subpage.ToArray().Length];
                     Array.Copy(sub, a, sub.Length);
-                    if(subpage.ToArray().Length > 0)
+                    if (subpage.ToArray().Length > 0)
                         Array.Copy(subpage.ToArray(), 0, a, sub.Length, subpage.ToArray().Length);
-                    
+
+                    foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(a), ".txt"))
+                        requiredScript(s);
+
                     foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(a), ".js"))
                         TMPLT.AddBrowserPageItem("SCRIPT", (_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : s);
+
                 }
 
                 // meta tags
                 string[] meta = { "DESCRIPTION", "KEYWORDS", "TITLE" };
-                foreach (var m in meta)
+                foreach(var m in _resources.collectResources(Utility.Paths.CombinePaths("meta"), ".txt"))
                 {
-                    var filename = m.ToLower() + ".txt";
-                    if (_resources.Exists(Utility.Paths.CombinePaths(ResourceContentPath, "meta", filename)))
-                    {
-                        if (_useCdn)
-                        {
-                            TMPLT.AddBrowserPageItem(m, Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
-                        }
-                        else
-                        {
-                            using (StreamReader r = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
-                            {
-                                TMPLT.AddBrowserPageItem(m, r.ReadToEnd());
-                            }
-                        }
-                    }
-                    else if (_resources.Exists(Utility.Paths.CombinePaths("meta", filename)))
-                    {
-                        if (_useCdn)
-                        {
-
-                            TMPLT.AddBrowserPageItem(m, Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
-                        }
-                        else
-                        {
-                            using (StreamReader r = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
-                            {
-                                TMPLT.AddBrowserPageItem(m, r.ReadToEnd());
-                            }
-                        }
-                    }
-
+                    var m2 = meta.FirstOrDefault(f => { return m.ToUpper().Contains(f); });
+                    TMPLT.AddBrowserPageItem(m2, (_useCdn) ? Utility.Web.getWebResource(_resources.FullWebPath(m)) : Utility.Web.getWebResource(Server.MapPath(m)));
                 }
 
+                Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.default-files-script-meta-tags");
                 // TODO: examine use of Page Roles
-				// get page roles (if exist)
-				getPageRoles();
-				AssertRoles();		// throws an exception - should be handled
-			}
+                // get page roles (if exist)
+
+                Timing.Start("ProjectFlx.FlxMain.SITE_INIT.get-assert-roles-cookies");
+                getPageRoles();
+                AssertRoles();      // throws an exception - should be handled
+                AssertValidCookies();
+                Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.get-assert-roles-cookies");
+            }
             finally
             {
                 Timing.Stop("ProjectFlx.FlxMain.SITE_INIT");
             }
 
+        }
+
+        private void requiredScript(string Path)
+        {
+            if (!_resources.Exists(Path))
+                return;
+
+            StringReader txtreader;
+            if (_useCdn)
+            {
+                txtreader = new StringReader(Utility.Web.getWebResource(_resources.FullWebPath(_resources.IndexOf)));
+            }
+            else
+            {
+                // load required scripts
+                using (StreamReader reader = new StreamReader(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf))))
+                {
+                    txtreader = new StringReader(reader.ReadToEnd());
+                }
+            }
+            var line = txtreader.ReadLine();
+            while (line != null)
+            {
+                var l = line.Replace("\\", "/");
+                // script/style by extension
+                if (l.EndsWith(".js"))
+                    TMPLT.AddBrowserPageItem("REQUIRED_SCRIPT", l);
+                else if (l.EndsWith(".css"))
+                    TMPLT.AddBrowserPageItem("STYLE", l);
+                // script/style by extension
+                else if (Path.ToLower().Contains("script"))
+                    TMPLT.AddBrowserPageItem("REQUIRED_SCRIPT", l);
+                else if (Path.ToLower().Contains("style"))
+                    TMPLT.AddBrowserPageItem("STYLE", l);
+
+                line = txtreader.ReadLine();
+            }
         }
 
         private void wbtProjSql(XmlNode current, Schema.Extra.commonProj projsql)
@@ -1183,7 +1178,7 @@ namespace ProjectFlx
             return val;
         }
 
-        private XmlDocument getXmlContext(XmlDocument content)
+        private XmlDocument getXmlContext(XmlDocument content, XmlNode current)
         {
             XmlDocument result = new XmlDocument();
             var sb = new StringBuilder();
@@ -1195,51 +1190,59 @@ namespace ProjectFlx
             mem.Flush();
             mem.Seek(0, SeekOrigin.Begin);
             var settingsr = new XmlReaderSettings() { IgnoreProcessingInstructions = true, IgnoreWhitespace = true };
+            
             var reader = XmlReader.Create(mem, settingsr);
 
             writer.WriteStartDocument();
             int readidx = 0;
+            int readdepth = 0;
             while (reader.Read())
             {
+                readdepth = reader.Depth;
                 readidx++;
-                if ((reader.NodeType == XmlNodeType.Element || reader.NodeType == XmlNodeType.EndElement) && ((reader.LocalName == "page" || reader.LocalName == "content")))
+
+                if ((reader.LocalName == PAGE_NODE || reader.LocalName == CONTENT_NODE) &&
+                    (reader.NodeType == XmlNodeType.Element || reader.NodeType == XmlNodeType.EndElement))
                 {
                     if (reader.IsStartElement())
                     {
+
                         writer.WriteStartElement(reader.LocalName);
 
                         if (reader.HasAttributes)
                         {
                             reader.MoveToFirstAttribute();
-                            writer.WriteAttributeString(reader.LocalName, reader.Value);
+
+                            // current?
+                            if (reader.LocalName == "name"
+                                && reader.Value == current.Attributes["name"].Value)
+                                writer.WriteAttributeString("context", "current");
+
+                            writer.WriteAttributeString(reader.LocalName, reader.NamespaceURI, reader.Value);
 
                             while (reader.MoveToNextAttribute())
-                                writer.WriteAttributeString(reader.LocalName, reader.Value);
+                            {
+                                // current?
+                                if (reader.LocalName == "name"
+                                    && reader.LocalName == current.Attributes["name"].Value)
+                                    writer.WriteAttributeString("context", "current");
+
+                                writer.WriteAttributeString(reader.LocalName, reader.NamespaceURI, reader.Value);
+                            }
 
                             reader.MoveToElement();
                         }
 
                     }
 
-                    if (reader.IsEmptyElement || reader.NodeType == XmlNodeType.EndElement)
+                    if (reader.IsEmptyElement)
+                        writer.WriteAttributeString("flx_empty_content", "true");
+
+                    
+                        
+                    if(reader.NodeType == XmlNodeType.EndElement || reader.IsEmptyElement)
                         writer.WriteEndElement();
                 }
-
-                if ((reader.NodeType == XmlNodeType.Element || reader.NodeType == XmlNodeType.EndElement) && Regex.Match(reader.LocalName, "[hH][1-6]").Success)
-                {
-                    writer.WriteStartElement(reader.LocalName);
-                    var sub = reader.ReadSubtree();
-                    while(sub.Read())
-                    {
-                        if (sub.NodeType == XmlNodeType.Text)
-                            writer.WriteValue(sub.Value);
-
-                        if (sub.Depth == 0 && (sub.NodeType == XmlNodeType.EndElement || sub.IsEmptyElement))
-                            writer.WriteEndElement();
-
-                    };
-
-                }                
             }
             writer.WriteEndDocument();
             writer.Flush();
@@ -1424,7 +1427,7 @@ namespace ProjectFlx
                                 resultcontentpath = "default";
 
                             if (_useCdn)
-                                content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                                content.Load(_resources.FullWebPath(_resources.IndexOf));
                             else
                                 content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
 
@@ -1464,7 +1467,7 @@ namespace ProjectFlx
                 string xpath;
                 _pageHeirarchy.ForEach(pg =>
                 {
-                    xpath = String.Format("page[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'] | content[translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}']", pg);
+                    xpath = String.Format("page[translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}'] | content[translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{0}']", pg.ToLower());
                     if (context2.SelectSingleNode(xpath) != null)
                         context2 = context2.SelectSingleNode(xpath);
                     else
@@ -1633,6 +1636,9 @@ namespace ProjectFlx
                 TMPLT.AddCommentTag("_clientFlxpath", _clientFlxpath, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_cdnSite", _cdnSite, "FlxWebSite", "SITE_TERMINATE");
                 TMPLT.AddCommentTag("_AuthenticatedUser", _AuthenticatedUser, "FlxWebSite", "SITE_TERMINATE");
+
+                TMPLT.AddCommentTag("Executing_Class", this.GetType().FullName);
+                
                 if (_SiteMap)
                     return;
 
@@ -1955,7 +1961,7 @@ namespace ProjectFlx
         {
             get
             {
-                return _pageHeirarchy[0];
+                return _pageHeirarchy[0].ToLower();
             }
         }
         public string PageMajorAction
@@ -1963,9 +1969,9 @@ namespace ProjectFlx
             get
             {
                 if(_pageHeirarchy.Count > 1)
-                    return _pageHeirarchy[1];
+                    return _pageHeirarchy[1].ToLower();
                 else 
-                    return null;
+                    return String.Empty;
             }
         }
         public string PageMinorAction
@@ -1973,9 +1979,9 @@ namespace ProjectFlx
             get
             {
                 if (_pageHeirarchy.Count > 2)
-                    return _pageHeirarchy[2];
+                    return _pageHeirarchy[2].ToLower();
                 else
-                    return null;
+                    return String.Empty;
             }
         }
         public string PageSubMinorAction
@@ -1983,9 +1989,9 @@ namespace ProjectFlx
             get
             {
                 if (_pageHeirarchy.Count > 3)
-                    return _pageHeirarchy[3];
+                    return _pageHeirarchy[3].ToLower();
                 else
-                    return null;
+                    return String.Empty;
             }
         }
         public string PageLink
@@ -2025,6 +2031,7 @@ namespace ProjectFlx
 
         public virtual void ProcessRequest(HttpContext context)
         {
+            
             Current = context;
             Server = context.Server;
             Response = context.Response;
@@ -2051,7 +2058,7 @@ namespace ProjectFlx
                     i++;
                 }
 
-                return sb.ToString();
+                return sb.ToString().ToLower();
             }
         }
 
@@ -2113,24 +2120,39 @@ namespace ProjectFlx
 		// TODO: examine user and page roles usage
         protected List<int> PageRoles { get => _pageRoles; }
 		protected List<int> UserRoles
-		{
-			get => _userRoles; set
-			{
-				_userRoles = value;
+        {
+            get
+            {
+                return _userRoles;
+            }
+        }
 
-				// persist these to Xml
-				JObject jobj = new JObject();
-				jobj["role"] = JToken.FromObject(_userRoles);
+        protected void AddUserRole(int Role)
+        {
+            if (_userRoles == null)
+                _userRoles = new List<int>();
 
-				TMPLT.AddXML(jobj, "user-roles");
-			}
-		}
+            if (!_userRoles.Contains(Role))
+                _userRoles.Add(Role);
+
+            // persist these to Xml
+            JObject jobj = new JObject();
+            jobj["role"] = JToken.FromObject(_userRoles);
+
+            TMPLT.AddXML(jobj, "user-roles");
+
+            // persit to cookies
+            TMPLT.AddCookie("user-roles", jobj.ToString(), DateTime.UtcNow.AddDays(3), true);
+
+        }
 
         public string CacheDependencyPath { get => _cacheDependencyPath; set => _cacheDependencyPath = value; }
 
         private List<int> _pageRoles = new List<int>();
 		private List<int> _userRoles = new List<int>();
         private bool _validUserAgent;
+        private const string PAGE_NODE = "page";
+        private const string CONTENT_NODE = "content";
 
         /// <summary>
         /// Check that user is in stated roles

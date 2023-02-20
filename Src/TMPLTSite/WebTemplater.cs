@@ -25,6 +25,7 @@ namespace ProjectFlx
         protected XslCompiledTransform _xslt;
         protected XsltArgumentList _args;
         protected StringWriter _writer;
+        
         private string _domain;
 
         public string Domain
@@ -34,6 +35,7 @@ namespace ProjectFlx
         protected string _subDomain;
         private bool _loaded = false;
 
+        public DateTime MinProtectedCookyExpire { get; set; }
 
 		#region Private Methods and Functions
 
@@ -53,7 +55,7 @@ namespace ProjectFlx
 
             HttpRequest requestObj = httpC.Request;
 
-            double unixTime = DateTime.Now.UNIX_TIME();
+            double unixTime = DateTime.UtcNow.UNIX_TIME();
 
             newAtt = clsBrowserVarsXML.CreateAttribute("unix_time");
             newAtt.Value = unixTime.ToString();
@@ -68,7 +70,7 @@ namespace ProjectFlx
 
             // append short time (formatted)
             newAtt = clsBrowserVarsXML.CreateAttribute("utc_time_formatted");
-            newAtt.Value = String.Format("{0} {1}", utc.ToShortDateString(), utc.ToShortTimeString());
+            newAtt.Value = String.Format("{0} {1}", utc.ToShortDateString(), utc.ToLongTimeString());
             clsBrowserVarsXML.DocumentElement.Attributes.Append(newAtt);
 
 
@@ -103,6 +105,7 @@ namespace ProjectFlx
             for (i = 0; i < requestObj.Cookies.Count; i++)
             {
                 var cookie = requestObj.Cookies[i];
+                var cookiename_h = $"{cookie.Name}_h";
 
                 newElm = clsBrowserVarsXML.CreateElement("element");
                 newElm.SetAttribute("name", cookie.Name);
@@ -114,7 +117,13 @@ namespace ProjectFlx
                 newElm.SetAttribute("Expires-Unix_Time", cookie.Expires.UNIX_TIME().ToString());
                 newElm.SetAttribute("ExpiresMinutes", ts.TotalMinutes.ToString());
 
-                newElm.InnerText = cookie.Value;
+                // is cookie secure?
+                if (cookie.Name.EndsWith("_h") || requestObj.Cookies[cookiename_h] != null)
+                {
+                    newElm.SetAttribute("protected", "true");
+                }
+
+                newElm.InnerText = HttpUtility.UrlDecode(cookie.Value);
                 clsBrowserVarsXML.DocumentElement.SelectSingleNode("cookievars").AppendChild(newElm);
             }
 
@@ -270,22 +279,35 @@ namespace ProjectFlx
         #region Public Methods and Functions
         public FlxTemplater()
 		{
+            MinProtectedCookyExpire = DateTime.MaxValue;
+
 			httpC = HttpContext.Current;
-            _domain = getDomain(httpC.Request.Url.GetLeftPart(UriPartial.Authority));
-            _subDomain = httpC.Request.Url.GetLeftPart(UriPartial.Scheme);
 
             _loaded = false;
             _args = new XsltArgumentList();
             _xslt = new XslCompiledTransform();
-            
-			persistBrowserVars();
-			AddXML("proj",clsBrowserVarsXML);
-		}
 
-        private string getDomain(string p)
+            if(App.Config.GetValue<bool>("flx_Cookie_UseFullDomain", false))
+            {
+                _domain = getDomain(httpC.Request.Url.GetLeftPart(UriPartial.Authority), true);
+            }
+            else
+            {
+                _domain = getDomain(httpC.Request.Url.GetLeftPart(UriPartial.Authority));
+            }
+            _subDomain = httpC.Request.Url.GetLeftPart(UriPartial.Scheme);
+
+            persistBrowserVars();
+            AddXML("proj", clsBrowserVarsXML);
+        }
+
+        private string getDomain(string p, bool fulldomain = false)
         {
             Uri u = new Uri(p);
             string host = u.Host;
+
+            if (fulldomain)
+                return host;
 
             if (host.Split('.').Length > 2)
             {
@@ -477,6 +499,23 @@ namespace ProjectFlx
         public void AddXMLJson(String Json, String RootTag)
         {
             AddXML(Newtonsoft.Json.JsonConvert.DeserializeXmlNode(Json, RootTag));
+        }
+
+        public void AddProjectSqlXml(string Project, string QueryName, string Xml)
+        {
+            var doc = new XmlDocument();
+            doc.LoadXml(Xml);
+
+            var importnode = DOCxml.ImportNode(doc.DocumentElement, true);
+            var newnode = DOCxml.CreateElement("ProjectSql");
+            var att = DOCxml.CreateAttribute("name");
+            att.Value = Project;
+            newnode.Attributes.Append(att);
+            att = DOCxml.CreateAttribute("query");
+            att.Value = QueryName;
+            newnode.Attributes.Append(att);
+            newnode.AppendChild(importnode);            
+            AddXML("app", newnode);
         }
 
 		public void ClearSessionVars()
@@ -772,10 +811,7 @@ namespace ProjectFlx
 		private bool _LookUp(string lookfor, ref string value, TMPLTLookups lookin, bool returnTrueOnEmpty)
 		{
 			bool lookup_result = false;
-			string lookup_value = "";
 			string xPathString = "";
-
-			lookup_value = value;
 
 			// build xpath string
 			switch (lookin)
@@ -829,15 +865,9 @@ namespace ProjectFlx
 
 			// set return value
             if (lookup_result)
-                lookup_value = findElm.InnerText;
-
-            // 
-
-			value = lookup_value;
+                value = findElm.InnerText;
 
 			return (lookup_result);
-
-
 		}
 
 
@@ -873,7 +903,7 @@ namespace ProjectFlx
             // add cookie to Response
             var cookie = new HttpCookie(Name);
             cookie.Domain = _domain;
-            cookie.Value = Value;       // HttpUtility.UrlEncode(Value);  TODO: examing use of UrlEncoding Cookie vars, maybe ok for persisting to Xml??
+            cookie.Value = HttpUtility.UrlEncode(Value);
 
             httpC.Response.Cookies.Add(cookie);
 
@@ -902,13 +932,16 @@ namespace ProjectFlx
 
                 var val_h = Utility.SimpleHash.ComputeHash(Value, "MD5", _cookiesalt);
                 var protectedName = Name + "_h";
-                cookie = new HttpCookie(protectedName, val_h);      // HttpUtility.UrlEncode(val_h) TODO: examing use of UrlEncoding Cookie vars, maybe ok for persisting to Xml??
+                cookie = new HttpCookie(protectedName, HttpUtility.UrlEncode(val_h));
                 cookie.Domain = Domain;
                 cookie.Expires = Expires;
                 cookie.HttpOnly = true;
                 httpC.Response.Cookies.Add(cookie);
 
-                _AddCookie(protectedName, val_h, true);
+                if (MinProtectedCookyExpire > Expires)
+                    MinProtectedCookyExpire = Expires;
+
+                _AddCookie(protectedName, val_h, true);                
             }
 
         }

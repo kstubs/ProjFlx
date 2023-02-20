@@ -107,3 +107,31 @@ li.content-parent a {
     -moz-border-radius: 6px 0 6px 6px;
     border-radius: 6px 0 6px 6px;
 }
+
+.wbt-countdown div {
+    float:right;
+    border:solid 1px #888;
+    width:75px;
+    height:75px;
+    margin:1px;
+    text-align:center;
+    position:relative;
+}
+.wbt-countdown div span {
+    position:absolute;
+    top:36%;
+    left:0;
+    width:75px;
+    text-align:center;
+    font-size: 1.7em;    
+}
+
+.wbt-countdown.xs div  {
+    width:60px;
+    height:60px;
+    font-size:.9em;
+    float:left;
+}
+.wbt-countdown.xs div span {
+    width:60px;
+}
