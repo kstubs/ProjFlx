@@ -1,33 +1,35 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:wbt="myWebTemplater.1.0" xmlns:sbt="mySiteTemplater.1.0" xmlns:pbt="myPageTemplater.1.0"
-	exclude-result-prefixes="wbt sbt pbt">
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:wbt="myWebTemplater.1.0" xmlns:sbt="mySiteTemplater.1.0" xmlns:pbt="myPageTemplater.1.0" exclude-result-prefixes="xsl wbt sbt pbt">
 
 	<!-- includes -->
+	<xsl:include href="WBT_TEMPLATES.xsl"/>
 	<xsl:include href="WBT_FORMS.xsl"/>
 	<xsl:include href="WBT_TABLES.xsl"/>
 	<xsl:include href="WBT_LINKS.xsl"/>
 	<xsl:include href="WBT_PAGING.xsl"/>
 	<xsl:include href="WBT_Debug.xsl"/>
-	<xsl:include href="BS_TWITTER_3.1.xsl"/>
+	<xsl:include href="BS_TWITTER_5.1.xsl"/>
 
-	<xsl:strip-space elements="*"/><!-- IMPORTANT! use of xsl:attribute breaks when white-space introduced -->
+	<xsl:strip-space elements="*"/>
+	<!-- IMPORTANT! use of xsl:attribute breaks when white-space introduced -->
 	<xsl:output method="html" indent="yes" encoding="utf-8"/>
 
 	<xsl:param name="wrap-content" select="false()"/>
 	<xsl:param name="projSql" select="/.."/>
-	
+
 	<!-- INTERNAL PRIVATE PARAMTER VARIABLES -->
 	<xsl:param name="DOC_ACTION"/>
 	<xsl:param name="DOC_FOLDER"/>
 	<xsl:param name="OUT">HTML</xsl:param>
+	<xsl:param name="wbt:verbose" select="true()"/>
 
 	<xsl:param name="LoggedOnUser" select="false()"/>
 	<xsl:param name="AuthenticatedUser" select="false()"/>
 	<xsl:param name="DEBUG" select="false()"/>
 	<xsl:param name="is-mobile" select="boolean(key('wbt:capable', 'IsMobile') = 'True')"/>
-	
+	<xsl:param name="ShowTimingDebugger" select="false()"/>
 	<xsl:param name="source-xml"/>
-	
+
 	<xsl:variable name="wbt:name">WEB_DOCUMENT_TEMPLATE.xsl</xsl:variable>
 	<xsl:variable name="UNIX_TIME" select="/flx/proj/browser/@unix_time"/>
 	<xsl:variable name="UNIX_TIME2" select="substring-before(/flx/proj/browser/@unix_time, '.')"/>
@@ -41,11 +43,22 @@
 			</xsl:if>
 		</xsl:for-each>
 	</xsl:variable>
-	
-	
-	<xsl:variable name="HTTPS_IS_ON" select="boolean(key('wbt:key_ServerVars', 'HTTPS') = 'on') or 
-		boolean(key('wbt:key_ServerVars', 'HTTP_X_FORWARDED_PROTO') = 'https')"/>
-	
+	<xsl:variable name="website-theme.name">
+		<xsl:choose>
+			<xsl:when test="key('wbt:key_Tags', 'website-theme-override')">
+				<xsl:value-of select="key('wbt:key_Tags', 'website-theme-override')"/>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:value-of select="key('wbt:key_CookieVars', 'website-theme')"/>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+	<xsl:variable name="website-theme" select="/flx/app/Themes/Theme[Name = $website-theme.name]"/>
+
+	<xsl:variable name="HTTPS_IS_ON" select="
+			boolean(key('wbt:key_ServerVars', 'HTTPS') = 'on') or
+			boolean(key('wbt:key_ServerVars', 'HTTP_X_FORWARDED_PROTO') = 'https')"/>
+
 	<xsl:variable name="protocol">
 		<xsl:choose>
 			<xsl:when test="$HTTPS_IS_ON">
@@ -56,10 +69,10 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:variable>
-	
+
 	<!-- Browser Vars -->
-	<xsl:variable name="wbt:browser-vars" select="/flx/proj/browser/formvars | /flx/proj/browser/queryvars | /flx/proj/browser/cookievars"/> 
-	
+	<xsl:variable name="wbt:browser-vars" select="/flx/proj/browser/formvars | /flx/proj/browser/queryvars | /flx/proj/browser/cookievars"/>
+
 	<!-- Results Variable -->
 	<xsl:variable name="wbt:results" select="ROOT/APPLICATION/results"/>
 
@@ -105,7 +118,8 @@
 			</head>
 			<body>
 				<xsl:call-template name="wbt:body-class"/>
-				<xsl:call-template name="wbt:errors"/>				
+				<xsl:call-template name="wbt:body-style"/>
+				<xsl:call-template name="wbt:errors"/>
 				<xsl:apply-templates select="." mode="wbt:header"/>
 				<xsl:call-template name="wbt:body"/>
 				<xsl:call-template name="flx-timing"/>
@@ -116,6 +130,7 @@
 	</xsl:template>
 
 	<xsl:template name="wbt:body-class"/>
+	<xsl:template name="wbt:body-style"/>
 	<xsl:template name="google-universal-tracking"/>
 	<xsl:template name="Google-Analytics"/>
 
@@ -178,8 +193,32 @@
 			<xsl:with-param name="comment">wbt:bootstrap</xsl:with-param>
 		</xsl:call-template>
 		<!-- CSS only -->
-		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous"></link>
-		<link href="https://stackpath.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1" crossorigin="anonymous"></link>
+		<xsl:choose>
+			<xsl:when test="$website-theme">
+				<xsl:call-template name="wbt:comment">
+					<xsl:with-param name="comment">Custom Theme Applied</xsl:with-param>
+				</xsl:call-template>
+				<xsl:for-each select="$website-theme/Src">
+					<link href="{.}" rel="stylesheet"/>
+					<xsl:text>&#10;</xsl:text>
+				</xsl:for-each>
+			</xsl:when>
+			<xsl:otherwise>
+				<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous"/>
+			</xsl:otherwise>
+		</xsl:choose>
+		<link href="https://stackpath.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1" crossorigin="anonymous"/>
+
+		<!-- Legacy Bootstrap -->
+		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/bootstrap-legacy.css"/>
+
+		<script type="text/javascript">
+            window.wbt = window.wbt || {
+            };
+            wbt.WebsiteThemeDefaults = {
+            };
+            wbt.WebsiteThemeDefaults.DefaulltCSS = 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css';
+            wbt.WebsiteThemeDefaults.DefaultIntegrity = 'sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1';</script>
 	</xsl:template>
 
 	<xsl:template name="wbt:metatags">
@@ -276,8 +315,8 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:javascript</xsl:with-param>
 		</xsl:call-template>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832.js"></script>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/protobootstrap__132490265329769314.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832.js"/>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/protobootstrap__132490265329769314.js"/>
 
 		<!--<script src="/ProjectFLX/Bootstrap/transition_prototype.js"></script>
 		<script src="/ProjectFLX/Bootstrap/affix_prototype.js"></script>
@@ -286,40 +325,22 @@
 		<script src="/ProjectFLX/Bootstrap/button_prototype.js"></script>
 		<script src="/ProjectFLX/Bootstrap/collapse_prototype.js"></script>
 		<script src="/ProjectFLX/Bootstrap/scrollspy_prototype.js"></script>
-		<script src="/ProjectFLX/Bootstrap/dropdown_prototype.js"></script>-->
-		
-		
+		<script src="/ProjectFLX/Bootstrap/dropdown_prototype.js"></script> 	
+		<script src="/ProjectFLX/Bootstrap/modal_prototype.js"></script>-->
+
+
 		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js?v=1.1" type="text/javascript"/>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js?v=1.6" type="text/javascript"/>
 		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_COUNTDOWN.js?v=1.2" type="text/javascript"/>
-		
+
 		<!--Embeded javascript-->
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Embeded javascript</xsl:with-param>
 		</xsl:call-template>
-		
+
 		<!--Proj Browser Script Item -->
-		<xsl:for-each select="/flx/proj/browser/page/SCRIPT/item">
-			<xsl:text>&#10;</xsl:text>
-			<xsl:variable name="src">
-				<xsl:choose>
-					<xsl:when test="starts-with(., 'http:')">
-						<xsl:value-of select="concat($protocol, substring-after(., 'http:'))"/>
-					</xsl:when>
-					<xsl:otherwise>
-						<xsl:value-of select="."/>
-					</xsl:otherwise>
-				</xsl:choose>
-			</xsl:variable>
-			<script src="{$src}"/>
-		</xsl:for-each>
-		<xsl:call-template name="wbt:comment">
-			<xsl:with-param name="comment">Raw javascript</xsl:with-param>
-		</xsl:call-template>
-		<xsl:for-each select="/flx/proj/browser/page/RAW_SCRIPT/item">
-			<script><xsl:value-of select="." disable-output-escaping="yes"/></script>
-		</xsl:for-each>
-		
+		<xsl:apply-templates select="/" mode="wbt:browser-script-javascript"/>
+
 		<xsl:if test="/flx/app/compilationResult/compiledCode">
 			<xsl:call-template name="wbt:comment">
 				<xsl:with-param name="comment">GC Compiled javascript</xsl:with-param>
@@ -329,7 +350,7 @@
 				<script><xsl:value-of select="." disable-output-escaping="yes"/></script>
 			</xsl:for-each>
 		</xsl:if>
-		
+
 		<!--Site level javascript-->
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Site level javascript</xsl:with-param>
@@ -356,7 +377,7 @@
             </xsl:for-each>
             <xsl:text>}&#10;</xsl:text>
             <!--
-				pass through VARS//-->
+                pass through VARS//-->
             <xsl:for-each select="/flx/proj/browser/page/VARS/item">
                 <xsl:text>&#10;wbt.</xsl:text>
                 <xsl:value-of select="@name"/>
@@ -371,14 +392,51 @@
 	<xsl:template name="sbt:javascript"/>
 	<xsl:template name="pbt:javascript"/>
 
+	<xsl:template match="/" mode="wbt:browser-script-javascript">
+		<xsl:for-each select="/flx/proj/browser/page/REQUIRED_SCRIPT/item">
+			<xsl:text>&#10;</xsl:text>
+			<xsl:variable name="src">
+				<xsl:choose>
+					<xsl:when test="starts-with(., 'http:')">
+						<xsl:value-of select="concat($protocol, substring-after(., 'http:'))"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="."/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
+			<script src="{$src}"/>
+		</xsl:for-each>
+		<xsl:for-each select="/flx/proj/browser/page/SCRIPT/item">
+			<xsl:sort select="." case-order="lower-first"/>
+			<xsl:text>&#10;</xsl:text>
+			<xsl:variable name="src">
+				<xsl:choose>
+					<xsl:when test="starts-with(., 'http:')">
+						<xsl:value-of select="concat($protocol, substring-after(., 'http:'))"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="."/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
+			<script src="{$src}"/>
+		</xsl:for-each>
+		<xsl:call-template name="wbt:comment">
+			<xsl:with-param name="comment">Raw javascript</xsl:with-param>
+		</xsl:call-template>
+		<xsl:for-each select="/flx/proj/browser/page/RAW_SCRIPT/item">
+			<script><xsl:value-of select="." disable-output-escaping="yes"/></script>
+		</xsl:for-each>		
+	</xsl:template>
 
 	<xsl:template name="wbt:style">
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:style</xsl:with-param>
 		</xsl:call-template>
-		
+
 		<!-- TODO: map this to CDN repo -->
-		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_STYLE.css?v=1.1" type="text/css"/>
+		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_STYLE.css?v=1.6" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
 		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
@@ -439,7 +497,7 @@
 			<div class="row">
 				<div class="col-md-3">
 					<ul class="nav nav-list affix">
-						<xsl:apply-templates select="/flx/client-context/page/content[not(@active='false')]" mode="identity-build-nav"/>
+						<xsl:apply-templates select="/flx/client-context/page/content[not(@active = 'false')]" mode="identity-build-nav"/>
 					</ul>
 				</div>
 				<div class="col-md-9">
@@ -470,7 +528,7 @@
 
 	<xsl:template name="wbt:main"> </xsl:template>
 
-	<xsl:template match="xsl:*[substring-before(@name,':') = 'wbt']" mode="wbt:transform">
+	<xsl:template match="xsl:*[substring-before(@name, ':') = 'wbt']" mode="wbt:transform">
 		<a href="#" class="list-group-item">
 			<h4>
 				<i class="fa fa-th" title="Named Template: {current()/@name}"/>
@@ -485,7 +543,7 @@
 			</xsl:if>
 		</a>
 	</xsl:template>
-	<xsl:template match="xsl:*[contains(@match,':wbt')]" mode="wbt:transform">
+	<xsl:template match="xsl:*[contains(@match, ':wbt')]" mode="wbt:transform">
 		<a href="#" class="list-group-item">
 			<h4>
 				<i class="fa fa-th-large" title="Matched Template: {@match}"/>
@@ -538,7 +596,7 @@
 		<xsl:param name="class"/>
 		<xsl:variable name="q">
 			<xsl:if test="string($Query)">
-				<xsl:value-of select="concat('?',$Query)"/>
+				<xsl:value-of select="concat('?', $Query)"/>
 			</xsl:if>
 		</xsl:variable>
 		<a href="{$url}{$q}">
@@ -572,7 +630,7 @@
 		<xsl:param name="target"/>
 		<xsl:variable name="q">
 			<xsl:if test="string($Query)">
-				<xsl:value-of select="concat('?',normalize-space($Query))"/>
+				<xsl:value-of select="concat('?', normalize-space($Query))"/>
 			</xsl:if>
 		</xsl:variable>
 		<xsl:variable name="h">
@@ -624,11 +682,11 @@
 		<xsl:param name="value"/>
 		<xsl:choose>
 			<!-- replace name/value -->
-			<xsl:when test="$name=@name">
+			<xsl:when test="$name = @name">
 				<xsl:value-of select="concat($name, '=', $value)"/>
 			</xsl:when>
 			<xsl:otherwise>
-				<xsl:value-of select="concat(@name, '=', .)"/>				
+				<xsl:value-of select="concat(@name, '=', .)"/>
 			</xsl:otherwise>
 		</xsl:choose>
 		<xsl:if test="not(position() = last())">
@@ -731,9 +789,11 @@
 		</xsl:if>
 	</xsl:template>
 
-	
+
 	<xsl:template match="*" mode="identity-translate">
-		<xsl:comment>identity-translate [*] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>identity-translate [*] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
 		<xsl:choose>
 			<xsl:when test="@valid-on">
 				<xsl:call-template name="valid-on"/>
@@ -752,71 +812,80 @@
 		<xsl:param name="keep-as" select="@keep-as"/>
 		<xsl:param name="valid-on-title" select="@valid-on-title"/>
 		<xsl:param name="valid-on-description" select="@valid-on-description"/>
-		<xsl:param name="content" select="/.." />
-		
-		<xsl:comment>identity-translate [valid-on] - <xsl:value-of select="$wbt:name"/></xsl:comment>
-		<xsl:choose>
-			<xsl:when test="number($valid-on) &lt; number($UNIX_TIME)">
-				<xsl:choose>
-					<xsl:when test="$keep-as">
-						<xsl:call-template name="identity-template.keep-as"/>
-					</xsl:when>
-					<xsl:when test="$content">
-						<xsl:apply-templates select="$content" mode="identity-translate"/>					
-					</xsl:when>
-					<xsl:otherwise>
-						<xsl:call-template name="identity-translate"/>
-					</xsl:otherwise>
-				</xsl:choose>
-			</xsl:when>
-			<xsl:otherwise>
-				<div class="bg-light p-5 rounded-lg m-3">
-					<h1 class="display-4">
+		<xsl:param name="valid-on-hidden" select="false()"/>
+		<xsl:param name="valid-on-size">large</xsl:param>
+		<xsl:param name="content" select="/.."/>
+
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>identity-translate [valid-on] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
+		<div class="valid-on-{$valid-on-size} mb-2">
+			<xsl:choose>
+				<xsl:when test="number($valid-on) &lt; number($UNIX_TIME)">
 					<xsl:choose>
-						<xsl:when test="$valid-on-title">
-							<xsl:value-of select="$valid-on-title"/>
+						<xsl:when test="$keep-as">
+							<xsl:call-template name="identity-template.keep-as"/>
+						</xsl:when>
+						<xsl:when test="$content">
+							<xsl:apply-templates select="$content" mode="identity-translate"/>
 						</xsl:when>
 						<xsl:otherwise>
-							<xsl:text>Time Sensitive Material</xsl:text>
+							<xsl:call-template name="identity-translate"/>
 						</xsl:otherwise>
 					</xsl:choose>
-					</h1>
-					<p class="lead">
-					<xsl:choose>
-						<xsl:when test="$valid-on-description">
-							<xsl:value-of select="$valid-on-description"/>
-						</xsl:when>
-						<xsl:otherwise>
-							<xsl:text>This content will be available in the future!</xsl:text>							
-						</xsl:otherwise>
-					</xsl:choose>
-					</p>
-					<hr class="my-4"/>
-					<div data-unix-time="{$UNIX_TIME}" data-valid-on="{$valid-on}" class="wbt-countdown countdown-days countdown-hours countdown-minutes countdown-seconds "/>
-					<div class="clearfix"/>
-				</div>
-			</xsl:otherwise>
-		</xsl:choose>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:if test="not($valid-on-hidden)">
+						<div class="bg-light rounded-lg">
+							<h1>
+								<xsl:choose>
+									<xsl:when test="$valid-on-title">
+										<xsl:value-of select="$valid-on-title"/>
+									</xsl:when>
+									<xsl:otherwise>
+										<xsl:text>Time Sensitive Material</xsl:text>
+									</xsl:otherwise>
+								</xsl:choose>
+							</h1>
+							<xsl:if test="$valid-on-description">
+								<p class="lead">
+									<xsl:value-of select="$valid-on-description"/>
+								</p>
+							</xsl:if>
+							<hr class="my-4"/>
+							<div data-unix-time="{$UNIX_TIME}" data-valid-on="{$valid-on}" class="wbt-countdown countdown-days countdown-hours countdown-minutes countdown-seconds "/>
+						</div>
+						<div class="clearb"/>
+					</xsl:if>
+				</xsl:otherwise>
+			</xsl:choose>
+		</div>
 	</xsl:template>
-	
+
 	<xsl:template name="identity-template.keep-as">
-		<xsl:comment>identity-translate [keep-as] keep-as: <xsl:value-of select="@keep-as"/> is-mobile: <xsl:value-of select="$is-mobile"/> - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>identity-translate [keep-as] keep-as: <xsl:value-of select="@keep-as"/> is-mobile: <xsl:value-of select="$is-mobile"/> - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
 		<xsl:choose>
-			<xsl:when test="local-name()='mobile' or local-name()='Mobile'">
+			<xsl:when test="local-name() = 'mobile' or local-name() = 'Mobile'">
 				<xsl:if test="$is-mobile">
 					<xsl:element name="{@keep-as}">
-						<xsl:attribute name="id"><xsl:value-of select="local-name()"/></xsl:attribute>
+						<xsl:attribute name="id">
+							<xsl:value-of select="local-name()"/>
+						</xsl:attribute>
 						<xsl:apply-templates select="@*" mode="identity-translate"/>
 						<xsl:apply-templates select="node()" mode="identity-translate"/>
-					</xsl:element>				
+					</xsl:element>
 				</xsl:if>
 			</xsl:when>
-			<xsl:otherwise>				
+			<xsl:otherwise>
 				<xsl:element name="{@keep-as}">
-					<xsl:attribute name="id"><xsl:value-of select="local-name()"/></xsl:attribute>
+					<xsl:attribute name="id">
+						<xsl:value-of select="local-name()"/>
+					</xsl:attribute>
 					<xsl:apply-templates select="@*" mode="identity-translate"/>
 					<xsl:apply-templates select="node()" mode="identity-translate"/>
-				</xsl:element>				
+				</xsl:element>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
@@ -824,18 +893,28 @@
 	<xsl:template match="@* | node()" name="identity-translate" mode="identity-translate" priority="-1">
 		<xsl:param name="ignore-name-space" select="false()"/>
 		<xsl:if test="$ignore-name-space or not(string(namespace-uri()))">
-			<xsl:copy>
-				<xsl:apply-templates select="@*" mode="identity-translate"/>
-				<xsl:apply-templates select="node()" mode="identity-translate"/>
-			</xsl:copy>
+			<xsl:choose>
+				<xsl:when test="self::*">
+					<xsl:element name="{local-name()}">
+						<xsl:apply-templates select="@*" mode="identity-translate"/>
+						<xsl:apply-templates select="node()" mode="identity-translate"/>
+					</xsl:element>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:copy>
+						<xsl:apply-templates select="@*" mode="identity-translate"/>
+						<xsl:apply-templates select="node()" mode="identity-translate"/>
+					</xsl:copy>
+				</xsl:otherwise>
+			</xsl:choose>
 		</xsl:if>
 	</xsl:template>
-	
+
 	<xsl:template match="sbt:* | wbt:* | pbt:*" mode="identity-translate"/>
 
 	<xsl:template match="pbt:javascript | pbt:style" priority="1" mode="identity-translate"/>
 	<xsl:template match="pbt:javascript | pbt:style" priority="1"/>
-	
+
 	<xsl:template match="sbt:* | wbt:* | pbt:*">
 		<xsl:element name="div">
 			<xsl:attribute name="class">
@@ -880,7 +959,7 @@
 			</xsl:call-template>
 		</ul>
 	</xsl:template>
-	
+
 	<xsl:template match="Crumbs" mode="identity-translate">
 		<ol class="breadcrumb">
 			<xsl:for-each select="$BrowserPage">
@@ -900,8 +979,8 @@
 			</xsl:for-each>
 		</ol>
 	</xsl:template>
-	
-	
+
+
 
 	<!-- 
         *   Walk content and browser items
@@ -928,8 +1007,11 @@
     -->
 	<xsl:template name="wbt:walk-content">
 		<xsl:param name="type">content</xsl:param>
-		<xsl:comment>wbt:walk-content - <xsl:value-of select="$wbt:name"/></xsl:comment>
-		<xsl:apply-templates select="$BrowserPage[1]" mode="wbt:walk-content">
+		<xsl:param name="path" select="$BrowserPage[1]"/>
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>wbt:walk-content - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
+		<xsl:apply-templates select="$path" mode="wbt:walk-content">
 			<xsl:with-param name="type" select="$type"/>
 		</xsl:apply-templates>
 	</xsl:template>
@@ -937,18 +1019,17 @@
 	<xsl:template match="item" mode="wbt:walk-content">
 		<xsl:param name="type">content</xsl:param>
 		<xsl:param name="path" select="text()"/>
-		<xsl:param name="context" select="/flx/client/*[local-name() = 'page' or local-name() = 'content'][translate(@name, $ABC, $abc) = current()/text()][not(@active='false')]"/>
+		<xsl:param name="context" select="/flx/client/*[local-name() = 'page' or local-name() = 'content'][translate(@name, $ABC, $abc) = current()/text()][not(@active = 'false')]"/>
 		<xsl:param name="title">
-			<xsl:comment><xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+			<xsl:if test="$wbt:verbose">
+				<xsl:comment><xsl:value-of select="$wbt:inc-name"/></xsl:comment>
+			</xsl:if>
 			<xsl:choose>
 				<xsl:when test="$context/@title">
 					<xsl:value-of select="$context/@title"/>
 				</xsl:when>
-				<xsl:when
-					test="$context/*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']">
-					<xsl:value-of
-						select="$context/*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']/text()"
-					/>
+				<xsl:when test="$context/*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']">
+					<xsl:value-of select="$context/*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']/text()"/>
 				</xsl:when>
 				<xsl:otherwise>
 					<xsl:value-of select="text()"/>
@@ -973,41 +1054,43 @@
 			</xsl:when>
 			<!-- scenario 1 -->
 			<xsl:when test="not($context) and following-sibling::item[1]">
-				<xsl:comment>wbt:walk-content [scenario 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:walk-content [scenario 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path"
-						select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<!-- senarioi 2 -->
-			<xsl:when
-				test="translate($context/@name, $ABC, $abc) != self::node()/text() and following-sibling::item">
-				<xsl:comment>wbt:walk-content [scenario 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+			<xsl:when test="translate($context/@name, $ABC, $abc) != self::node()/text() and following-sibling::item">
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:walk-content [scenario 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path"
-						select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
 					<xsl:with-param name="context" select="$context"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<!-- scenario 3 -->
-			<xsl:when
-				test="translate($context/@name, $ABC, $abc) = self::node()/text() and $context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]">
-				<xsl:comment>wbt:walk-content [scenario 3] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+			<xsl:when test="translate($context/@name, $ABC, $abc) = self::node()/text() and $context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]">
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:walk-content [scenario 3] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:apply-templates select="following-sibling::item[1]" mode="wbt:walk-content">
-					<xsl:with-param name="path"
-						select="concat($path, '/', following-sibling::item[1]/text())"/>
-					<xsl:with-param name="context"
-						select="$context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]"/>
+					<xsl:with-param name="path" select="concat($path, '/', following-sibling::item[1]/text())"/>
+					<xsl:with-param name="context" select="$context/content[@name[translate(., $ABC, $abc) = current()/following-sibling::item/text()]]"/>
 					<xsl:with-param name="type" select="$type"/>
 				</xsl:apply-templates>
 			</xsl:when>
+			<!-- scenario 4 -->
 			<xsl:otherwise>
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:walk-content [scenario 4] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:call-template name="wbt:apply-content">
-					<xsl:with-param name="context"
-						select="$context | /flx/client/page | /flx/client/content[not(@active = 'false')]"
-					/>
+					<xsl:with-param name="context" select="$context | /flx/client/page | /flx/client/content[not(@active = 'false')]"/>
 				</xsl:call-template>
 			</xsl:otherwise>
 		</xsl:choose>
@@ -1017,33 +1100,45 @@
 		<xsl:param name="context"/>
 		<xsl:choose>
 			<xsl:when test="($context/@authenticateduser = 'true' or $context/@wbt:authenticateduser = 'true') and not($AuthenticatedUser)">
-				<xsl:comment>wbt:apply-content [protected-content 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:apply-content [protected-content 1] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
 			<xsl:when test="($context/@loggedonuser = 'true' or $context/@loggedinuser = 'true' or $context/@wbt:loggedonuser = 'true') and not($LoggedOnUser)">
-				<xsl:comment>wbt:apply-content [protected-content 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:apply-content [protected-content 2] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:call-template name="protected-content"/>
 			</xsl:when>
 			<xsl:when test="$context">
-				<xsl:comment>wbt:apply-content [$context] - <xsl:value-of select="$wbt:name"/></xsl:comment>				
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:apply-content [<xsl:value-of select="concat(local-name($context),'[@name=',$context/@name, ']')"/>] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:apply-templates select="$context" mode="wbt:apply-content"/>
 			</xsl:when>
 			<xsl:otherwise>
-				<xsl:comment>wbt:apply-content [otherwise] - <xsl:value-of select="$wbt:name"/></xsl:comment>	
+				<xsl:if test="$wbt:verbose">
+					<xsl:comment>wbt:apply-content [otherwise] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+				</xsl:if>
 				<xsl:call-template name="wbt:no-content"/>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
 	
 	<xsl:template name="wbt:no-content">
-		<xsl:comment>Template wbt:no-content - <xsl:value-of select="$wbt:name"/></xsl:comment>		
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>Template wbt:no-content - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
 		<div class="m-5 p-5" id="WBT_NO_CONTENT">
 			<h1 class="m-5 p-5 display-3 text-center text-warning text-muted bold text-uppercase">no content found</h1>
 		</div>
 	</xsl:template>
-	
+
 	<xsl:template match="page | content" mode="wbt:apply-content">
-		<xsl:comment>wbt:apply-content [page | content - <xsl:value-of select="local-name()"/> ] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		<xsl:if test="$wbt:verbose">
+			<xsl:comment>wbt:apply-content [page | content - <xsl:value-of select="local-name()"/> ] - <xsl:value-of select="$wbt:name"/></xsl:comment>
+		</xsl:if>
 		<xsl:choose>
 			<xsl:when test="$wrap-content">
 				<xsl:element name="div">
@@ -1067,9 +1162,10 @@
 				<xsl:apply-templates select="*" mode="identity-translate"/>
 			</xsl:otherwise>
 		</xsl:choose>
-	</xsl:template>	
+	</xsl:template>
 
 	<xsl:template match="content" mode="identity-build-nav" name="identity-build-nav">
+		<xsl:param name="is-buttons" select="false() or boolean(@wbt:nav-style = 'buttons')"/>
 		<xsl:param name="class"/>
 		<xsl:variable name="nav_link_part1">
 			<xsl:text>/</xsl:text>
@@ -1082,56 +1178,90 @@
 		</xsl:variable>
 		<xsl:variable name="nav_link" select="concat($nav_link_part1, $nav_link_part2)"/>
 		<xsl:variable name="title">
-			<xsl:value-of select="@title"/>
+			<xsl:choose>
+				<xsl:when test="@title">
+					<xsl:value-of select="@title"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="@name"/>
+				</xsl:otherwise>
+			</xsl:choose>
 		</xsl:variable>
-		
+
 		<!-- draw navigation - test for authenticated user, logged on user, and nav choice -->
 		<xsl:variable name="test1">
 			<xsl:call-template name="wbt:content-loggedon"/>
-			<xsl:call-template name="wbt:content-authenticated"/>/
-		</xsl:variable>
+			<xsl:call-template name="wbt:content-authenticated"/>/ </xsl:variable>
 		<xsl:variable name="valid-for-content" select="not(contains($test1, 'false'))"/>
-		<xsl:if test="not(@nav = 'false') and not(@active = 'false') and $valid-for-content">
-			<li class="nav-item">
-				<!-- if content has no html child elements then no link -->
-				<xsl:choose>
-					<xsl:when test="@flx_empty_content='true'">
-						<span class="nav-link" title="No Content"><xsl:value-of select="$title"/></span>
-					</xsl:when>
-					<xsl:otherwise>
+
+		<xsl:if test="not(ancestor-or-self::node()[@nav = 'false']) and not(@active = 'false') and $valid-for-content">
+			<xsl:choose>
+				<xsl:when test="$is-buttons">
+					<xsl:variable name="class.2">
 						<xsl:choose>
-							<xsl:when
-								test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
-								<xsl:attribute name="class">
-									<xsl:text>active temp_5</xsl:text>
-									<xsl:if test="content">
-										<xsl:text> content-parent</xsl:text>
-									</xsl:if>
-								</xsl:attribute>
+							<xsl:when test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
+								<xsl:value-of select="concat('btn btn-primary ', $class)"/>
 							</xsl:when>
 							<xsl:otherwise>
-								<xsl:if test="content">
-									<xsl:attribute name="class">
-										<xsl:text>content-parent temp_6</xsl:text>
-									</xsl:attribute>
-								</xsl:if>
+								<xsl:value-of select="concat('btn btn-secondary ', $class)"/>
 							</xsl:otherwise>
 						</xsl:choose>
-						<xsl:call-template name="wbt:build_url">
-							<xsl:with-param name="icon-class" select="@icon-class"/>
-							<xsl:with-param name="class" select="$class"/>
-							<xsl:with-param name="display" select="$title"/>
-							<xsl:with-param name="url" select="$nav_link"/>
-						</xsl:call-template>
-					</xsl:otherwise>
-				</xsl:choose>
-			</li>
+					</xsl:variable>
+					<xsl:call-template name="wbt:build_url">
+						<xsl:with-param name="icon-class" select="@icon-class"/>
+						<xsl:with-param name="class" select="$class.2"/>
+						<xsl:with-param name="display" select="$title"/>
+						<xsl:with-param name="url" select="$nav_link"/>
+					</xsl:call-template>
+				</xsl:when>
+				<xsl:otherwise>
+					<li class="nav-item">
+						<!-- if content has no html child elements then no link -->
+						<xsl:choose>
+							<xsl:when test="@flx_empty_content = 'true'">
+								<span class="nav-link" title="No Content">
+									<xsl:value-of select="$title"/>
+								</span>
+							</xsl:when>
+							<xsl:otherwise>
+								<xsl:choose>
+									<xsl:when test="translate(substring-after($nav_link_part1, '/'), $ABC, $abc) = $PageHeirarchyCombined">
+										<xsl:attribute name="class">
+											<xsl:text>active temp_5</xsl:text>
+											<xsl:if test="content">
+												<xsl:text> content-parent</xsl:text>
+											</xsl:if>
+										</xsl:attribute>
+									</xsl:when>
+									<xsl:otherwise>
+										<xsl:if test="content">
+											<xsl:attribute name="class">
+												<xsl:text>content-parent temp_6</xsl:text>
+											</xsl:attribute>
+										</xsl:if>
+									</xsl:otherwise>
+								</xsl:choose>
+								<xsl:call-template name="wbt:build_url">
+									<xsl:with-param name="icon-class" select="@icon-class"/>
+									<xsl:with-param name="class" select="$class"/>
+									<xsl:with-param name="display" select="$title"/>
+									<xsl:with-param name="url" select="$nav_link"/>
+								</xsl:call-template>
+							</xsl:otherwise>
+						</xsl:choose>
+					</li>
+				</xsl:otherwise>
+			</xsl:choose>
 		</xsl:if>
-		<xsl:apply-templates select="content" mode="identity-build-nav"/>
+
+		<xsl:apply-templates select="content" mode="identity-build-nav">
+			<xsl:with-param name="is-buttons" select="$is-buttons"/>
+			<xsl:with-param name="class" select="$class"/>
+		</xsl:apply-templates>
 	</xsl:template>
-		
+
 	<xsl:template match="*" mode="identity-build-nav.link"/>
-	<xsl:template match="content[@nav='false' or @active='false']" mode="identity-build-nav.link"/>
+	<xsl:template match="content[@nav = 'false' or @active = 'false']" mode="identity-build-nav.link"/>
 	<xsl:template match="page | content" mode="identity-build-nav.link">
 		<xsl:if test="not(self::page)">
 			<xsl:text>.</xsl:text>
@@ -1155,11 +1285,8 @@
 				<xsl:when test="@title">
 					<xsl:value-of select="@title"/>
 				</xsl:when>
-				<xsl:when
-					test="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']">
-					<xsl:value-of
-						select="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']/text()"
-					/>
+				<xsl:when test="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']">
+					<xsl:value-of select="*[not(namespace-uri() = 'myWebTemplater.1.0' or namespace-uri() = 'mySiteTemplater.1.0' or namespace-uri() = 'myPageTemplater.1.0')][1][name() = 'h1' or name() = 'h2' or name() = 'h3']/text()"/>
 				</xsl:when>
 				<xsl:otherwise>
 					<xsl:value-of select="@name"/>
@@ -1225,16 +1352,44 @@
 		</xsl:variable>
 		<xsl:value-of select="key('wbt:key_Tags', $name)[position() = $index]" disable-output-escaping="yes"/>
 	</xsl:template>
-	<xsl:template match="HTTP_METHOD" mode="identity-translate">
-		<xsl:if test="@verb = $HTTP_METHOD or @verb = '*'">
-			<xsl:apply-templates select="*" mode="identity-translate"/>
-		</xsl:if>
+	<xsl:template match="HTTP_GET | HTTP_POST | HTTP_METHOD" mode="identity-translate">
+		<xsl:choose>
+			<xsl:when test="local-name() = 'HTTP_METHOD' and (@verb = $HTTP_METHOD or @verb = '*')">
+				<xsl:apply-templates select="*" mode="identity-translate"/>
+			</xsl:when>
+			<xsl:when test="local-name() = 'HTTP_POST' and $HTTP_METHOD = 'POST'">
+				<xsl:apply-templates select="*" mode="identity-translate"/>
+			</xsl:when>
+			<xsl:when test="local-name() = 'HTTP_GET' and $HTTP_METHOD = 'GET'">
+				<xsl:apply-templates select="*" mode="identity-translate"/>
+			</xsl:when>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template match="Appear" mode="identity-translate">
+		<xsl:variable name="id" select="generate-id()"/>
+		<xsl:variable name="delay">
+			<xsl:choose>
+				<xsl:when test="@time"><xsl:value-of select="@time"/></xsl:when>
+				<xsl:otherwise>0</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<div style="display:none" id="{$id}">
+			<xsl:apply-templates mode="identity-translate"/>
+		</div>
+		<script type="text/javascript">
+			
+			<xsl:text>&#10;(function() { $('</xsl:text>
+			<xsl:value-of select="$id"/>
+			<xsl:text>').appear(); }).delay(</xsl:text>
+			<xsl:value-of select="@time"/>
+			<xsl:text>);&#10;</xsl:text>
+		</script>
 	</xsl:template>
 
-	<xsl:template match="Redirect" name="Redirect" mode="identity-translate">
+	<xsl:template match="RedirectForm" name="RedirectForm" mode="identity-translate">
 		<xsl:param name="time" select="@time"/>
-		<xsl:param name="href" select="@href  | text()"/>
-		
+		<xsl:param name="href" select="@href | text()"/>
 		<xsl:variable name="timex">
 			<xsl:choose>
 				<xsl:when test="number($time)">
@@ -1245,17 +1400,63 @@
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>
-		
+		<xsl:variable name="id" select="concat('__', generate-id())"/>
+		<form id="{$id}" method="post" action="{Action}">
+			<xsl:apply-templates select="*" mode="identity-translate"/>
+		</form>
 		<script type="text/javascript">
-			setTimeout(function() { 
-			location.href = '<xsl:value-of select="$href"/>'
+			<xsl:text>var form = 
+			setTimeout(function() {
+			</xsl:text>
+				<xsl:text>$('</xsl:text>
+				<xsl:value-of select="$id"/>
+				<xsl:text>').submit();</xsl:text>
+
+        },<xsl:value-of select="$timex"/>);
+		</script>
+	</xsl:template>
+	<xsl:template match="Action[ancestor::RedirectForm]" mode="identity-translate"/>
+	
+	<xsl:template match="Redirect" name="Redirect" mode="identity-translate">
+		<xsl:param name="time" select="@time"/>
+		<xsl:param name="href" select="@href | text()"/>
+
+		<xsl:variable name="timex">
+			<xsl:choose>
+				<xsl:when test="number($time)">
+					<xsl:value-of select="$time * 1000"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="1000"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+
+		<script type="text/javascript">
+            setTimeout(function () {
+                location.href = '<xsl:value-of select="$href"/>'
 			}, <xsl:value-of select="$timex"/>);
 		</script>
 	</xsl:template>
-	
+
+	<xsl:template match="UserRoles" mode="identity-translate"/>
 	<xsl:template match="LoggedOn | LoggedIn | LoggedInUser | LoggedOut | LoggedOff | LoggedOffUser" mode="identity-translate">
 		<xsl:if test="(name() = 'LoggedIn' or name() = 'LoggedOn' or name() = 'LoggedOnUser' or name() = 'LoggedInUser') and $LoggedOnUser">
-			<xsl:apply-templates mode="identity-translate"/>
+			<xsl:choose>
+				<xsl:when test="UserRoles/Role">
+					<xsl:choose>
+						<xsl:when test="UserRoles/Role and UserRoles/Role[. = /flx/app/user-roles/role]">
+							<xsl:apply-templates mode="identity-translate"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:call-template name="protected-content"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:apply-templates mode="identity-translate"/>
+				</xsl:otherwise>
+			</xsl:choose>
 		</xsl:if>
 		<xsl:if test="(name() = 'LoggedIn' or name() = 'LoggedOn' or name() = 'LoggedOnUser' or name() = 'LoggedInUser') and not($LoggedOnUser)">
 			<xsl:if test="@ShowProtectedMessage = 'true'">
@@ -1277,7 +1478,7 @@
 	</xsl:template>
 
 	<xsl:template match="Authenticated | AuthenticatedUser | NotAuthenticated" mode="identity-translate">
-		<xsl:if test="name() = ('Authenticated' or name() = 'AuthenticatedUser') and $AuthenticatedUser">
+		<xsl:if test="(name() = 'Authenticated' or name() = 'AuthenticatedUser') and $AuthenticatedUser">
 			<xsl:apply-templates mode="identity-translate"/>
 		</xsl:if>
 		<xsl:if test="(name() = 'NotAuthenticated' or name() = 'NotAuthenticatedUser') and not($AuthenticatedUser)">
@@ -1304,17 +1505,22 @@
 
 	<xsl:template name="wbt:comment">
 		<xsl:param name="comment"/>
-		<xsl:text>&#10;&#10;</xsl:text>
-		<xsl:comment>** <xsl:value-of select="$comment"/> **********</xsl:comment>
-		<xsl:text>&#10;</xsl:text>
+		<xsl:if test="$wbt:verbose">
+			<xsl:text>&#10;&#10;</xsl:text>
+			<xsl:comment>** <xsl:value-of select="$comment"/> **********</xsl:comment>
+			<xsl:text>&#10;</xsl:text>
+		</xsl:if>
 	</xsl:template>
 
 	<xsl:template name="BackButton" match="BackButton" mode="identity-translate">
 		<xsl:param name="href" select="@href"/>
-		<xsl:param name="title" select="@title | text()" />
+		<xsl:param name="title" select="@title | text()"/>
 		<xsl:choose>
 			<xsl:when test="string($href)">
-				<a href="{$href}" class="btn btn-secondary back-button"><i class="fa fa-chevron-left"/> <xsl:value-of select="$title"/></a>
+				<a href="{$href}" class="btn btn-secondary back-button">
+					<i class="fa fa-chevron-left"/>
+					<xsl:value-of select="$title"/>
+				</a>
 			</xsl:when>
 			<xsl:otherwise>
 				<a href="#" onclick="history.back(); return false;" class="btn btn-secondary back-button"><i class="fa fa-chevron-left"/> Back</a>
@@ -1389,7 +1595,7 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
-	
+
 	<!-- misc functions -->
 	<xsl:template match="link" mode="identity-translate">
 		<xsl:element name="a">
@@ -1406,7 +1612,7 @@
 			<xsl:value-of select="text()"/>
 		</xsl:element>
 	</xsl:template>
-	
+
 	<xsl:template name="JumpOut" match="JumpOut | PopOut" mode="identity-translate">
 		<xsl:param name="href" select="."/>
 		<xsl:param name="title" select="@title"/>
@@ -1422,42 +1628,52 @@
 			<i class="fa fa-external-link"/>
 		</a>
 	</xsl:template>
-	
+
 	<xsl:template match="wbt:ProjSql" mode="identity-translate">
 		<nav class="navbar navbar-expand navbar-dark bg-dark">
 			<div class="collapse navbar-collapse">
 				<ul class="navbar-nav">
-					<xsl:apply-templates select="$projSql/descendant-or-self::projectSql/*"
-						mode="projsql-nav"/>
+					<xsl:apply-templates select="$projSql/descendant-or-self::projectSql/*" mode="projsql-nav"/>
 				</ul>
 			</div>
 		</nav>
 	</xsl:template>
-	
+
 	<xsl:template match="KeyHole | Keyhole | keyhole" mode="identity-translate">
 		<iframe name="keyhole" src="about:blank" width="0" height="0" style="border:none"/>
 	</xsl:template>
-	
+
 	<xsl:template match="*" mode="projsql-nav">
 		<li class="nav-item dropdown">
-			<a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><xsl:value-of select="local-name()"/> <span class="caret"></span></a>
+			<a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+				<xsl:value-of select="local-name()"/>
+				<span class="caret"/>
+			</a>
 			<ul class="dropdown-menu">
-				<xsl:apply-templates select="query[command/action='Result']" mode="projsql-nav"/>
-				<li class="dropdown-divider"></li>
+				<xsl:apply-templates select="query[command/action = 'Result']" mode="projsql-nav">
+					<xsl:sort select="@name"/>
+				</xsl:apply-templates>
+				<li class="dropdown-divider"/>
 				<li class="dropdown-item dropdown-submenu">
 					<a class="dropdown-toggle" data-toggle="dropdown" href="#" tabindex="-1">Execute</a>
 					<ul class="dropdown-menu">
-						<xsl:apply-templates select="query[command/action='Scalar'] | query[command/action='NonQuery']" mode="projsql-nav"/>
+						<xsl:apply-templates select="query[command/action = 'Scalar'] | query[command/action = 'NonQuery']" mode="projsql-nav">
+							<xsl:sort select="@name"/>
+						</xsl:apply-templates>
 					</ul>
 				</li>
 			</ul>
-		</li>		
+		</li>
 	</xsl:template>
-	
+
 	<xsl:template match="query" mode="projsql-nav">
-		<li class="dropdown-item"><a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}"><xsl:value-of select="@name"/></a></li>
+		<li class="dropdown-item">
+			<a href="?wbt_project={local-name(parent::*[1])}&amp;wbt_query={@name}">
+				<xsl:value-of select="@name"/>
+			</a>
+		</li>
 	</xsl:template>
-	
+
 	<xsl:template match="@actionx" mode="identity-translate">
 		<xsl:attribute name="action">
 			<xsl:text>/</xsl:text>
@@ -1468,9 +1684,9 @@
 			<xsl:value-of select="."/>
 		</xsl:attribute>
 	</xsl:template>
-	
+
 	<xsl:template match="OFF" mode="identity-translate" priority="99"/>
-	
+
 	<xsl:template match="@hrefx" name="hrefx" mode="identity-translate">
 		<xsl:param name="hrefx"/>
 		<xsl:attribute name="href">
@@ -1481,18 +1697,18 @@
 			</xsl:for-each>
 			<xsl:choose>
 				<xsl:when test="string($hrefx)">
-					<xsl:value-of select="$hrefx"/>					
+					<xsl:value-of select="$hrefx"/>
 				</xsl:when>
 				<xsl:otherwise>
-					<xsl:value-of select="."/>					
+					<xsl:value-of select="."/>
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:attribute>
 	</xsl:template>
-	
+
 	<xsl:template match="wbt:*" mode="identity-translate">
 		<xsl:element name="{local-name()}" namespace="">
-			<xsl:apply-templates select="@*[namespace-uri()='']" mode="identity-translate"/>
+			<xsl:apply-templates select="@*[namespace-uri() = '']" mode="identity-translate"/>
 			<xsl:choose>
 				<xsl:when test="@wbt:query">
 					<xsl:apply-templates select="key('wbt:key_Results', @wbt:query)/result/row" mode="wbt:table">
@@ -1500,31 +1716,31 @@
 					</xsl:apply-templates>
 				</xsl:when>
 				<xsl:otherwise>
-					<xsl:apply-templates select="node()" mode="identity-translate"/>					
+					<xsl:apply-templates select="node()" mode="identity-translate"/>
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:element>
 	</xsl:template>
-	
+
 	<xsl:template match="tbody[@wbt:query]" mode="identity-translate">
 		<xsl:apply-templates select="key('wbt:key_Results', @wbt:query)/result/row" mode="wbt:table">
 			<xsl:with-param name="template" select="*"/>
 		</xsl:apply-templates>
 	</xsl:template>
-	
-	<xsl:template match="row" mode="wbt:table">		
+
+	<xsl:template match="row" mode="wbt:table">
 		<xsl:param name="template"/>
 		<xsl:apply-templates select="$template" mode="wbt:table">
 			<xsl:with-param name="current" select="current()"/>
 		</xsl:apply-templates>
-		
+
 	</xsl:template>
-	
+
 	<xsl:template match="*" mode="wbt:table">
 		<xsl:param name="current" select="/.."/>
 		<xsl:variable name="field" select="."/>
 		<xsl:copy>
-			<xsl:apply-templates select="@*[namespace-uri()='']" mode="identity-translate"/>
+			<xsl:apply-templates select="@*[namespace-uri() = '']" mode="identity-translate"/>
 			<xsl:apply-templates select="node() | @wbt:*" mode="wbt:table">
 				<xsl:with-param name="current" select="$current"/>
 			</xsl:apply-templates>
@@ -1534,38 +1750,38 @@
 	<xsl:template match="text()" mode="wbt:table">
 		<xsl:value-of select="."/>
 	</xsl:template>
-	
+
 	<xsl:template match="@wbt:*" mode="wbt:table">
 		<xsl:param name="current" select="/.."/>
 		<xsl:variable name="field" select="."/>
 		<xsl:attribute name="{local-name()}">
-			<xsl:value-of select="$current/@*[name()=$field]"/>
+			<xsl:value-of select="$current/@*[name() = $field]"/>
 		</xsl:attribute>
 	</xsl:template>
-	
+
 	<xsl:template match="wbt:field" mode="wbt:table">
 		<xsl:param name="current" select="/.."/>
 		<xsl:variable name="field" select="@name"/>
-		<xsl:value-of select="$current/@*[name()=$field]"/>
+		<xsl:value-of select="$current/@*[name() = $field]"/>
 		<xsl:apply-templates select="text() | *" mode="wbt:table">
 			<xsl:with-param name="current" select="$current"/>
 		</xsl:apply-templates>
 	</xsl:template>
-	
+
 	<xsl:template match="wbt:field-attr" mode="wbt:table">
 		<xsl:param name="current" select="/.."/>
 		<xsl:variable name="field" select="@name"/>
 		<xsl:attribute name="data-{$field}">
-			<xsl:value-of select="$current/@*[name()=$field]"/>
+			<xsl:value-of select="$current/@*[name() = $field]"/>
 		</xsl:attribute>
 	</xsl:template>
-	
+
 	<xsl:template name="flx-timing">
-		<xsl:if test="$DEBUG">
+		<xsl:if test="$ShowTimingDebugger">
 			<xsl:apply-templates select="/flx/app/TimingDebugger[*]" mode="flx-timing"/>
 		</xsl:if>
 	</xsl:template>
-	
+
 	<xsl:template match="TimingDebugger" mode="flx-timing">
 		<div class="container-fluid">
 			<table class="table table-info border">
@@ -1582,31 +1798,39 @@
 			</table>
 		</div>
 	</xsl:template>
-	
+
 	<xsl:template match="Name | ExecutionTime" mode="flx-timing"/>
-	
+
 	<xsl:template match="TimingGroup" mode="flx-timing">
 		<tr class="table-info">
-			<th><xsl:value-of select="@Name"/></th>
-			<th><xsl:value-of select="@ExecutionTime"/></th>
+			<th>
+				<xsl:value-of select="@Name"/>
+			</th>
+			<th>
+				<xsl:value-of select="@ExecutionTime"/>
+			</th>
 		</tr>
-		<xsl:apply-templates  mode="flx-timing"/>
+		<xsl:apply-templates mode="flx-timing"/>
 	</xsl:template>
-	
+
 	<xsl:template match="Timing" mode="flx-timing">
-		<xsl:if test="not(position()=1)">
-		<tr class="table-light">
-			<xsl:choose>
-				<xsl:when test="ExecutionTime &gt; 2000">
-					<xsl:attribute name="class">table-danger</xsl:attribute>
-				</xsl:when>
-				<xsl:when test="ExecutionTime &gt; 750">
-					<xsl:attribute name="class">table-warning</xsl:attribute>
-				</xsl:when>
-			</xsl:choose>
-			<td><xsl:value-of select="Name"/></td>
-			<td><xsl:value-of select="ExecutionTime"/></td>
-		</tr>
+		<xsl:if test="not(position() = 1)">
+			<tr class="table-light">
+				<xsl:choose>
+					<xsl:when test="ExecutionTime &gt; 2000">
+						<xsl:attribute name="class">table-danger</xsl:attribute>
+					</xsl:when>
+					<xsl:when test="ExecutionTime &gt; 750">
+						<xsl:attribute name="class">table-warning</xsl:attribute>
+					</xsl:when>
+				</xsl:choose>
+				<td>
+					<xsl:value-of select="Name"/>
+				</td>
+				<td>
+					<xsl:value-of select="ExecutionTime"/>
+				</td>
+			</tr>
 		</xsl:if>
 	</xsl:template>
 
@@ -1624,7 +1848,7 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
-	
+
 	<xsl:template name="wbt:content-authenticated">
 		<xsl:choose>
 			<xsl:when
@@ -1639,5 +1863,5 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
-	
+
 </xsl:stylesheet>

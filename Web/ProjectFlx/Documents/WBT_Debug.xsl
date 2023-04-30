@@ -34,7 +34,7 @@
     
     <xsl:template name="wbt:debug-message.write">
         <xsl:param name="message-raw"/>
-        <dl class="dl-horizontal">            
+        <dl class="dl-horizontal bg-light p-3">            
             <xsl:for-each select="exsl:node-set($message-raw)/*">
                 <xsl:choose>
                     <xsl:when test="child::*">

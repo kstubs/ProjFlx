@@ -4,13 +4,33 @@
 	<xsl:template match="wbt:default-table" mode="identity-translate">		
 		<xsl:comment>Identity Translate: wbt:default-table - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:choose>
+			<xsl:when test="@force-grid-view and @no-search='true'">
+				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table">
+					<xsl:with-param name="caption" select="@caption"/>
+					<xsl:with-param name="force-grid-view" select="@force-grid-view"/>
+					<xsl:with-param name="searchable" select="'NOT-SEARCHABLE'"/>
+					<xsl:with-param name="collapse-fields" select="collapse-fields/text()"/>
+				</xsl:apply-templates>
+			</xsl:when>
 			<xsl:when test="@force-grid-view">
 				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table">
+					<xsl:with-param name="caption" select="@caption"/>
 					<xsl:with-param name="force-grid-view" select="@force-grid-view"/>
+					<xsl:with-param name="collapse-fields" select="collapse-fields/text()"/>
+				</xsl:apply-templates>
+			</xsl:when>
+			<xsl:when test="@no-search='true'">
+				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table">
+					<xsl:with-param name="caption" select="@caption"/>
+					<xsl:with-param name="searchable" select="'NOT-SEARCHABLE'"/>
+					<xsl:with-param name="collapse-fields" select="collapse-fields/text()"/>
 				</xsl:apply-templates>
 			</xsl:when>
 			<xsl:otherwise>
-				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table"/>				
+				<xsl:apply-templates select="key('wbt:key_Results', current()/@query)" mode="wbt:default-table">
+					<xsl:with-param name="caption" select="@caption"/>
+					<xsl:with-param name="collapse-fields" select="collapse-fields/text()"/>
+				</xsl:apply-templates>				
 			</xsl:otherwise>
 		</xsl:choose>
 		
@@ -38,7 +58,7 @@
 			<div class="container">
 				<nav>
 					<ol class="breadcrumb">
-						<li>ProjSql</li>
+						<li class="breadcrumb-item">ProjSql</li>
 						<li class="breadcrumb-item">
 							<xsl:value-of select="$project"/>
 						</li>
@@ -78,11 +98,14 @@
 						</xsl:choose>
 					</div>
 					<div class="col-md-8">
-						<div class="panel">
+						<div class="card">
 							<xsl:if test="string($projsql/comment())">
-								<pre>
-								<xsl:value-of select="$projsql/comment()"/>					
-							</pre>
+								<xsl:attribute name="class">card bg-info text-white</xsl:attribute>
+								<div class="card-body">
+									<pre>
+										<xsl:value-of select="$projsql/comment()"/>									
+									</pre>
+								</div>
 							</xsl:if>
 						</div>
 						<div class="panel">
@@ -136,6 +159,11 @@
 							<xsl:with-param name="caption" select="''"/>
 							<xsl:with-param name="force-grid-view" select="$force-grid-view"/>
 						</xsl:apply-templates>
+						<xsl:apply-templates select="$results/subresult2/result" mode="wbt:default-table">
+							<xsl:with-param name="caption" select="''"/>
+							<xsl:with-param name="force-grid-view" select="$force-grid-view"/>
+						</xsl:apply-templates>
+					
 						<xsl:if test="not($results)">
 							<table class="table table-bordered">
 								<xsl:call-template name="wbt:default-table.no-results"/>
@@ -263,29 +291,61 @@
 	</xsl:template>
 	
 	<!-- Table Matches -->
-    <xsl:template match="results | result" mode="wbt:default-table">
+    <xsl:template match="results | result | subresult" mode="wbt:default-table">
         <xsl:param name="force-grid-view" select="false()"/>
         <xsl:param name="caption" select="@name"/>
+    	<xsl:param name="collapse-fields"/>
+    	<xsl:param name="searchable"/>		
+    	
     	<xsl:comment>Template Match 'wbt:default-table': results - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
     	
     	<xsl:apply-templates select="." mode="wbt:default-table.table">
 			<xsl:with-param name="force-grid-view" select="$force-grid-view"/>
 			<xsl:with-param name="caption" select="$caption"/>
+    		<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+    		<xsl:with-param name="searchable" select="$searchable"/>
 		</xsl:apply-templates>
     </xsl:template>
 	
-	<xsl:template match="results | result" mode="wbt:default-table.table">
+	<xsl:template match="results | result | subresult" mode="wbt:default-table.table">
 		<xsl:param name="force-grid-view" select="false()"/>
 		<xsl:param name="caption" select="@name"/>
+		<xsl:param name="collapse-fields"/>
+		<xsl:param name="searchable"/>
+		<xsl:param name="expandable" select="false()"/>
+		
 		<xsl:comment>Template Match 'default-table.table': results - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:if test="$caption">
 	        <h3>
 	            <xsl:value-of select="$caption"/>
 	        </h3>			
 		</xsl:if>
-        <table class="table table-bordered table-hover table-striped" wbt-query="{@name}">
+		<xsl:variable name="class">
+			<xsl:text>table table-bordered table-hover table-striped wbt-default-searchable</xsl:text>
+			<xsl:if test="string($collapse-fields)">
+				<xsl:text> in-collapse</xsl:text>
+			</xsl:if>
+			<xsl:if test="not($expandable)">
+				<xsl:text> no-expand</xsl:text>
+			</xsl:if>
+		</xsl:variable>
+        <table class="{$class}" wbt-query="{@name}">
+			<xsl:attribute name="id">
+				<xsl:choose>
+					<xsl:when test="@id">
+						<xsl:value-of select="@id"/>
+					</xsl:when>
+					<xsl:when test="not(string(@name))">
+						<xsl:value-of select="concat('__wbt_', ancestor-or-self::results/@name, '_', count(preceding-sibling::result) + 1)"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="concat('__wbt_', @name)"/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:attribute>
             <xsl:choose>
-                <xsl:when test="count(descendant-or-self::result/row) &gt; 1 or $force-grid-view">
+                <xsl:when test="count(descendant-or-self::result/row | self::subresult/row) &gt; 1 or $force-grid-view">
+                	<thead>
                     <tr>                    	
                     	<xsl:if test="schema/query/actions/action[@type='link']">
                     		<th>-</th>
@@ -293,15 +353,30 @@
                     	<xsl:if test="schema/query/actions/action[@type[.='update' or .='insert' or .='delete']]">
                     		<th>-</th>
                     	</xsl:if>
-                    	<xsl:apply-templates select="schema/query/fields/field" mode="wbt:default-table-multirow-header"/>
+                    	<xsl:apply-templates select="schema/query/fields/field" mode="wbt:default-table-multirow-header">
+                    		<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+                    	</xsl:apply-templates>
                     	<xsl:if test="not(schema/query/fields/field)">
-                    		<xsl:apply-templates select="descendant-or-self::result/row[1]" mode="wbt:default-table-multirow-header"/>
+                    		<xsl:apply-templates select="result/row[1] | row[1]" mode="wbt:default-table-multirow-header">
+                    			<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+                    		</xsl:apply-templates>
                     	</xsl:if>
                     </tr>
-                	<xsl:apply-templates select="descendant-or-self::result/row" mode="wbt:default-table-multirow"/>                    
+                	</thead>
+					<tbody>
+						<xsl:apply-templates select="result/row | row" mode="wbt:default-table-multirow">
+							<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+							<xsl:with-param name="searchable" select="$searchable"/>									
+						</xsl:apply-templates>
+					</tbody>
                 </xsl:when>
             	<xsl:otherwise>
-            		<xsl:apply-templates select="descendant-or-self::result/row" mode="wbt:default-table"/>
+					<tbody>
+						<xsl:apply-templates select="descendant-or-self::result/row" mode="wbt:default-table">
+							<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+							<xsl:with-param name="searchable" select="$searchable"/>									
+						</xsl:apply-templates>
+					</tbody>
                 </xsl:otherwise>
             </xsl:choose>
 
@@ -317,7 +392,8 @@
             	</xsl:call-template>
             </xsl:if>
         </table>
-    	<xsl:choose>
+		<xsl:choose>
+			<!-- TODO: this is disabled in backend (not working with subqueries) see comment: SADF1234 -->
     		<xsl:when test="schema/query/paging/pages/@totalrecords &gt; count(result/row)">
 		        <xsl:call-template name="wbt:paging"/>    		    			
     		</xsl:when>
@@ -345,21 +421,63 @@
 
 
     <xsl:template match="row" mode="wbt:default-table">
+    	<xsl:param name="collapse-fields"/>
     	<xsl:comment>Match: row wbt:default-table - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
-    	<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table">
-            <xsl:with-param name="current" select="."/>
-        </xsl:apply-templates>
+    	<xsl:choose>
+    		<xsl:when test="ancestor::subresult2">
+    			<xsl:apply-templates select="@*" mode="wbt:default-table">
+    				<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+    			</xsl:apply-templates>
+    		</xsl:when>
+    		<xsl:when test="ancestor::results[1]/schema/query/fields/field">
+		    	<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table">
+		            <xsl:with-param name="current" select="."/>
+		        </xsl:apply-templates>    			    			
+    		</xsl:when>
+    		<xsl:otherwise>
+    			<xsl:apply-templates select="@*" mode="wbt:default-table">
+    				<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+    			</xsl:apply-templates>
+    		</xsl:otherwise>
+    	</xsl:choose>
     </xsl:template>
 
-    <xsl:template match="field" mode="wbt:default-table">
+    <xsl:template match="field | @*" mode="wbt:default-table">
         <xsl:param name="current" select="/"/>
         <xsl:param name="field_name" select="@name"/>
-        <tr>
-            <th>
-                <xsl:value-of select="$field_name"/>
+    	<xsl:param name="collapse-fields"/>
+    	<tr>
+    		<xsl:choose>
+    			<xsl:when test="$collapse-fields and field"></xsl:when>
+    			<xsl:when test="$collapse-fields">
+    				<xsl:for-each select="@*">
+    					<xsl:if test="contains($collapse-fields, concat(local-name(), ';'))">
+    						<xsl:attribute name="{concat('data-hidden-field-', count(preceding-sibling::attribute) + 1)}">
+    							<xsl:value-of select="local-name()"/>
+    						</xsl:attribute>
+    					</xsl:if>
+    				</xsl:for-each>
+    			</xsl:when>
+    		</xsl:choose>
+    		<th>
+				<xsl:choose>
+					<xsl:when test="self::field">
+                		<xsl:value-of select="$field_name"/>						
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:value-of select="local-name()"/>
+					</xsl:otherwise>
+				</xsl:choose>            	
             </th>
             <td>
-                <xsl:value-of select="$current/@*[name()=$field_name]" disable-output-escaping="yes"/>
+            	<xsl:choose>
+            		<xsl:when test="self::field">
+            			<xsl:value-of select="$current/@*[name()=$field_name]" disable-output-escaping="yes"/>
+            		</xsl:when>
+            		<xsl:otherwise>
+            			<xsl:value-of select="."/>
+            		</xsl:otherwise>
+            	</xsl:choose>
             </td>
         </tr>
     </xsl:template>
@@ -370,6 +488,7 @@
 	<!-- match on row when no schema field names provided, use raw fields name from first row --> 
     <xsl:template match="row | field" mode="wbt:default-table-multirow-header">
     	<xsl:param name="row-field.index" select="1"/>
+    	<xsl:param name="collapse-fields"/>
     	<xsl:variable name="header">
     		<xsl:choose>
     			<xsl:when test="self::row">
@@ -390,7 +509,10 @@
     			</xsl:otherwise>
     		</xsl:choose>
     	</xsl:variable>
-        <th>
+        <th>        	
+        	<xsl:if test="contains($collapse-fields, concat($header, ';'))">
+        		<xsl:attribute name="class">collapsable</xsl:attribute>
+        	</xsl:if>
         	<xsl:attribute name="wbt-field">
         		<xsl:value-of select="@name"/>
         	</xsl:attribute>
@@ -398,15 +520,21 @@
         </th>
     	<xsl:if test="self::row and $row-field.index &lt; count(@*)">
     		<xsl:apply-templates select="self::row" mode="wbt:default-table-multirow-header">
-    			<xsl:with-param name="row-field.index" select="$row-field.index + 1"/>
+    			<xsl:with-param name="row-field.index" select="$row-field.index + 1"/>    			
+    			<xsl:with-param name="collapse-fields" select="$collapse-fields"/>    				
     		</xsl:apply-templates>
     	</xsl:if>
     </xsl:template>
 
 	<xsl:template match="row" mode="wbt:default-table-multirow">
+		<xsl:param name="collapse-fields"/>		
+		<xsl:param name="searchable"/>		
 		<xsl:comment>Match: row wbt:default-table-multirow - <xsl:value-of select="$wbt:inc-name"/></xsl:comment>
 		<xsl:variable name="action" select="ancestor::results/schema/query/actions/action"/>
 		<tr>
+			<xsl:apply-templates select="." mode="wbt:default-table-multirow.searchable-attribute">
+				<xsl:with-param name="searchable" select="$searchable"/>
+			</xsl:apply-templates>
 			<xsl:apply-templates select="." mode="wbt:default-table-multirow.attributes"/>
 			<xsl:if test="$action[@type='link']">
 				<xsl:apply-templates select="." mode="wbt:default-table-multirow.link"/>
@@ -415,16 +543,21 @@
 				<xsl:apply-templates select="." mode="wbt:default-table-multirow.editable"/>
 			</xsl:if>
 			<xsl:choose>
-				<xsl:when test="ancestor::subquery">
-					<xsl:apply-templates select="@*" mode="wbt:default-table-multirow"/>
+				<xsl:when test="ancestor::subresult">
+					<xsl:apply-templates select="@*" mode="wbt:default-table-multirow">						
+						<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+					</xsl:apply-templates>
 				</xsl:when>
 				<xsl:otherwise>                    
 					<xsl:apply-templates select="ancestor::results[1]/schema/query/fields/field" mode="wbt:default-table-multirow">
 						<xsl:with-param name="current" select="."/>
+						<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
 					</xsl:apply-templates>
 					<!-- write out every field on the row when no fields defined in schema -->
 					<xsl:if test="not(ancestor::results[1]/schema/query/fields/field)">
-						<xsl:apply-templates select="@*" mode="wbt:default-table-multirow"/>
+						<xsl:apply-templates select="@*" mode="wbt:default-table-multirow">
+							<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
+						</xsl:apply-templates>
 					</xsl:if>
 				</xsl:otherwise>
 			</xsl:choose>
@@ -457,20 +590,74 @@
 			</a>
 		</th>		
 	</xsl:template>
+
+	<xsl:template match="row" mode="wbt:default-table-multirow.searchable-attribute">
+		<xsl:param name="searchable"/>
+		<xsl:variable name="fields" select="@*"/>		
+			<xsl:choose>
+				<xsl:when test="$searchable='NO-SEARCH' or $searchable='NOT-SEARCHABLE'"/>
+				<xsl:when test="$searchable and not(ancestor::results[1]/schema/query/fields/field)">
+					<xsl:attribute name="data-wbt-searchable">
+						<xsl:for-each select="@*">
+						<xsl:if test="contains($searchable, local-name())">
+							<xsl:value-of select="concat(., ' ')"/>												
+						</xsl:if>
+					</xsl:for-each>
+					</xsl:attribute>
+				</xsl:when>
+				<xsl:when test="$searchable">
+				<xsl:attribute name="data-wbt-searchable">
+					<xsl:for-each select="ancestor::results[1]/schema/query/fields/field">
+						<xsl:if test="contains($searchable, @name)">
+							<xsl:variable name="val"
+								select="$fields[local-name() = current()/@name]"/>
+							<xsl:if test="normalize-space($val)">
+								<xsl:value-of select="concat($val, ' ')"/>
+							</xsl:if>
+						</xsl:if>
+					</xsl:for-each>
+				</xsl:attribute>
+				</xsl:when>
+				<xsl:otherwise>
+				<xsl:attribute name="data-wbt-searchable">
+					<xsl:for-each select="ancestor::results[1]/schema/query/fields/field">
+						<xsl:if test="@type = 'text'">
+							<xsl:variable name="val"
+								select="$fields[local-name() = current()/@name]"/>
+							<xsl:if test="normalize-space($val)">
+								<xsl:value-of select="concat($val, ' ')"/>
+							</xsl:if>
+						</xsl:if>
+					</xsl:for-each>
+				</xsl:attribute>
+				</xsl:otherwise>
+			</xsl:choose>
+		
+	</xsl:template>
 	
     <xsl:template match="field | @*" mode="wbt:default-table-multirow">
         <xsl:param name="current" select="/"/>
         <xsl:param name="field_name" select="@name"/>
-        <td>
-        	<xsl:choose>
-        		<xsl:when test="self::field">
-        			<xsl:value-of select="$current/@*[name()=$field_name]" disable-output-escaping="yes"/>        			
-        		</xsl:when>
-        		<xsl:otherwise>
-        			<xsl:value-of select="." disable-output-escaping="yes"/>
-        		</xsl:otherwise>
-        	</xsl:choose>
-        </td>
+    	<xsl:param name="collapse-fields"/>
+		<xsl:if test="not(@ForView) or @ForView = 'true'">
+			<td>				
+				<xsl:choose>
+					<xsl:when test="self::field">
+						<xsl:if test="contains($collapse-fields, $field_name)">
+							<xsl:attribute name="class">collapsable</xsl:attribute>
+						</xsl:if>
+						<xsl:value-of select="$current/@*[name() = $field_name]"
+							disable-output-escaping="yes"/>
+					</xsl:when>
+					<xsl:otherwise>
+						<xsl:if test="contains($collapse-fields, concat(local-name(), ';'))">
+							<xsl:attribute name="class">collapsable</xsl:attribute>
+						</xsl:if>
+						<xsl:value-of select="." disable-output-escaping="yes"/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</td>
+		</xsl:if>
     </xsl:template>
 
     <!-- Query Vars -->

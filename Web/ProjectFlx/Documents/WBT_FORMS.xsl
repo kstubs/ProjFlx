@@ -78,7 +78,13 @@
                     </xsl:if>
                 </label>
                 <div class="col-sm-9">
-                    <input type="text" name="{$field_name}" value="{$current/@*[name()=$field_name]}" class="form-control {$mapped-field/@regx}">
+                	<xsl:variable name="value">
+                		<xsl:call-template name="field-value">
+                			<xsl:with-param name="current" select="$current"/>
+                			<xsl:with-param name="field_name" select="$field_name"/>               			
+                		</xsl:call-template>
+                	</xsl:variable>
+                    <input type="text" name="{$field_name}" value="{$value}" class="form-control {$mapped-field/@regx}">
                         <xsl:if test="$mapped-field/@ForUpdate='False'">
                             <xsl:attribute name="readonly">readonly</xsl:attribute>
                         </xsl:if>
@@ -87,6 +93,21 @@
             </div>
         </xsl:if>
     </xsl:template>
+	
+	<xsl:template name="field-value">
+		<xsl:param name="field" select="."/>
+		<xsl:param name="current"/>
+		<xsl:param name="field_name"/>
+		<xsl:choose>
+			<xsl:when test="$field/@type='date' and contains($current/@*[name()=$field_name], ' ')">
+				<xsl:value-of select="substring-before($current/@*[name()=$field_name], ' ')"/>				
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:value-of select="$current/@*[name()=$field_name]"/>	
+				
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
 	
 	<xsl:template match="wbt:query" mode="wbt:edits">
 		<xsl:param name="project"/>
@@ -124,10 +145,17 @@
 		<xsl:param name="project"/>
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
+		<xsl:param name="form-action"/>
 		<xsl:choose>
 			<xsl:when test="$action='update'">
 				<form method="post" name="form_{$query}" class="form-horizontal">
+					<xsl:if test="string($form-action)">
+						<xsl:attribute name="action">
+							<xsl:value-of select="$form-action"/>
+						</xsl:attribute>
+					</xsl:if>
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
+						<xsl:with-param name="current" select="current()"/>
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
@@ -141,6 +169,7 @@
 			<xsl:when test="$action='insert'">
 				<form method="post" name="form_{$query}" class="form-horizontal">
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
+						<xsl:with-param name="current" select="current()"/>
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
@@ -154,6 +183,7 @@
 			<xsl:when test="$action='delete'">
 				<form method="post" name="form_{$query}" class="form-horizontal">
 					<xsl:apply-templates select="$projSql/*[local-name()=$project]/query[@name=$query]//parameters/parameter" mode="wbt:edits">
+						<xsl:with-param name="current" select="current()"/>
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
 						<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 						<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
@@ -166,6 +196,7 @@
 			</xsl:when>
 			<xsl:otherwise>
 				<xsl:apply-templates select="/flx/app/ProjectSql[@name=$project and @query=$query]/*/parameters/parameter" mode="wbt:edits">
+					<xsl:with-param name="current" select="current()"/>
 					<xsl:with-param name="data-row" select="descendant-or-self::row"/>
 					<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
 					<xsl:sort select="descendant-or-self::row/@display_order" case-order="lower-first" data-type="number"/>
@@ -176,9 +207,10 @@
     
 	<xsl:template match="parameter[@ForUpdate='false']" mode="wbt:edits" priority="1"/>
 
-	<xsl:template match="parameter" mode="wbt:edits">
+	<xsl:template name="wbt:edits-parameter" match="parameter" mode="wbt:edits">
 		<xsl:param name="data-row"/>
 		<xsl:param name="browser-vars"/>
+		<xsl:param name="override-value"/>
 		<xsl:variable name="required" select="@required = 'true'"/>
 		<xsl:variable name="email" select="contains(@regx, 'email')"/>
 
@@ -189,6 +221,14 @@
 				<xsl:when test="normalize-space($data-row/@*[name(.)=$param/@lookup_value])">
 					<xsl:value-of select="$data-row/@*[name(.)=$param/@lookup_value]"/>
 				</xsl:when>
+				<xsl:when test="normalize-space($data-row/@*[name(.)=$param/@name])">
+					<xsl:call-template name="field-value">
+						<xsl:with-param name="field" select="current()"/>
+						<xsl:with-param name="current" select="$data-row"/>
+						<xsl:with-param name="field_name" select="@name"/>
+					</xsl:call-template>
+<!--					<xsl:value-of select="$data-row/@*[name(.)=$param/@name]"/>-->
+				</xsl:when>
 				<xsl:otherwise>
 					<xsl:value-of select="$browser-vars/*[@name=current()/@name]"/>
 				</xsl:otherwise>
@@ -198,7 +238,7 @@
 			<xsl:if test="$param/@ForView='false'">
 				<xsl:attribute name="style">display:none</xsl:attribute>
 			</xsl:if>
-			<label for="{@name}" class="col-lg-3 col-form-label">
+			<label for="{@name}" class="col-lg-3 col-form-label nowrap">
 				<xsl:choose>
 					<xsl:when test="string(@display)">
 						<xsl:value-of select="@display"/>						
@@ -210,7 +250,7 @@
 			</label>
 			<div class="col-lg-9">
 				<div>
-					<xsl:if test="$required or $email">
+					<xsl:if test="$required or $email or string($override-value)">
 						<xsl:attribute name="class">input-group</xsl:attribute>
 					</xsl:if>
 					<xsl:if test="$email">
@@ -224,19 +264,29 @@
 							</xsl:call-template>
 						</xsl:when>
 						<xsl:otherwise>
+							<xsl:if test="$override-value">
+								<span class="input-group-text"><i class="fa fa-exclamation-triangle text-warning" title="Original Value" style="margin-bottom:-3px; margin-right:2px"> </i> <xsl:value-of select="$value"/></span>
+							</xsl:if>
 							<input class="form-control" type="text" name="{@name}" id="{@name}_id">
 								<xsl:if test="@display-type='email'">
 									<xsl:attribute name="type">email</xsl:attribute>
 								</xsl:if>
 								<xsl:attribute name="value">
-									<xsl:value-of select="$value"/>
+									<xsl:choose>
+										<xsl:when test="$override-value">
+											<xsl:value-of select="$override-value"/>
+										</xsl:when>
+										<xsl:otherwise>
+											<xsl:value-of select="$value"/>											
+										</xsl:otherwise>
+									</xsl:choose>
 								</xsl:attribute>
 								<xsl:if test="string(@size)">
 									<xsl:attribute name="data-max-len">
 										<xsl:value-of select="@size"/>
 									</xsl:attribute>
 								</xsl:if>
-								<xsl:if test="@Locked='true'">
+								<xsl:if test="@locked='true'">
 									<xsl:attribute name="readonly">readonly</xsl:attribute>
 								</xsl:if>
 								<xsl:if test="@regx">
@@ -262,20 +312,26 @@
 	<xsl:template match="input[@type='text' or @type='select' or @type='hidden' or not(@type)]" mode="identity-translate" priority="1">
 		<xsl:copy>
 			<xsl:apply-templates select="@*[name()!='value']" mode="identity-translate"/>
-			<xsl:attribute name="value">
-				<xsl:choose>
-					<xsl:when test="@type='hidden' and string(@value)!=''">
-						<xsl:value-of select="@value"/>						
-					</xsl:when>
-					<xsl:otherwise>
-						<xsl:value-of select="@value | key('wbt:key_FormVars', @name) | key('wbt:key_QueryVars', @name)"/>						
-					</xsl:otherwise>
-				</xsl:choose>
-			</xsl:attribute>
+			<xsl:call-template name="wbt:input-value"/>
 			<xsl:call-template name="eval-disabled-input"/>
 		</xsl:copy>
 	</xsl:template>
-
+	
+	<xsl:template name="wbt:input-value">
+		<xsl:param name="name" select="@name"/>
+		<xsl:param name="default-value" select="@value"/>
+		<xsl:attribute name="value">
+			<xsl:choose>
+				<xsl:when test="string($default-value)!=''">
+					<xsl:value-of select="$default-value"/>						
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="key('wbt:key_FormVars', $name) | key('wbt:key_QueryVars', $name)"/>						
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:attribute>		
+	</xsl:template>
+	
 	<xsl:template match="input[@type='button' or @type='submit']" mode="identity-translate" priority="1">
 		<xsl:copy>
 			<xsl:apply-templates select="@*[name()!='value']" mode="identity-translate"/>
