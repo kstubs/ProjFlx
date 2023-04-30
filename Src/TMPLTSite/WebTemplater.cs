@@ -15,10 +15,12 @@ using ProjectFlx.Utility;
 
 namespace ProjectFlx
 {
-	/// <summary>
-	/// Summary description for myWebTemplater.
-	/// </summary>
-	public class FlxTemplater : XMLTemplater, IDisposable
+    public enum LoadStatus { EMPTY, LOADING, LOADED, FAIL };
+    
+    /// <summary>
+    /// Summary description for myWebTemplater.
+    /// </summary>
+    public class FlxTemplater : XMLTemplater, IDisposable
 	{
 		protected XmlDocument clsBrowserVarsXML;
 		protected HttpContext httpC;
@@ -26,6 +28,9 @@ namespace ProjectFlx
         protected XsltArgumentList _args;
         protected StringWriter _writer;
         
+        public LoadStatus XmlStatus { get; internal set; }
+        public LoadStatus XslStatus { get; internal set; }
+
         private string _domain;
 
         public string Domain
@@ -33,7 +38,6 @@ namespace ProjectFlx
             get { return _domain; }
         }
         protected string _subDomain;
-        private bool _loaded = false;
 
         public DateTime MinProtectedCookyExpire { get; set; }
 
@@ -283,7 +287,9 @@ namespace ProjectFlx
 
 			httpC = HttpContext.Current;
 
-            _loaded = false;
+            XslStatus = LoadStatus.EMPTY;
+            XmlStatus = LoadStatus.EMPTY;
+
             _args = new XsltArgumentList();
             _xslt = new XslCompiledTransform();
 
@@ -324,7 +330,7 @@ namespace ProjectFlx
         public void setXslt(string XsltPath)
         {
             _xsltPath = XsltPath;
-            _loaded = true;
+            XslStatus = LoadStatus.LOADED;
 
             this.AddCommentTag("XsltPath", XsltPath, "ProjectFlx.FlxTemplater", "setXslt");
         }
@@ -333,7 +339,15 @@ namespace ProjectFlx
         {
             get
             {
-                return _loaded;
+                return XslStatus.Equals(LoadStatus.LOADED);
+            }
+        }
+
+        public bool XmlLoaded
+        {
+            get
+            {
+                return XmlStatus.Equals(LoadStatus.LOADED);
             }
         }
 
@@ -381,10 +395,22 @@ namespace ProjectFlx
 
         public virtual void ProcessTemplate()
         {
-
-            if (!(_loaded) || _xslt == null || String.IsNullOrEmpty(_xsltPath))
+            if (!XmlLoaded)
             {
-                ProjectExceptionArgs args = new ProjectExceptionArgs("XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+                if (XmlStatus.Equals(LoadStatus.LOADING))
+                {
+                    // this indicates an issue with the Xml we are trying to load
+                    // most likely BAD xml
+                    var args = new ProjectExceptionArgs($"Xml Loading Error - check your Xml!", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+                    throw new ProjectException(args);
+                }
+                else
+                    throw new ProjectException($"Could not load Xml, XmlStatus [{XmlStatus.ToString()}]");
+            }
+
+            if (!(XsltLoaded) || _xslt == null || String.IsNullOrEmpty(_xsltPath))
+            {
+                var args = new ProjectExceptionArgs($"XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
                 throw new ProjectException(args);
             }
 

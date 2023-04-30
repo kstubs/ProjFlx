@@ -219,7 +219,7 @@ namespace ProjectFlx.DB.SchemaBased
                                 dtValue = value;
 
                             var dt = DateTime.Parse("1970-1-1 01:01:01");
-                            if(DateTime.TryParse(dtValue, out dt))
+                            if (DateTime.TryParse(dtValue, out dt))
                                 if (dt.ToString("d").Equals("1/1/1970") && dt.ToString("t").Equals("1:1 AM"))
                                     throw new Exception("Could not parse date: " + value);
 
@@ -228,6 +228,13 @@ namespace ProjectFlx.DB.SchemaBased
                         else if (parm.type == Schema.fieldType.json)
                         {
                             inoutparm = _command.Parameters.AddWithValue(parm.name, value);
+                        }
+                        else if (parm.type == Schema.fieldType.@int)
+                        {
+                            inoutparm = _command.Parameters.Add(parm.name, SqlDbType.Int);
+                            var intval = 0;
+                            if (int.TryParse(value, out intval))
+                                inoutparm.Value = intval;
                         }
                         else
                             inoutparm = _command.Parameters.AddWithValue(parm.name, value);

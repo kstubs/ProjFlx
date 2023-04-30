@@ -473,7 +473,6 @@ namespace ProjectFlx
                     Timing.Stop("FLX");
                     if (_debug)
                         TMPLT.AddXML(Utility.TimingDebugger.Serialize(TimingDebugger));
-
                     TMPLT.ProcessTemplate();
 
                     Response.ContentType = "text/html";
@@ -823,10 +822,29 @@ namespace ProjectFlx
 
                 // meta tags
                 string[] meta = { "DESCRIPTION", "KEYWORDS", "TITLE" };
-                foreach(var m in _resources.collectResources(Utility.Paths.CombinePaths("meta"), ".txt"))
+                foreach (var m in _resources.collectResources("meta", ".txt"))
                 {
                     var m2 = meta.FirstOrDefault(f => { return m.ToUpper().Contains(f); });
                     TMPLT.AddBrowserPageItem(m2, (_useCdn) ? Utility.Web.getWebResource(_resources.FullWebPath(m)) : Utility.Web.getWebResource(Server.MapPath(m)));
+
+                    for (int x = 0; x < _pageHeirarchy.Count; x++)
+                    {
+                        // page defined
+                        var sub = new string[2];
+                        sub[0] = ResourceContentPath;
+                        sub[1] = "meta";
+                        var subpage = new ArraySegment<string>(_pageHeirarchy.ToArray(), 1, x);     // x for x is: 0 for 0 (ignore 1st item) 1 for
+
+                        var a = new String[sub.Length + subpage.ToArray().Length];
+                        Array.Copy(sub, a, sub.Length);
+                        if (subpage.ToArray().Length > 0)
+                            Array.Copy(subpage.ToArray(), 0, a, sub.Length, subpage.ToArray().Length);
+
+                        foreach (string s in _resources.collectResources(Utility.Paths.CombinePaths(a), ".txt"))
+                            TMPLT.AddBrowserPageItem(m2, (_useCdn) ? Utility.Web.getWebResource(_resources.FullWebPath(s)) : Utility.Web.getWebResource(Server.MapPath(s)));
+
+                    }
+
                 }
 
                 Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.default-files-script-meta-tags");
@@ -1275,8 +1293,6 @@ namespace ProjectFlx
                 }
                 if (_projFlxUseCache)
                 {
-
-
                     if (CacheContains(
                         CacheKeyEnum.XmlCacheKey, 
                         CacheKeyEnum.XslCacheKey,
@@ -1348,24 +1364,43 @@ namespace ProjectFlx
 
                                 foundXml = foundXml || _resources.Exists(resourcePath);
                             }
-
                         }
 
                         if(foundXml)
                         {
                             // if page heirarchy doesn't match found xml, map the resource
-                            if(!_pageHeirarchy.Count.Equals(x))
+                            if (!_pageHeirarchy.Count.Equals(x))
                             {
                                 // CONSIDER: assuming separator is a . but should be configurable
                                 var temp1 = PageHeirarchyCombined.Split('.').Take(x).ToArray();
                                 mapResource = String.Join(".", temp1);
                             }
 
-                            resultcontentpath = localxmlpath;
-                            if (_useCdn)
-                                content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
-                            else
-                                content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
+                            try
+                            {
+
+                                resultcontentpath = localxmlpath;
+                                if (_useCdn)
+                                {
+                                    // HACK! if the Xml you are trying to load is not valid Xml, no exception is caught here and you exit this code block hardstop
+                                    // Need a way to test if the resource is valid Xml
+                                    TMPLT.XmlStatus = LoadStatus.LOADING;
+                                    content.Load(_resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                                    TMPLT.XmlStatus = LoadStatus.LOADED;
+                                }
+                                else
+                                {
+                                    TMPLT.XmlStatus = LoadStatus.LOADING;
+                                    content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
+                                    TMPLT.XmlStatus = LoadStatus.LOADED;
+                                }
+
+                            }
+                            catch(Exception unhandled)
+                            {
+                                var args = new ProjectExceptionArgs("Invalid Resource Load", "ProjectFlx.FlxMain", "getXmlResources", "content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));", SeverityLevel.Critical, LogLevel.Debug);
+                                throw new ProjectException(args, unhandled);
+                            }
                         }
                     }
 
@@ -1415,7 +1450,7 @@ namespace ProjectFlx
                 // look for default content in root client projectFlx path considering a default as well
                 if (!foundXml || !foundXsl)
                 {
-                    if(!foundXml)
+                    if (!foundXml)
                         resultcontentpath = localxmlpath = "";
 
                     string[] resource = new string[] { _pageHeirarchy[0], "default" };
@@ -1427,9 +1462,17 @@ namespace ProjectFlx
                                 resultcontentpath = "default";
 
                             if (_useCdn)
+                            {
+                                TMPLT.XmlStatus = LoadStatus.LOADING;
                                 content.Load(_resources.FullWebPath(_resources.IndexOf));
+                                TMPLT.XmlStatus = LoadStatus.LOADED;
+                            }
                             else
+                            {
+                                TMPLT.XmlStatus = LoadStatus.LOADING;
                                 content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
+                                TMPLT.XmlStatus = LoadStatus.LOADED;
+                            }
 
                             mapResource = s;
                             foundXml = true;
@@ -1578,6 +1621,7 @@ namespace ProjectFlx
                     // Page Terminate Event - overrideable
                     PAGE_TERMINATE();
                 }
+                catch (System.Threading.ThreadAbortException) { }
                 catch (Exception unhandled)
                 {
                     TMPLT.AddException(unhandled);
