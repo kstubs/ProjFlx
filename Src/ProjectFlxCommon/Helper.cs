@@ -443,7 +443,15 @@ namespace ProjectFlx.Schema
                                         json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
                                 break;
                             default:
-                                json.WriteValue(att.Value.Trim());
+                                if(fld.encode == "true")
+                                {
+                                    string val = encodeText(att.Value);
+                                    json.WriteValue(val);
+                                }
+                                else
+                                {
+                                    json.WriteValue(att.Value.Trim());
+                                }
                                 break;
                         }
 
@@ -451,6 +459,18 @@ namespace ProjectFlx.Schema
 
                     json.WriteEndObject();
                 }
+            }
+
+
+            private static string encodeText(string val)
+            {
+                var sb = new StringBuilder();
+                foreach(char c in val)
+                {
+                    sb.AppendFormat("&#{0};", (int)c);                    
+                }
+
+                return sb.ToString();
             }
 
             public static void getRowJsonStringArray(JsonTextWriter json, subresult Result, List<field> fields)

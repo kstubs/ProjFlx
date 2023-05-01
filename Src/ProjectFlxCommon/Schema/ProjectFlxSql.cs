@@ -2322,6 +2322,8 @@ namespace ProjectFlx.Schema {
         
         private string encodeField;
         
+        private string encode_customField;
+        
         private List<string> textField;
         
         private static System.Xml.Serialization.XmlSerializer serializer;
@@ -2458,6 +2460,16 @@ namespace ProjectFlx.Schema {
             }
             set {
                 this.encodeField = value;
+            }
+        }
+        
+        [System.Xml.Serialization.XmlAttributeAttribute(DataType="NCName")]
+        public string encode_custom {
+            get {
+                return this.encode_customField;
+            }
+            set {
+                this.encode_customField = value;
             }
         }
         

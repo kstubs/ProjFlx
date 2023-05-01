@@ -169,6 +169,7 @@
 			<xs:attribute name="regx_replace" type="xs:string" use="optional"/>
 			<xs:attribute name="regx_field" type="xs:NCName" use="optional"/>
 			<xs:attribute name="encode" type="xs:NCName" use="optional"/>
+			<xs:attribute name="encode_custom" type="xs:NCName" use="optional"/>
 		</xs:complexType>
 	</xs:element>
 
