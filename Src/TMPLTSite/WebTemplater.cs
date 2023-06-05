@@ -16,7 +16,9 @@ using ProjectFlx.Utility;
 namespace ProjectFlx
 {
     public enum LoadStatus { EMPTY, LOADING, LOADED, FAIL };
-    
+
+    public delegate void ProjFlxDebugger(XmlDocument Doc, string XsltPath, Dictionary<string, object> XsltArguments);
+
     /// <summary>
     /// Summary description for myWebTemplater.
     /// </summary>
@@ -24,9 +26,11 @@ namespace ProjectFlx
 	{
 		protected XmlDocument clsBrowserVarsXML;
 		protected HttpContext httpC;
-        protected XslCompiledTransform _xslt;
         protected XsltArgumentList _args;
+        protected Dictionary<string, object> _args2;
         protected StringWriter _writer;
+
+        public event ProjFlxDebugger Debugger;
         
         public LoadStatus XmlStatus { get; internal set; }
         public LoadStatus XslStatus { get; internal set; }
@@ -291,7 +295,7 @@ namespace ProjectFlx
             XmlStatus = LoadStatus.EMPTY;
 
             _args = new XsltArgumentList();
-            _xslt = new XslCompiledTransform();
+            _args2 = new Dictionary<string, object>();
 
             if(App.Config.GetValue<bool>("flx_Cookie_UseFullDomain", false))
             {
@@ -356,23 +360,24 @@ namespace ProjectFlx
             if(value == null)
                 return;
 
-            var temp = _args.GetParam(name, "");
-            if (temp != null)
-                _args.RemoveParam(name, "");
+            if (_args2.ContainsKey(name))
+                _args2.Remove(name);
 
-            if (value is XmlNode || value is XmlElement)
-            {
-                var obj = new XmlDocument();
-                var newnode = obj.ImportNode((XmlNode)value, true);
-                obj.AppendChild(newnode);
-                _args.AddParam(name, "", value);
-            }
-            else
-            {
-                _args.AddParam(name, "", value);
-            }
+            ////if (value is XmlNode || value is XmlElement)
+            ////{
+            ////    // TODO: replicate this behaviour for args2 when declare XsltArgument List from Args2 dictionary
+            ////    var obj = new XmlDocument();
+            ////    var newnode = obj.ImportNode((XmlNode)value, true);
+            ////    obj.AppendChild(newnode);
+            ////    _args2.Add(name, obj);
+            ////}
+            ////else
+            ////{
+                _args2.Add(name, value);
+            ////}
         }
 
+        //CONSIDER: support for our new args2 Dictionary argument list
         //TODO: support AddXslParameter
         public void AddXslParameter(string name, XPathNodeIterator nodeit)
         {
@@ -408,7 +413,7 @@ namespace ProjectFlx
                     throw new ProjectException($"Could not load Xml, XmlStatus [{XmlStatus.ToString()}]");
             }
 
-            if (!(XsltLoaded) || _xslt == null || String.IsNullOrEmpty(_xsltPath))
+            if (!(XsltLoaded) || String.IsNullOrEmpty(_xsltPath))
             {
                 var args = new ProjectExceptionArgs($"XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
                 throw new ProjectException(args);
@@ -425,31 +430,79 @@ namespace ProjectFlx
 
 
 
-            var resolver = new XmlUrlResolver();
-            var readersettings = new XmlReaderSettings();
 
-            var xslsettings = new XsltSettings(true, true);
-            xslsettings.EnableDocumentFunction = true;
+            // DEBUG: before load and transform - give debug a chance
+            if (Debugger != null)
+                Debugger(_xml, _xsltPath, _args2);
 
-            var settings = new XmlReaderSettings();
+            var xslt = new XslCompiledTransform();
+            //xslt = LoadTransformation(xslt);
+            System.Threading.Thread t = new System.Threading.Thread(() => xslt = LoadTransformation(xslt), 8 * 1024 * 1024);
+            t.Start();
+            t.Join();
 
-            _xslt.Load(_xsltPath, xslsettings, resolver);
-
+            XsltArgumentList xsltparms = DicToXsltParms();
             using (var mem = new MemoryStream())
             {
                 _xml.Save(mem);
                 mem.Flush();
                 mem.Seek(0, SeekOrigin.Begin);
 
+                var readersettings = new XmlReaderSettings();
                 var reader = XmlReader.Create(mem, readersettings);
 
                 using (_writer = new StringWriter())
                 {
-                    _xslt.Transform(reader, _args, _writer);
+                    xslt.Transform(reader, xsltparms, _writer);
                 }
             }
         }
 
+        private XslCompiledTransform LoadTransformation(XslCompiledTransform xslt)
+        {
+            var resolver = new XmlUrlResolver();
+
+            var xslsettings = new XsltSettings(true, true);
+            xslsettings.EnableDocumentFunction = true;
+
+            var settings = new XmlReaderSettings();
+
+            xslt.Load(_xsltPath, xslsettings, resolver);
+
+            return xslt;
+        }
+
+        private XsltArgumentList DicToXsltParms()
+        {
+            var args = new XsltArgumentList();
+
+            //var count = _args2.Count();
+            //var keys = _args2.Keys;
+            //for (int i = 0; i < count; i++)
+            //{
+            //    keys
+
+            //}
+
+            foreach(var param in _args2)
+            {
+                if(param.Value is XmlNode || param.Value is XmlElement)
+                {
+                    // what is this actually doing??
+                    // maybe insuring that the parm type is of type XmlNode?
+                    //var obj = new XmlDocument();
+                    //var newnode = obj.ImportNode((XmlNode)param.Value, true);
+                    //obj.AppendChild(newnode);
+                    _args.AddParam(param.Key, "", param.Value);
+                }
+                else
+                {
+                    args.AddParam(param.Key.ToString(), "", param.Value);
+                }
+            }
+
+            return args;
+        }
 
         internal void AddWBTXml(XmlDocument newXML)
         {

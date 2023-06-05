@@ -1695,7 +1695,7 @@ namespace ProjectFlx
 
         }
 
-        private void setupScript()
+        protected void setupScript()
         {
             // TODO: need global variable set that will eliminate concurrent calls of this
 

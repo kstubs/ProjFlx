@@ -15,8 +15,11 @@ using System.Collections.Specialized;
 
 namespace ProjectFlx.DB.SchemaBased
 {
+
     public class DatabaseQuery : IDisposable, IDatabaseQuery
     {
+        ICustomEncoder _customencoder = null;
+
         DatabaseConnection _database;
         ProjectFlx.Schema.projectResults _Projresults;
         private SqlCommand _command;
@@ -557,16 +560,24 @@ namespace ProjectFlx.DB.SchemaBased
                                 string val = null;
                                 if (f.encode.HasValue())
                                 {
-                                    val = reader[f.encode].ToString();
+                                    val = val ?? reader[f.encode].ToString();
                                     val = System.Web.HttpUtility.UrlEncode(val.TrimEnd()).Replace("+", "%20");
                                 }
-                                else if (f.regx_field.HasValue())
+
+                                if (f.regx_field.HasValue())
                                 {
-                                    val = reader[f.regx_field].ToString();
+                                    val = val ?? reader[f.regx_field].ToString();
                                     val = Regex.Replace(val, Schema.Helper.FlattenList(f.regx), f.regx_replace);
                                 }
+
+                                if(f.encode_custom.HasValue() && _customencoder != null)
+                                {
+                                    val = val ?? reader[f.name].ToString();
+                                    val = _customencoder.Process(f.encode_custom.ToString(), val);
+                                }
+
                                 else
-                                    val = reader[f.name].ToString();
+                                    val = val ?? reader[f.name].ToString();
 
 
                                 if (val != null)
@@ -663,7 +674,7 @@ namespace ProjectFlx.DB.SchemaBased
 
         private string safeXmlCharacters(string val)
         {
-            string re = @"[\x00-\x08\x0B\x0C\x0E-\x1F\x26]";
+            string re = @"[\x00-\x08\x0B\x0C\x0E-\x1F]";        // HACK! removing x26 the & character for now, that should be escaped when added to the xml element 
             return Regex.Replace(val, re, "");
         }
 
@@ -841,7 +852,8 @@ namespace ProjectFlx.DB.SchemaBased
 
         public Utility.TimingCollection Timing { get; set; }
 		public int Scalar { get => _scalar; }
-	}
+        public ICustomEncoder CustomEncoder { get => _customencoder; set => _customencoder = value; }
+    }
 
     public class XObject : ProjectFlx.DB.IProject
     {

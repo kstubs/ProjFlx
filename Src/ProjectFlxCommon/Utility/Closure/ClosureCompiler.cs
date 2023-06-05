@@ -5,6 +5,7 @@ using System.Xml;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using ProjectFlx.Exceptions;
 
 namespace ProjectFlx.Utility.Closure
 {
@@ -235,6 +236,54 @@ namespace ProjectFlx.Utility.Closure
         public void Dispose()
         {
             Instance = null;
+        }
+
+        public static XmlDocument Run(String Name, String jsPath, string RootPath)
+        {
+            var document = new XmlDocument();
+
+            var list = new List<ClosureCompilerFile>();
+            list.Add(new ClosureCompilerFile(jsPath, RootPath));
+
+            var outputs = new List<OutputInfo>();
+            outputs.Add(OutputInfo.compiled_code);
+            outputs.Add(OutputInfo.errors);
+            outputs.Add(OutputInfo.statistics);
+            outputs.Add(OutputInfo.warnings);
+
+            var gc = ClosureCompiler.NewSealedInstance;
+            try
+            {
+                gc.Run(
+                    list,
+                    Name,
+                    WarningLevel.VERBOSE,
+                    CompilationLevel.SIMPLE_OPTIMIZATIONS,
+                    outputs,
+                    null,
+                    false);
+
+                if (gc.Xml != null)
+                    document = gc.Xml;
+
+                if (!gc.Success)
+                {
+                    if (gc.TooManyCompiles)
+                    {
+                        System.Diagnostics.Debug.WriteLine("ClosureCompiler - Too Many Compiles!");
+                    }
+                    else
+                        throw new ProjectException("ClosureCompiler - JS Code Compile Issue");
+                }
+            }
+            finally
+            {
+                if (gc != null)
+                    gc.Dispose();
+
+            }
+            
+            return document;
         }
     }
 }

@@ -511,6 +511,11 @@ namespace ProjectFlx.DB
                                             val = Regex.Replace(val, m.GetAttribute("regex").ToString(), m.GetAttribute("replace").ToString());
                                         }
 
+                                        if(m.HasAttribute("encode_custom"))
+                                        {
+
+                                        }
+
                                         var fieldtype = m.GetAttribute("type").ToString();
                                         string text = null;
 

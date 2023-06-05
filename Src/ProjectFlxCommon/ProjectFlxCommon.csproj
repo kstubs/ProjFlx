@@ -63,6 +63,7 @@
     <Compile Include="Exceptions\ProjectExceptionHandler.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Helper.cs" />
+    <Compile Include="ICustomEncoder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Schema\ProjectFlxSql.cs">
       <DependentUpon>ProjectFlxSql.xsd</DependentUpon>
