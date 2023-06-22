@@ -217,6 +217,11 @@ namespace ProjectFlx.Schema
             var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
             return row;
         }
+        public row FindRow(String Key, int Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return row;
+        }
 
         /// <summary>
         /// First all rows in result with matching Key and Value
@@ -225,6 +230,11 @@ namespace ProjectFlx.Schema
         /// <param name="Value"></param>
         /// <returns></returns>
         public List<row> FindAllRows(String Key, String Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
+        public List<row> FindAllRows(String Key, int Value)
         {
             var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
             return rows;

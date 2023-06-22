@@ -26,7 +26,6 @@ namespace ProjectFlx
 	{
 		protected XmlDocument clsBrowserVarsXML;
 		protected HttpContext httpC;
-        protected XsltArgumentList _args;
         protected Dictionary<string, object> _args2;
         protected StringWriter _writer;
 
@@ -294,7 +293,6 @@ namespace ProjectFlx
             XslStatus = LoadStatus.EMPTY;
             XmlStatus = LoadStatus.EMPTY;
 
-            _args = new XsltArgumentList();
             _args2 = new Dictionary<string, object>();
 
             if(App.Config.GetValue<bool>("flx_Cookie_UseFullDomain", false))
@@ -355,26 +353,15 @@ namespace ProjectFlx
             }
         }
 
-		public void AddXslParameter(string name, object value)
-		{
-            if(value == null)
+        public void AddXslParameter(string name, object value)
+        {
+            if (value == null)
                 return;
 
             if (_args2.ContainsKey(name))
                 _args2.Remove(name);
 
-            ////if (value is XmlNode || value is XmlElement)
-            ////{
-            ////    // TODO: replicate this behaviour for args2 when declare XsltArgument List from Args2 dictionary
-            ////    var obj = new XmlDocument();
-            ////    var newnode = obj.ImportNode((XmlNode)value, true);
-            ////    obj.AppendChild(newnode);
-            ////    _args2.Add(name, obj);
-            ////}
-            ////else
-            ////{
-                _args2.Add(name, value);
-            ////}
+            _args2.Add(name, value);
         }
 
         //CONSIDER: support for our new args2 Dictionary argument list
@@ -384,18 +371,17 @@ namespace ProjectFlx
             if (String.IsNullOrEmpty(name) || nodeit == null)
                 return;
 
-            var arg = _args.GetParam(name, "");
+            if (_args2.ContainsKey(name))
+                _args2.Remove(name);
 
-            if (arg != null)
-                _args.RemoveParam(name, "");
-
-            _args.AddParam(name, "", nodeit);
+            _args2.Add(name, nodeit);
         }
 
         //TODO: support extensions
         public void AddXslExtension(string Namespace, Object obj)
         {
-            _args.AddExtensionObject(Namespace, obj);
+            throw new NotImplementedException();
+            //_args.AddExtensionObject(Namespace, obj);
         }
 
         public virtual void ProcessTemplate()
@@ -475,30 +461,9 @@ namespace ProjectFlx
         private XsltArgumentList DicToXsltParms()
         {
             var args = new XsltArgumentList();
-
-            //var count = _args2.Count();
-            //var keys = _args2.Keys;
-            //for (int i = 0; i < count; i++)
-            //{
-            //    keys
-
-            //}
-
             foreach(var param in _args2)
             {
-                if(param.Value is XmlNode || param.Value is XmlElement)
-                {
-                    // what is this actually doing??
-                    // maybe insuring that the parm type is of type XmlNode?
-                    //var obj = new XmlDocument();
-                    //var newnode = obj.ImportNode((XmlNode)param.Value, true);
-                    //obj.AppendChild(newnode);
-                    _args.AddParam(param.Key, "", param.Value);
-                }
-                else
-                {
-                    args.AddParam(param.Key.ToString(), "", param.Value);
-                }
+                args.AddParam(param.Key.ToString(), "", param.Value);
             }
 
             return args;
