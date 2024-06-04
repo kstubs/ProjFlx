@@ -5,187 +5,143 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace ProjectFlx.Utility
 {
+
     public class TimingType
     {
         public string Name { get; set; }
+        [XmlIgnore]
         public TimeSpan TimeSpanStart { get; set; }
-        public TimeSpan TimeSpanEnd { get; set; }
-        /// <summary>
-        /// Total Execution Time in Milliseconds
-        /// </summary>
-        public Double ExecutionTime { get; set; }
-    }
 
-    public class Timing : IEnumerable<TimingType>
+        [XmlIgnore]
+        public TimeSpan TimeSpanEnd { get; set; }
+        public double ExecutionTime { get; set; }
+    }
+    public class TimingCollection
     {
         List<TimingType> _list;
+        List<TimingCollection> _collection;
 
-        public Timing()
+        public TimingCollection()
         {
-            _list = new System.Collections.Generic.List<TimingType>();
+            _list = new List<TimingType>();
         }
 
-        public string Name { get; set; }
+        [XmlAttribute]
+        public String Name { get; set; }
+        
+        [XmlAttribute]
+        public double ExecutionTime { get; set; }
 
-        public Timing Parent { get; set; }
-
-        public Timing Child { get; set; }
-
-        public IEnumerator<TimingType> GetEnumerator()
+        public void Start(string Name)
         {
-            return _list.GetEnumerator();
+            _list.Add(new TimingType()
+            {
+                Name = Name,
+                TimeSpanStart = new TimeSpan(DateTime.Now.Ticks)
+            });
+
+            if (String.IsNullOrEmpty(this.Name))
+                this.Name = Name;
         }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        public void Stop()
         {
-            return _list.GetEnumerator();
+            Stop(this.Name);
         }
-
-        public void Start(String Name)
+        public void Stop(string Name)
         {
-            _list.Add(new TimingType() { Name = Name, TimeSpanStart = new TimeSpan(DateTime.Now.Ticks) });
-        }
-        public void Stop(String Name)
-        {
-            var timing = _list.Where(t => t.Name == Name).FirstOrDefault();
-            if (timing == null)
-                _list.Add(new TimingType() { Name = Name, TimeSpanStart = new TimeSpan(DateTime.Now.Ticks) });
-            else
+            var timing = _list.FirstOrDefault(f => f.Name == Name);
+            if (timing != null)
             {
                 timing.TimeSpanEnd = new TimeSpan(DateTime.Now.Ticks);
                 timing.ExecutionTime = timing.TimeSpanEnd.Subtract(timing.TimeSpanStart).TotalMilliseconds;
             }
+
+            if (timing == _list[0])
+                ExecutionTime = timing.ExecutionTime;
         }
 
-        public Timing End(String Name)
+        public TimingCollection New(string Name)
         {
-            Stop(Name);
-            return Parent;
+            if (_collection == null)
+                _collection = new List<TimingCollection>();
+
+            var timing = new TimingCollection();
+            _collection.Add(timing);
+            timing.Start(Name);
+            return timing;
         }
-        public Timing New(String Name)
+
+        [XmlElement("Timing")]
+        public List<TimingType> Timing
         {
-            var child = this.Child = new Timing()
+            get
             {
-                Name = Name,
-                Parent = this
-            };
-            child.Start(Name);
-            return child;
-        }
-
-        public static void Serialize(Newtonsoft.Json.JsonWriter Writer, Timing TimingCollectionObj)
-        {
-
-            Writer.WritePropertyName("Timing");
-            Writer.WriteStartArray();
-            foreach (TimingType timing in TimingCollectionObj)
-            {
-                if (timing.Name == TimingCollectionObj.Name)
-                    continue;
-                Writer.WriteStartObject();
-                Writer.WritePropertyName("Name");
-                Writer.WriteValue(timing.Name);
-                Writer.WritePropertyName("ExecutionTime");
-                Writer.WriteValue(timing.ExecutionTime);
-                Writer.WriteEndObject();
+                return _list;
             }
-            Writer.WriteEndArray();
-            if (TimingCollectionObj.Child != null)
+            internal set
             {
-                var timing2 = TimingCollectionObj.Child.Where(tt => tt.Name == TimingCollectionObj.Child.Name).First();
-                Writer.WritePropertyName("TimingGroup");
-                Writer.WriteStartObject();
-                Writer.WritePropertyName("Name");
-                Writer.WriteValue(TimingCollectionObj.Child.Name);
-                Writer.WritePropertyName("ExecutionTime");
-                Writer.WriteValue(timing2.ExecutionTime);
-                Timing.Serialize(Writer, TimingCollectionObj.Child);
-                Writer.WriteEndObject();
+                _list = value;
             }
         }
 
+        [XmlElement("TimingGroup")]
+        public List<TimingCollection> TimingCollectionGroup
+        {
+            get
+            {
+                return _collection;
+            }
+            internal set
+            {
+                _collection = value;
+            }
+        }
+        
     }
 
-    public class TimingDebugger : IEnumerable<Timing>
-    {
-        List<Timing> _list;
+    public class TimingDebugger
+    {        
+        [XmlElement("TimingGroup")]
+        public List<TimingCollection> List
+        {
+            get; set;
+        }
 
         public TimingDebugger()
         {
-            _list = new List<Timing>();
+            List = new List<TimingCollection>();
+        }
+        public TimingCollection New(string Name)
+        {
+            var item = new TimingCollection();
+            item.Start(Name);
+            List.Add(item);
+            return List.Last();
         }
 
-        public System.Collections.Generic.IEnumerator<Timing> GetEnumerator()
+        public static XmlDocument Serialize(TimingDebugger TimingDebuggerObj)
         {
-            return _list.GetEnumerator();
-        }
+            var mgr = new XmlSerializerNamespaces();
+            mgr.Add(String.Empty, string.Empty);
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
-
-        public Timing New(string TimingCollectionName)
-        {
-            var timing = new Timing()
+            using (var m = new MemoryStream())
             {
-                Name = TimingCollectionName
-            };
-            timing.Start(TimingCollectionName);
-            _list.Add(timing);
+                var serializer = new XmlSerializer(typeof(TimingDebugger));
+                serializer.Serialize(m, TimingDebuggerObj, mgr);
+                m.Flush();
+                m.Position = 0;
 
-            return timing;
-        }
-        
-        /// <summary>
-        /// Execution Time greater than (in Milliseconds)
-        /// </summary>
-        /// <param name="ExecutionTime"></param>
-        /// <returns></returns>
-        public bool TotalExecutionGreaterThan(double ExecutionTime)
-        {
-            bool isGreater = false;
+                var xml = new XmlDocument();
+                xml.Load(m);
 
-            foreach(var timing in this)
-            {
-                isGreater = isGreater || timing.Where(t => t.ExecutionTime > ExecutionTime).Any();
+                return xml;
             }
-
-            return isGreater;
-        }
-
-        public static void Serialize(Newtonsoft.Json.JsonTextWriter Writer, TimingDebugger TimingDebuggerObj)
-        {
-            Writer.WritePropertyName("TimingGroup");
-            Writer.WriteStartArray();
-            foreach (var t in TimingDebuggerObj)
-            {
-                var timing = t.Where(tt => tt.Name == t.Name).First();
-                Writer.WriteStartObject();
-                Writer.WritePropertyName("Name");
-                Writer.WriteValue(t.Name);
-                Writer.WritePropertyName("ExecutionTime");
-                Writer.WriteValue(timing.ExecutionTime);
-                Timing.Serialize(Writer, t);
-                Writer.WriteEndObject();
-            }
-            Writer.WriteEndArray();
-        }
-
-        public static string Serialize(TimingDebugger TimingDebuggerObj)
-        {
-            var writer = new StringWriter();
-            var jwriter = new Newtonsoft.Json.JsonTextWriter(writer);
-
-            Serialize(jwriter, TimingDebuggerObj);
-            
-            jwriter.Flush();
-            writer.Flush();
-            
-            return writer.ToString();
         }
     }
 }

@@ -43,5 +43,12 @@ namespace ProjectFlx
             catch { }
             return false;
         }
+
+        public static double UNIX_TIME(this DateTime DT)
+        {
+            DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+            TimeSpan span = (DT - epoch);
+            return span.TotalSeconds;
+        }
     }
 }

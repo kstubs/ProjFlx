@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace ProjectFlx.Utility
 {
@@ -65,5 +66,40 @@ namespace ProjectFlx.Utility
             return "/" + Value;
         }
 
+        public static List<string> SplitExecutionPath(string path)
+        {
+            var result = new List<string>();
+
+            // parse the path
+            List<String> aPath = new List<string>();
+            StringBuilder sbpath = null;
+            foreach (char c in path)
+            {
+                switch (c)
+                {
+                    // path delimiters
+                    case '.':
+                    case '/':
+                        if (sbpath != null && !(sbpath.ToString().Equals("aspx")))
+                            aPath.Add(sbpath.ToString());
+                        sbpath = null;
+                        break;
+                    default:
+                        if (sbpath == null)
+                            sbpath = new StringBuilder();
+                        sbpath.Append(c);
+                        break;
+                }
+            }
+
+            var util = new CultureInfo("en-US", false).TextInfo;
+
+            foreach (var s in aPath)
+            {                
+                result.Add(util.ToTitleCase(s));
+            }
+
+            return result;
+        }
     }
 }

@@ -62,6 +62,12 @@ namespace ProjectFlx.Schema
             parm.Text = new List<string>();
             parm.Text.Add(Value);
         }
+
+        public parameters Clone()
+        {
+            var text = this.Serialize();
+            return Deserialize(text);
+        }
     }
 
     public partial class SchemaQueryType
@@ -94,6 +100,24 @@ namespace ProjectFlx.Schema
             query.parameters = new ProjectFlx.Schema.parameters();
 
             return query;
+        }
+
+        public static SchemaQueryType Create(string QueryName, actionType CommandType, string CommandName, string CommandText, XmlNodeList Fields)
+        {
+            var query = Create(QueryName, CommandType, CommandName, CommandText);
+            foreach (XmlNode node in Fields)
+            {
+
+                fieldType fieldtype = (fieldType)Enum.Parse(typeof(fieldType), node.Attributes["type"].Value);
+                query.fields.Add(new field()
+                {
+                    name = node.Attributes["name"].Value,
+                    type = fieldtype
+                });
+            }
+
+            return query;
+
         }
 
         public parameter AddParameter(string Name, object Value)
@@ -161,6 +185,25 @@ namespace ProjectFlx.Schema
         }
     }
 
+    public partial class SchemaType
+    {
+        public static SchemaType GetSchemaType(string ProjSqlPath, string Name)
+        {
+            var xm = new XmlDocument();
+            xm.Load(ProjSqlPath);
+            var xpath = string.Format("/*/*[local-name()='{0}']", Name);
+            var node = xm.SelectSingleNode(xpath);
+
+            var schemanode = xm.CreateElement("schema");
+            foreach (XmlNode node2 in node.SelectNodes("query"))
+            {
+                schemanode.AppendChild(node2);
+            }
+
+            return SchemaType.Deserialize(schemanode.OuterXml);
+        }
+    }
+
     public partial class result
     {
         /// <summary>
@@ -172,6 +215,11 @@ namespace ProjectFlx.Schema
         public row FindRow(String Key, String Value)
         {
             var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return row;
+        }
+        public row FindRow(String Key, int Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value.ToString()));
             return row;
         }
 
@@ -186,7 +234,51 @@ namespace ProjectFlx.Schema
             var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
             return rows;
         }
+        public List<row> FindAllRows(String Key, int Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
     }
+
+    public partial class subresult
+    {
+        /// <summary>
+        /// Finds first row in result with matching Key and Value
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <returns></returns>
+        public row FindRow(String Key, String Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return row;
+        }
+        public row FindRow(String Key, int Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value.ToString()));
+            return row;
+        }
+
+        /// <summary>
+        /// First all rows in result with matching Key and Value
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <returns></returns>
+        public List<row> FindAllRows(String Key, String Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
+        public List<row> FindAllRows(String Key, int Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
+    }
+
+
 
     namespace Extra
     {
@@ -204,10 +296,37 @@ namespace ProjectFlx.Schema
             {
                 try
                 {
+                    if (Result.row != null && Result.row.Count == 0)
+                        return String.Empty;
+
                     var row = Result.row[0];
+
+                    if (row == null) return String.Empty;
                     return row.AnyAttr.LookupValue(Name);
                 }
-                catch { return null; }
+                catch { return string.Empty; }
+            }
+
+            /// <summary>
+            /// Return value for given attribute by name
+            /// </summary>
+            /// <param name="Row"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static string LookupValue(this row Row, string Name)
+            {
+                if (Row == null) return String.Empty;
+                return Row.AnyAttr.LookupValue(Name);
+            }
+            /// <summary>
+            /// Return <T> for given attribute by name
+            /// </summary>
+            /// <param name="Row"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static T LookupValue<T>(this row Row, string Name)
+            {
+                return (T)Convert.ChangeType(Row.AnyAttr.LookupValue(Name), typeof(T));
             }
             /// <summary>
             /// Return value for give attribute by name
@@ -220,9 +339,14 @@ namespace ProjectFlx.Schema
                 try
                 {
                     var x = Attributes.Find(a => a.Name.Equals(Name));
-                    return x.Value.ToString();
+                    return x == null ? string.Empty : x.Value.ToString();
                 }
-                catch { return null; }
+                catch { return string.Empty; }
+            }
+
+            public static XmlAttribute GetAttribute(this row Row, string Name)
+            {
+                return Row.AnyAttr.FirstOrDefault(a => a.Name == Name);
             }
 
             /// <summary>
@@ -234,6 +358,24 @@ namespace ProjectFlx.Schema
             public static parameter Lookup(this parameters Parameters, string Name)
             {
                 return Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
+            }
+
+            /// <summary>
+            /// Parameter value by Name
+            /// </summary>
+            /// <param name="Parameters"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static string LookupValue(this parameters Parameters, string Name)
+            {
+                var parm = Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
+                if(parm == null) return string.Empty;
+                return parm.Value();
+            }
+
+            public static string Value(this parameter Parameter)
+            {
+                return Parameter.Text != null && Parameter.Text.Count > 0 ? Parameter.Text.Flatten() : "";
             }
 
             /// <summary>
@@ -249,7 +391,7 @@ namespace ProjectFlx.Schema
 
             public static result Lookup(this List<results> Results, String Name)
             {
-                var results = Results.Where(w => w.name == Name).FirstOrDefault();
+                var results = Results.Where(w => w.name == Name).LastOrDefault();
                 if (results == null) return null;
                 else
                     return results.result;
@@ -260,6 +402,53 @@ namespace ProjectFlx.Schema
                 return Results.results.Lookup(Name);
             }
 
+            public static bool HasRows(this result result)
+            {
+                if (result == null) return false;
+                if (result.row == null) return false;
+                if (result.row.Count == 0) return false;
+
+                return true;
+            }
+
+            public static bool HasRows(this projectResults Results, String Name)
+            {
+                return HasRows(Results.results.Lookup(Name));
+            }
+
+            public static result Lookup(this projectResults Results, String Name, String ParameterName, String ParameterValue)
+            {
+                var temp1 = Results.results.Where((r) => { return r.name.Equals(Name); }).FirstOrDefault();
+                var temp2 = temp1.schema.FirstOrDefault().parameters.parameter.Find((f) => { return f.name.Equals(ParameterName); });
+                var temp3 = temp1.schema.FirstOrDefault().parameters.Lookup(ParameterName);
+
+                var result = Results.results.Where((r) => {
+                    return r.name.Equals(Name) &&
+                    r.schema[0].parameters.Lookup(ParameterName).Value().Equals(ParameterValue); }).FirstOrDefault();
+
+                if (result == null)
+                    return null;
+                else
+                    return result.result;
+            }
+
+            public static parameters getParameters(this projectResults Results, String ResultsName)
+            {
+                var result = Results.results.Find((f) => { return f.name == ResultsName; });
+                if (result == null)
+                    return null;
+
+                return result.schema[0].parameters;
+            }
+
+            public static List<field> getFields(this projectResults Results, String ResultsName)
+            {
+                var result = Results.results.Find((f) => { return f.name == ResultsName; });
+                if (result == null)
+                    return null;
+
+                return result.schema[0].fields;
+            }
         }
 
         public class commonProj : ProjectFlx.DB.IProject
@@ -297,6 +486,8 @@ namespace ProjectFlx.Schema
 
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = _catalog.LocalName;
             } 
 
@@ -307,6 +498,8 @@ namespace ProjectFlx.Schema
 
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = Catalog;
             }
 
@@ -314,6 +507,8 @@ namespace ProjectFlx.Schema
             {
                 var xpath = String.Format(@"projectSql/*[local-name()='{0}']", Catalog);
                 _catalog = _xm.SelectSingleNode(xpath);
+                if (_catalog == null)
+                    throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = _catalog.LocalName;
             }
 
@@ -430,13 +625,17 @@ namespace ProjectFlx.Schema
             {                
                 var xpath = String.Format("query[@name='{0}']", ProjQueryName);
                 _query = new SchemaQueryType();
-                _query = ProjectFlx.Schema.SchemaQueryType.Deserialize(_catalog.SelectSingleNode(xpath).OuterXml);
+                var node = _catalog.SelectSingleNode(xpath);
+                if (node == null)
+                    throw new Exception("setQuery failed.  Query Not Found: " + ProjQueryName);
+                _query = ProjectFlx.Schema.SchemaQueryType.Deserialize(node.OuterXml);
                 _query.project = _project;
             }
 
-            public void setQuery(object ProjQuery)
+            public void setQuery(SchemaQueryType ProjQuery)
             {
-                throw new NotImplementedException();
+                this._query = ProjQuery;
+                this._query.project = this._project;
             }
 
             public XmlNode ProjSqlNode
@@ -449,6 +648,10 @@ namespace ProjectFlx.Schema
                     return (XmlNode)_xm.DocumentElement;
                 }
             }
+
+            public string Tag { get; set; }
+            public int Limit { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public int CurrentPage { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
             public void checkInputParms()
             {

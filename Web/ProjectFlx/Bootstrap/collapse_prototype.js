@@ -29,177 +29,178 @@ https://github.com/jwestbrook/bootstrap-prototype/tree/master-3.0
 
 if(BootStrap === undefined)
 {
-  var BootStrap = {};
+	var BootStrap = {};
 }
 
  /* COLLAPSE PUBLIC CLASS DEFINITION
-  * ================================ */
+ * ================================ */
 
-BootStrap.Collapse = Class.create({
-	initialize : function (element, options) {
-		this.$element = $(element)
-		
-		this.$element.store('bootstrap:collapse',this)
-		
-		this.options = {
-			toggle: true
-		}
-		
-		Object.extend(this.options,options)
-		
-		if (this.options.parent)
-		{
-			this.$parent = $(this.options.parent)
-		}
-		
-		var dimension = this.dimension()
-		this.dim_value = this.$element['get'+dimension.capitalize()]()
-		this.dim_object = {}
-		this.dim_object[dimension] = this.dim_value+'px'
-		this.$element.setStyle(this.dim_object)
-		this.clean_style = {}
-		this.clean_style[dimension] = ''
-		if(this.options.toggle)
-		{
-			this.toggle()
-		}
-	}
-	
-	, dimension: function () {
-		var hasWidth = this.$element.hasClassName('width')
-		return hasWidth ? 'hidth' : 'height'
-	}
-	
-	, show: function () {
-		if (this.transitioning || this.$element.hasClassName('in')) return
+ BootStrap.Collapse = Class.create({
+ 	initialize : function (element, options) {
+ 		this.$element = $(element);
 
-		var startEvent = this.$element.fire('bootstrap:show')
-		if(startEvent.defaultPrevented) return
+ 		this.$element.store('bootstrap:collapse',this);
 
-		var actives = this.$parent && this.$parent.select('> .panel > .in')
+ 		this.options = {
+ 			toggle: true
+ 		}
 
-		if (actives && actives.length) {
-			actives.each(function(el){
-				var bootstrapobject = el.retrieve('bootstrap:collapse')
-				if (bootstrapobject && bootstrapobject.transitioning) return
-				bootstrapobject.hide()
-			});
-		}
+ 		Object.extend(this.options,options);
 
-		var dimension = this.dimension()
-		this.$element.setStyle(this.clean_style)
+ 		if (this.options.parent)
+ 		{
+ 			this.$parent = $(this.options.parent);
+ 		}
 
-		this.transitioning = 1
+ 		var dimension = this.dimension();
+ 		this.dim_value = this.$element['get'+dimension.capitalize()]()
+ 		this.dim_object = {};
+ 		this.dim_object[dimension] = this.dim_value+'px';
+ 		this.$element.setStyle(this.dim_object);
+ 		this.clean_style = {};
+ 		this.clean_style[dimension] = '';
+ 		if(this.options.toggle)
+ 		{
+ 			this.toggle();
+ 		}
+ 	}
 
-		var complete = function () {
-			this.$element.removeClassName('collapsing').addClassName('in')
-			this.$element.setStyle(this.dim_object)
-			this.transitioning = 0
-			this.$element.fire('bootstrap:shown')
-			this.$element.stopObserving(BootStrap.transitionendevent,complete)
-		}.bind(this)
+ 	, dimension: function () {
+ 		var hasWidth = this.$element.hasClassName('width');
+ 		return hasWidth ? 'hidth' : 'height';
+ 	}
+
+ 	, show: function () {
+ 		if (this.transitioning || this.$element.hasClassName('show')) return;
+
+ 		var startEvent = this.$element.fire('bootstrap:show');
+ 		if(startEvent.defaultPrevented) return;
+
+ 			var actives = this.$parent && this.$parent.select('.show');
+
+ 		if (actives && actives.length) {
+ 			actives.each(function(el){
+ 				var bootstrapobject = el.retrieve('bootstrap:collapse')
+ 				if (bootstrapobject && bootstrapobject.transitioning) return;
+ 					bootstrapobject.hide();
+ 			});
+ 		}
+
+ 		var dimension = this.dimension()
+ 		this.$element.setStyle(this.clean_style);
+
+ 		this.transitioning = 1;
+
+ 		var complete = function () {
+ 			this.transitioning = 0
+ 			this.$element.removeClassName('collapsing').addClassName('show')
+ 			this.$element.setStyle(this.dim_object)
+ 			this.$element.fire('bootstrap:shown')
+ 			this.$element.stopObserving(BootStrap.transitionendevent,complete)
+ 		}.bind(this)
 
 
-		if(BootStrap.handleeffects == 'css')
-		{
-			this.$element.observe(BootStrap.transitionendevent, complete)
-			this.$element.removeClassName('collapse').addClassName('collapsing')
-	
-			setTimeout(function(){
-			this.$element.setStyle(this.dim_object)
-			}.bind(this),0)
-		}
-		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindDown !== 'undefined')
-		{
-			this.$element.blindDown({duration:0.350,beforeStart:function(effect){
-					effect.element.hide()
-					this.$element.removeClassName('collapse')
-					effect.element.addClassName('in')
-			}.bind(this),afterFinish:function(effect){
-					complete()
-			}.bind(this)})
-		}
-		else
-		{
-			setTimeout(function(){
-			complete()
-			},350);
-		}
-	}
-	
-	, hide: function () {
-		if (this.transitioning || !this.$element.hasClassName('in')) return
+ 		if(BootStrap.handleeffects == 'css')
+ 		{
+ 			this.$element.observe(BootStrap.transitionendevent, complete);
+ 			this.$element.addClassName('collapsing');
+			this.$element.setStyle(this.dim_object);
 
-		var startEvent = this.$element.fire('bootstrap:hide')
-		if(startEvent.defaultPrevented) return
+ 			complete.delay(.350);
+ 		}
+ 		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindDown !== 'undefined')
+ 		{
+ 			this.$element.blindDown({duration:0.350,beforeStart:function(effect){
+ 				effect.element.hide()
+ 				effect.element.addClassName('show')
+ 			}.bind(this), afterFinish: function(effect){
+ 				complete()
+ 			}.bind(this)})
+ 		}
+ 		else
+ 		{
+ 			complete.delay(.350);
+ 		}
+ 	}
 
-		var dimension = this.dimension()
+ 	, hide: function () {
+ 		if (this.transitioning || !this.$element.hasClassName('show')) return;
 
-		var complete = function () {
-			this.transitioning = 0
-			this.$element.fire('bootstrap:hidden')
-			this.$element.removeClassName('collapsing').addClassName('collapse')
-			this.$element.setStyle(this.dim_object)
-			this.$element.stopObserving(BootStrap.transitionendevent,complete)
-		}.bind(this)
+ 		var startEvent = this.$element.fire('bootstrap:hide');
+ 		if(startEvent.defaultPrevented) return;
 
-		if(BootStrap.handleeffects == 'css')
-		{
-			this.$element.observe(BootStrap.transitionendevent, complete)
-			this.$element.addClassName('collapsing').removeClassName('in')
-			setTimeout(function(){
-			this.$element.setStyle(this.clean_style)
-			}.bind(this),0)
-		}
-		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindUp !== 'undefined')
-		{
-			this.$element.blindUp({duration:0.350,afterFinish:function(effect){
-				effect.element.removeClassName('in')
-				effect.element.show()
-				complete()
-			}.bind(this)})
-		}
-		else
-		{
-			complete()
-		}
-	}
-	
-	, toggle: function () {
-		this[this.$element.hasClassName('in') ? 'hide' : 'show']()
-	}
-	
-});
+ 		var dimension = this.dimension();
+
+ 		var complete = function () {
+ 			this.transitioning = 0;
+ 			this.$element.fire('bootstrap:hidden');
+ 			this.$element.removeClassName('collapsing');
+ 			this.$element.setStyle(this.dim_object);
+ 			this.$element.stopObserving(BootStrap.transitionendevent,complete);
+ 		}.bind(this)
+
+ 		if(BootStrap.handleeffects == 'css')
+ 		{
+ 			this.$element.observe(BootStrap.transitionendevent, complete);
+ 			this.$element.addClassName('collapsing').removeClassName('show');
+ 			this.$element.setStyle(this.clean_style);
+ 		}
+ 		else if(BootStrap.handleeffects == 'effect' && typeof Effect !== 'undefined' && typeof Effect.BlindUp !== 'undefined')
+ 		{
+ 			this.$element.blindUp({duration:0.350,afterFinish:function(effect){
+ 				effect.element.removeClassName('show');
+ 				effect.element.show();
+ 				complete();
+ 			}.bind(this)})
+ 		}
+ 		else
+ 		{
+ 			complete();
+ 		}
+ 	}
+
+ 	, toggle: function () {
+ 		this[this.$element.hasClassName('show') ? 'hide' : 'show']();
+ 	}
+
+ });
 
 
 
 
-/*domload*/
+ /*domload*/
 
-document.observe('dom:loaded',function(){
-	$$('[data-toggle="collapse"]').each(function(elm){
-		var target = elm.readAttribute('data-target');
-		target = $(target) || $$(target).first();
-		if(!target) return;
+ document.observe('dom:loaded',function(){
+ 	function findTarget(elm) {
+ 		var target = elm.readAttribute('data-target') || elm.readAttribute('href');
+ 		if(target && target.startsWith('#'))
+ 			target = target.substr(1);
 
-		var options = {toggle : false}
-		if(elm.hasAttribute('data-parent')){
-			options.parent = e.readAttribute('data-parent').replace('#','')
-		}
-		if(target.hasClassName('in')){
-			target.addClassName('collapsed');
-		} else {
-			target.removeClassName('collapsed');
-		}
-		new BootStrap.Collapse(target,options);
-	});
+ 		target = $(target);
 
-	document.on('click','[data-toggle="collapse"]',function(e){
-		e.stop();
-		var elm = e.findElement('[data-toggle]');
-		var target = elm.readAttribute('data-target');
-		target = $(target) || $$(target).first();
-		if(!target) return;
-		target.retrieve('bootstrap:collapse').toggle();
-	});
-});
+ 		return target;
+ 	}
+ 	$$('[data-toggle="collapse"]').each(function(elm){
+ 		var target = findTarget(elm);
+ 		if(!target) return;
+
+ 		var options = {toggle : false}
+ 		if(elm.hasAttribute('data-parent')){
+ 			options.parent = elm.readAttribute('data-parent').replace('#','')
+ 		}
+ 		if(target.hasClassName('show')){
+ 			target.addClassName('collapsed');
+ 		} else {
+ 			target.removeClassName('collapsed');
+ 		}
+ 		new BootStrap.Collapse(target,options);
+ 	});
+
+ 	document.on('click','[data-toggle="collapse"]',function(e){
+ 		e.stop();
+ 		var elm = e.findElement('[data-toggle]');
+ 		var target = findTarget(elm);
+ 		if(!target) return;
+ 		target.retrieve('bootstrap:collapse').toggle();
+ 	});
+ });

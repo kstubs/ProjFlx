@@ -131,6 +131,10 @@ namespace ProjectFlx
         {
             _AddTag(Tag, Convert.ToString(Value), null, null, false);
         }
+        public void AddTag(string Tag, long Value)
+        {
+            _AddTag(Tag, Convert.ToString(Value), null, null, false);
+        }
         public void AddTag(string Tag, string Value)
         {
             _AddTag(Tag, Value, null, null, false);
@@ -161,39 +165,39 @@ namespace ProjectFlx
 
         public void AddException(Exception Exception)
         {
-            var ex = Exception;
-
-            while (ex != null)
+            while (Exception != null)
             {
-				if (ex is ProjectFlx.Exceptions.ProjectException)
+				if (Exception is ProjectFlx.Exceptions.ProjectException)
 				{
-					// handled exception
-					var projex = (ProjectFlx.Exceptions.ProjectException)ex;
+                    // handled exception
+                    var projex = (ProjectFlx.Exceptions.ProjectException)Exception;
+                    var inner = Exception;
 
 					if (projex.Args != null)
 					{
-						var msg = String.Format("{0}{1}", ex.Message, String.IsNullOrEmpty(projex.Args.SourceSnippet) ? "" : ", Near: " + projex.Args.SourceSnippet);
+						var msg = String.Format("{0}{1}", projex.Message, String.IsNullOrEmpty(projex.Args.SourceSnippet) ? "" : ", Near: " + projex.Args.SourceSnippet);
 						_AddTag("ProjectFLX_ERROR",
 							   msg,
-							   String.IsNullOrEmpty(projex.Args.SourceClass) ? ex.Source : projex.Args.SourceClass,
-							   String.IsNullOrEmpty(projex.Args.SourceMethod) ? ex.TargetSite.ToString() : projex.Args.SourceMethod,
+							   String.IsNullOrEmpty(projex.Args.SourceClass) ? projex.Source : projex.Args.SourceClass,
+							   String.IsNullOrEmpty(projex.Args.SourceMethod) ? projex.TargetSite.ToString() : projex.Args.SourceMethod,
 							   false,
-							   ex);
+							   inner);
 					}
 					else
 					{
-						_AddTag("ProjectFLX_ERROR", null, null, null, false, ex);
+						_AddTag("ProjectFLX_ERROR", null, null, null, false, projex);
 					}
 				}
 				else
 				{
 					// unhandled exception
-					_AddTag("UNHANDLED_ERROR", ex.Message, ex.Source, (ex.TargetSite == null) ? null : ex.TargetSite.ToString(), false, ex);
+					_AddTag("UNHANDLED_ERROR", Exception.Message, Exception.Source, (Exception.TargetSite == null) ? null : Exception.TargetSite.ToString(), false, Exception);
 				}
 
-                AddTag("STACK_TRACE", ex.StackTrace);
-                
-                ex = ex.InnerException;
+                AddTag("STACK_TRACE", Exception.StackTrace);
+
+                // recurse
+                Exception = Exception.InnerException;
             }
         }
 

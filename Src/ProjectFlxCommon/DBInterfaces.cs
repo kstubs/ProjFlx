@@ -39,6 +39,7 @@ namespace ProjectFlx.DB
 
     public interface IProject
     {
+        string Tag { get; set; }
         void setQuery(String ProjQueryName);
         void setParameter(String Name, Object Value);
         void clearParameters();
@@ -53,7 +54,6 @@ namespace ProjectFlx.DB
         public interface IDatabaseQuery
         {
             projectResults ProjectResults { get; }
-
             void Query(IProject ProjectSchemaQueryObject);
             void Query(IProject ProjectSchemaQueryObject, bool IgnoreResults);
             void Query(SchemaQueryType SchemaQuery);

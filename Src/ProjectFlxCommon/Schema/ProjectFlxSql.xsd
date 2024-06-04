@@ -6,9 +6,9 @@
 			<xs:sequence>
 				<xs:any minOccurs="1" maxOccurs="unbounded"/>
 			</xs:sequence>
-      <xs:attribute name="conn-name" type="xs:string" use="optional"/>
-      <xs:attribute name="script-timeout" type="xs:int" use="optional"/>
-    </xs:complexType>
+			<xs:attribute name="conn-name" type="xs:string" use="optional"/>
+			<xs:attribute name="script-timeout" type="xs:int" use="optional"/>
+		</xs:complexType>
 	</xs:element>
 
 	<xs:element name="projectResults">
@@ -24,32 +24,43 @@
 			<xs:sequence>
 				<xs:element ref="schema"/>
 				<xs:element ref="result"/>
-        <xs:element ref="subresult"/>
+				<xs:element ref="subresult"/>
+				<xs:element ref="subresult2"/>
 			</xs:sequence>
 			<xs:attribute name="name" type="xs:NCName"/>
+			<xs:attribute name="project" type="xs:NCName"/>
 			<xs:attribute name="ProjectSqlFile" type="file"/>
+			<xs:attribute name="Tag" type="xs:NCName"/>
 		</xs:complexType>
 	</xs:element>
 
 	<xs:element name="schema" type="SchemaType"/>
 
-  <xs:element name="result">
-    <xs:complexType>
-      <xs:sequence maxOccurs="unbounded">
-        <xs:element ref="row"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
+	<xs:element name="result">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="row"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
 
-  <xs:element name="subresult">
-    <xs:complexType>
-      <xs:sequence maxOccurs="unbounded">
-        <xs:element ref="row"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
+	<xs:element name="subresult2">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="result"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
 
-  <xs:element name="row">
+	<xs:element name="subresult">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="row"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="row">
 		<xs:complexType>
 			<xs:sequence minOccurs="0">
 				<xs:any maxOccurs="unbounded"/>
@@ -84,7 +95,7 @@
 		<xs:complexType mixed="true">
 			<xs:attribute name="name" type="xs:NCName" use="required"/>
 			<xs:attribute name="type" type="fieldType" use="required"/>
-      <xs:attribute name="required" type="xs:boolean" use="optional"/>
+			<xs:attribute name="required" type="xs:boolean" use="optional"/>
 			<xs:attribute name="size" type="xs:int" use="optional"/>
 			<xs:attribute name="ForUpdate" type="xs:boolean" use="optional" default="true"/>
 			<xs:attribute name="ForDisplay" type="xs:boolean" use="optional" default="true"/>
@@ -97,8 +108,17 @@
 			<xs:attribute name="inout" type="inoutType" use="optional" default="in"/>
 			<xs:attribute name="regx" type="regxType" use="optional"/>
 			<xs:attribute name="ws_map" type="xs:NCName" use="optional"/>
-      <xs:attribute name="blankIsNull" type="xs:boolean" use="optional" default="true"/>
-    </xs:complexType>
+			<xs:attribute name="blankIsNull" type="xs:boolean" use="optional" default="true"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="cache">
+		<xs:complexType>
+			<xs:sequence minOccurs="1">
+				<xs:element name="enabled" type="xs:boolean"/>
+				<xs:element name="minutes" type="xs:int"/>
+			</xs:sequence>
+		</xs:complexType>
 	</xs:element>
 
 	<xs:element name="subquery">
@@ -109,24 +129,25 @@
 		</xs:complexType>
 	</xs:element>
 
-  <xs:element name="actions">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element ref="action" maxOccurs="unbounded"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
+	<xs:element name="actions">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="action" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
 
-  <xs:element name="action">
-    <xs:complexType mixed="true">
-      <xs:attribute name="primaryKey" type="xs:NCName" use="required"/>
-      <xs:attribute name="type" type="queryActionType" use="required"/>
-      <xs:attribute name="query" type="xs:NCName" use="required"/>
-      <xs:attribute name="queryPrimaryKey" type="xs:NCName" use="required"/>
-    </xs:complexType>
-  </xs:element>
-  
-  <xs:element name="fields">
+	<xs:element name="action">
+		<xs:complexType mixed="true">
+			<xs:attribute name="primaryKey" type="xs:NCName" use="required"/>
+			<xs:attribute name="type" type="queryActionType" use="required"/>
+			<xs:attribute name="query" type="xs:NCName" use="required"/>
+			<xs:attribute name="queryPrimaryKey" type="xs:NCName" use="required"/>
+			<xs:attribute name="LookupIndex" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="fields">
 		<xs:complexType>
 			<xs:sequence>
 				<xs:element ref="field" maxOccurs="unbounded"/>
@@ -148,6 +169,7 @@
 			<xs:attribute name="regx_replace" type="xs:string" use="optional"/>
 			<xs:attribute name="regx_field" type="xs:NCName" use="optional"/>
 			<xs:attribute name="encode" type="xs:NCName" use="optional"/>
+			<xs:attribute name="encode_custom" type="xs:NCName" use="optional"/>
 		</xs:complexType>
 	</xs:element>
 
@@ -183,10 +205,11 @@
 			<xs:extension base="QueryType">
 				<xs:attribute name="name" type="xs:NCName"/>
 				<xs:attribute name="project" type="xs:NCName"/>
-        <xs:attribute name="force-grid-view" type="xs:boolean" use="optional"/>
-        <xs:attribute name="conn-name" type="xs:string" use="optional"/>
-        <xs:attribute name="script-timeout" type="xs:int" use="optional"/>
-      </xs:extension>
+				<xs:attribute name="force-grid-view" type="xs:boolean" use="optional"/>
+				<xs:attribute name="conn-name" type="xs:string" use="optional"/>
+				<xs:attribute name="script-timeout" type="xs:int" use="optional"/>
+				<xs:attribute name="Tag" type="xs:Name"/>
+			</xs:extension>
 		</xs:complexContent>
 	</xs:complexType>
 
@@ -196,8 +219,9 @@
 			<xs:element ref="parameters"/>
 			<xs:element ref="fields" minOccurs="0"/>
 			<xs:element ref="paging" minOccurs="0"/>
-      <xs:element ref="actions" minOccurs="0" />
+			<xs:element ref="actions" minOccurs="0"/>
 			<xs:element ref="subquery" minOccurs="0"/>
+			<xs:element ref="cache" minOccurs="0"/>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -229,15 +253,15 @@
 		<xs:attribute name="totalpages" type="xs:int" use="required"/>
 	</xs:complexType>
 
-  <xs:simpleType name="queryActionType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="link"/>
-      <xs:enumeration value="update"/>
-      <xs:enumeration value="delete"/>
-      <xs:enumeration value="insert"/>
-    </xs:restriction>
-  </xs:simpleType>
-  
+	<xs:simpleType name="queryActionType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="link"/>
+			<xs:enumeration value="update"/>
+			<xs:enumeration value="delete"/>
+			<xs:enumeration value="insert"/>
+		</xs:restriction>
+	</xs:simpleType>
+
 	<xs:simpleType name="file">
 		<xs:restriction base="xs:string"/>
 	</xs:simpleType>

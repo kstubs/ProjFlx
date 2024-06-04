@@ -9,6 +9,7 @@ using ProjectFlx.Schema;
 using System.Web;
 using System.Net;
 using ProjectFlx.Schema.Extra;
+using System.Text.RegularExpressions;
 
 namespace ProjectFlx.Schema
 {
@@ -26,7 +27,7 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryXml
         {
-            public static Utility.Timing Timing { get; set; }
+            public static Utility.TimingCollection Timing { get; set; }
 
             public static void getProjectGrouped(projectResults ProjectResults, XmlWriter XWriter, params string[] Grouped)
             {
@@ -42,7 +43,7 @@ namespace ProjectFlx.Schema
                 }
                 finally
                 {
-                    Timing.End("getResultGrouped");
+                    Timing.Stop("getResultGrouped");
                 }
             }
 
@@ -59,7 +60,7 @@ namespace ProjectFlx.Schema
                 var groupingValues = new Dictionary<string, string>();
                 foreach(var s in Grouped)
                     groupingValues.Add(s.Trim(), null);
-                int depth = 0;
+                int depth;
 
                 // check for differences - open element if null
                 for (int x = 0; x < groupingValues.Count; x++)
@@ -129,12 +130,10 @@ namespace ProjectFlx.Schema
                     var name = Grouped[0];
                     var val = row.AnyAttr.LookupValue(name);
 
-                    if (!Groups.Any(a => a.Name.Equals(name) && a.Value.Equals(val)))
-                    {
-                        //string subval = null;
-                        var isEqual = true;
+                    Schema.Grouped g = Groups.FirstOrDefault(a => a.Name.Equals(name) && a.Value.Equals(val));
 
-                        Schema.Grouped g;
+                    if (g == null)
+                    {
                         Groups.Add(g = new Schema.Grouped()
                         {
                             Depth = Depth,
@@ -155,6 +154,10 @@ namespace ProjectFlx.Schema
                                 g.Row = new List<row>();
                             g.Row.Add(row);
                         }
+                    } else if(g != null)
+                    {
+                        // existing group found
+                        g.Row.Add(row);
                     }
                 }
 
@@ -183,7 +186,7 @@ namespace ProjectFlx.Schema
                      */
                     var list = new List<Grouped>();
 
-                    var groupingValues = new Dictionary<string, string>();
+                    //var groupingValues = new Dictionary<string, string>();
 
                     getSubGroups(Results, list, null, 0, Grouped);
 
@@ -203,7 +206,7 @@ namespace ProjectFlx.Schema
                     writeResultsGrouped(XWriter, list);
 
                     if (Timing != null)
-                        Timing.End("writeResultsGrouped");
+                        Timing.Stop("writeResultsGrouped");
 
 
                     XWriter.WriteEndElement();
@@ -211,7 +214,8 @@ namespace ProjectFlx.Schema
                 }
                 finally
                 {
-                    Timing.End("getResultGrouped");
+                    if(Timing != null)
+                        Timing.Stop("getResultGrouped");
                 }
             }
 
@@ -256,6 +260,51 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryJsonBuilder
         {
+            public static string getJsonString(row Row, List<field> Fields = null)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+
+                var Rows = new List<row>();
+                Rows.Add(Row);
+                getRows(json, Rows, Fields);
+
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
+            public static string getJsonString(result Result, List<field> Fields = null)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+                json.WriteStartObject();
+                json.WritePropertyName("result");
+                getRowJsonStringArray(json, Result, Fields);
+
+                json.WriteEndObject();
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
+            public static string getJsonString(result Result, fields Fields)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+                json.WriteStartObject();
+                json.WritePropertyName("result");
+                getRowJsonStringArray(json, Result, Fields.field);
+
+                json.WriteEndObject();
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
             public static string getJsonString(projectResults ProjectResults)
             {
 
@@ -299,8 +348,31 @@ namespace ProjectFlx.Schema
                     // results
                     json.WritePropertyName("result");
                     getRowJsonStringArray(json, rslts.result, (rslts.schema.Count > 0) ? rslts.schema[0].fields : ProjectResults.results[0].schema[0].fields);
-                    json.WriteEndObject();
 
+                    if(rslts.subresult != null)
+                    {
+                        json.WritePropertyName("subquery");
+                        json.WriteStartObject();
+                        json.WritePropertyName("result");
+                        getRowJsonStringArray(json, rslts.subresult, (rslts.schema.Count > 0) ? rslts.schema[0].subquery.fields : ProjectResults.results[0].schema[0].subquery.fields);
+                        json.WriteEndObject();
+                    }
+                    if(rslts.subresult2 != null)
+                    {
+                        json.WritePropertyName("subresults");
+                        json.WriteStartArray();
+
+                        foreach(var result2 in rslts.subresult2.result)
+                        {
+                            json.WriteStartObject();
+                            json.WritePropertyName("result");
+                            getRowJsonStringArray(json, result2,null);
+                            json.WriteEndObject();
+                        }
+                        json.WriteEndArray();
+                    }
+
+                    json.WriteEndObject();
                 }
                 json.WriteEndArray();
                 json.WriteEndObject();
@@ -328,14 +400,9 @@ namespace ProjectFlx.Schema
 
             }
 
-            public static void getRowJsonStringArray(JsonTextWriter json, result Result, List<field> fields)
+            private static void getRows(JsonTextWriter json, List<row> row, List<field> fields)
             {
-                json.WriteStartObject();
-                json.WritePropertyName("row");
-
-                json.WriteStartArray();
-
-                foreach (row schemaRow in Result.row)
+                foreach (row schemaRow in row)
                 {
 
                     json.WriteStartObject();
@@ -343,17 +410,22 @@ namespace ProjectFlx.Schema
                     foreach (XmlAttribute att in schemaRow.AnyAttr)
                     {
                         json.WritePropertyName(att.Name);
-                        var parm = fields.Find(p => p.name.Equals(att.Name));
-                        
+                        var fld = default(field);
+                        if(fields != null)
+                            fld = fields.Find(p => p.name.Equals(att.Name));
+
+                        // TODO: reintroduce parmdisplay field names need field name and display name??
+                        //var name = String.IsNullOrEmpty(parm.display) ? att.Name : parm.display;
+                        //json.WritePropertyName(name);
                         // write value as is
-                        if (parm == null)
+                        if (fld == null)
                         {
                             json.WriteValue(att.Value.Trim());
                             continue;
                         }
 
                         // evaluate value for field type
-                        switch(parm.type)
+                        switch (fld.type)
                         {
                             case fieldType.json:
                                 json.WriteRawValue(att.Value);
@@ -361,43 +433,63 @@ namespace ProjectFlx.Schema
                             case fieldType.tryjson:
                                 try
                                 {
-                                    var jsonObj = Newtonsoft.Json.Linq.JObject.Parse(att.Value);
+                                    Newtonsoft.Json.Linq.JObject.Parse(att.Value);
                                     json.WriteRawValue(att.Value);
                                 }
                                 catch
                                 {
-                                    json.WriteValue(att.Value.Trim());   
+                                    json.WriteValue(att.Value.Trim());
                                 }
                                 break;
                             case fieldType.date:
                                 var dt = new DateTime(1970, 1, 1);
-                                DateTime.TryParse(att.Value, out dt);
-                                if (dt.ToString("d").Equals("1/1/1970"))
-                                    json.WriteValue(att.Value);
-                                else
-                                    json.WriteValue(dt.ToString("d"));
+                                if (DateTime.TryParse(att.Value, out dt) &&
+                                    dt.ToString("d").Equals("1/1/1970"))
+                                        json.WriteValue(att.Value);
+                                    else
+                                        json.WriteValue(dt.ToString("d"));
                                 break;
                             case fieldType.datetime:
                                 var dttime = new DateTime(1970, 1, 1);
-                                DateTime.TryParse(att.Value, out dttime);
-                                if (dttime.ToString("d").Equals("1/1/1970"))
-                                    json.WriteValue(att.Value);
-                                else
-                                    json.WriteValue(dttime.ToString("r"));
+                                if(DateTime.TryParse(att.Value, out dttime) &&
+                                    dttime.ToString("d").Equals("1/1/1970"))
+                                        json.WriteValue(att.Value);
+                                    else
+                                        json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
                                 break;
                             default:
                                 json.WriteValue(att.Value.Trim());
                                 break;
                         }
-                            
+
                     }
 
                     json.WriteEndObject();
                 }
+            }
+
+            public static void getRowJsonStringArray(JsonTextWriter json, subresult Result, List<field> fields)
+            {
+                json.WriteStartObject();
+                json.WritePropertyName("row");
+
+                json.WriteStartArray();
+                getRows(json, Result.row, fields);
 
                 json.WriteEndArray();
                 json.WriteEndObject();
+            }
 
+            public static void getRowJsonStringArray(JsonTextWriter json, result Result, List<field> fields)
+            {
+                json.WriteStartObject();
+                json.WritePropertyName("row");
+
+                json.WriteStartArray();
+                getRows(json, Result.row, fields);
+
+                json.WriteEndArray();
+                json.WriteEndObject();
             }
 
             public static void getFieldJsonStringArray(JsonTextWriter json, List<field> Fields)
@@ -507,6 +599,107 @@ namespace ProjectFlx.Schema
                 return Value.Substring(Value.IndexOf("?>") + 2);
 
             return Value;
+        }
+
+        [Obsolete("Do not use, does not work")]
+        public static string safeQuery(String Sql)
+        {
+
+            var sb = new StringBuilder();
+
+            string[] lines = Sql.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            foreach (var line in lines)
+            {
+                sb.AppendLine();
+
+                var splitArray = Regex.Split(line, @"(\bselect\b|\bupdate\b|\binsert\b|\bset\b|\bwhere\b)", RegexOptions.IgnoreCase);
+                if(splitArray.Length == 1)
+                {
+                    sb.Append(line);
+                    continue;
+                }
+
+                foreach (var split in splitArray)
+                {
+                    var splitArray2 = Regex.Split(split, ",");
+                    var itt = 0;
+                    if (splitArray2.Length > 0)
+                    {
+                        foreach (var item in splitArray2)
+                        {
+                            var item2 = item.Trim();
+                            if (string.IsNullOrEmpty(item2))
+                            {
+                                sb.AppendLine();
+                                continue;
+                            }
+
+                            #region REGEX MATCH
+                            /*  
+                                    GROUP[1,2]			[athlete_num]='NGA-116=848'
+                                    GROUP[1,2]			[athlete_num] ='NGA-116=848'
+                                    GROUP[1,2]			athlete_num='NGA-116=848'
+                                    GROUP[1,2]			athlete_num=   'NGA-116=848'
+                                    GROUP[1,2]			[athlete_num]    ='NGA-116=848'
+                                    GROUP[1,2]			athlete_num=     'NGA-116=848'
+                                    GROUP[1,2]			athlete_num     =   'NGA-116=848'
+                                    GROUP[1,2]			athlete_num=99999
+                                    GROUP[1,2]			athlete_num= 89999
+                                    GROUP[1,2]			[athlete_num]= 89999
+                                    GROUP[1,2]			[athlete_num]     =89999
+                                    GROUP[1,2]			[athlete_num]     =    89999
+                                    GROUP[3,4]			'asdfasdf'
+                                    GROUP[3,4]			'asdf_asdf'
+                                    GROUP[3,4]			'asdf987as!@#$2'
+                            */
+                            #endregion
+
+                            var regexObj = new Regex(@"(\[.*\]\s*=\s*|[a-zA-Z_]+\s*=\s*)('(.*)'$)|(^'(.*)'$|^('(.*)'(.*)))");
+                            if (regexObj.IsMatch(item2))
+                            {
+                                var match = regexObj.Match(item2);
+                                if (match.Groups[6].Success)
+                                {
+                                    var innertext = match.Groups[7].Value;
+                                    var sformat = "'{0}'{1}";
+                                    if (match.Groups[8].Success)
+                                        sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"), match.Groups[8].Value);
+                                    else
+                                        sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"), string.Empty);
+                                }
+                                else if (match.Groups[4].Success)
+                                {
+                                    // anthing to escape?
+                                    var innertext = match.Groups[5].Value;
+                                    var sformat = "'{0}'";
+                                    sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"));
+                                }
+                                else
+                                {
+                                    sb.AppendFormat("{0} ", match.Groups[1].Value);
+                                    var innertext = match.Groups[3].Value;
+                                    var sformat = "'{0}'";
+                                    sb.AppendFormat(sformat, innertext.Replace("''", "'").Replace("'", "''"));
+                                }
+
+                            }
+                            else
+                            {
+                                sb.AppendFormat("{0} ", item2);
+                            }
+
+                            if (itt++ < splitArray2.Length - 1)
+                                sb.Append(", ");
+                        }
+                    }
+                    else
+                    {
+                        sb.Append(split);
+                    }
+                }
+            }
+            var temp_string = sb.ToString();
+            return temp_string;
         }
 
 

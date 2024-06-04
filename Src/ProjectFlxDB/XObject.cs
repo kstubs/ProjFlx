@@ -27,7 +27,7 @@ namespace ProjectFlx.DB
         #endregion
         #region public members
 
-        public ProjectFlx.Utility.Timing Timing { get; set; }
+        public ProjectFlx.Utility.TimingCollection Timing { get; set; }
 
         #region Cache Object
         private Cache _cache { get; set; }
@@ -57,7 +57,9 @@ namespace ProjectFlx.DB
             _cachePath = CacheDependencyPath;
             _hourexpires = HoursExpires;
         }
-        private bool _cachingEnabled = true;
+        private bool _cachingEnabled = false;
+
+        [Obsolete("Use Cache Object in ProjectSql.xml")]
         public bool CachingEnabled
         {
             get
@@ -89,11 +91,14 @@ namespace ProjectFlx.DB
         public XObject(DatabaseQuery Query, string ProjectSqlPath, string ProjectSqlName)
         {
             _query = Query;
+            _query.Project = ProjectSqlName;
             if (Timing == null && Query.Timing != null)
                 Timing = Query.Timing;
             _projectSqlName = ProjectSqlName;
 
             XmlDocument xm = new XmlDocument();
+
+            // CONSIDER: this is loading xml everytime - should be cached
             xm.Load(ProjectSqlPath);
 
             string xpath = String.Format("/projectSql/child::node()[local-name()='{0}']", _projectSqlName);
@@ -116,6 +121,12 @@ namespace ProjectFlx.DB
         }
 
         /// <summary>
+        /// Arbitrary label for the queryname like queryname#tag
+        /// In SetQuery the name is split and the tag here assigned
+        /// </summary>
+        public string Tag { get; set; }
+
+        /// <summary>
         /// Sets the query in the SqlProjectDocument
         /// </summary>
         /// <param name="QueryName"></param>
@@ -123,12 +134,19 @@ namespace ProjectFlx.DB
         {
             try
             {
-                
-                string xpath = String.Format("queries/query[@name='{0}']", QueryName);
+                var q = QueryName.Split('#');
+                var queryname = q[0];
+                if (q.Length > 1)
+                    this.Tag = q[1];
+                _query.Clear();
 
-                _querynode = _xmldocument.SelectSingleNode(xpath);
-                if (_querynode == null)
-                    throw new Exception("Invalid Query: " + QueryName);
+                string xpath = String.Format("queries/query[@name='{0}']", queryname);
+
+                var tempnode = _xmldocument.SelectSingleNode(xpath);
+                if (tempnode == null)
+                    throw new Exception("Invalid Query: " + queryname);
+
+                _querynode = tempnode.Clone();
 
                 // Build DB Paramter Fields
                 _fields = new DBParameterFields();
@@ -228,10 +246,11 @@ namespace ProjectFlx.DB
                 if (_query.Timing == null)
                     _query.Timing = Timing;
 
-            _query.CachingEnabled = CachingEnabled;
-
-            if (_cache != null && CachingEnabled)
+            if (_cache != null)
                 _query.SetCache(_cache, _cachePath);
+
+            if (_querynode == null)
+                throw new Exception("Invalid operation in DB.XObject.Query, _querynode is NULL");
 
             _query.Query(_querynode);
         }
@@ -354,6 +373,18 @@ namespace ProjectFlx.DB
         {
             _parameterName = DBParamName;
             _aliasName = AliasName;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is DBParameterField))
+                return false;
+
+            var thisobj = (DBParameterField)obj;
+
+            return
+                thisobj.AliasName.Equals(this.AliasName) &&
+                thisobj.ParameterName.Equals(this.ParameterName);
         }
     }
     
