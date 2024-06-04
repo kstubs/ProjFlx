@@ -125,6 +125,8 @@ namespace ProjectFlx.Utility
 
         public static string getWebResource(string WebResourceUri)
         {
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
             try
             {
                 var rq = WebRequest.Create(WebResourceUri);
@@ -142,8 +144,11 @@ namespace ProjectFlx.Utility
         }
         public static byte[] getWebResourceBytes(string WebResourceUri)
         {
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
             try
             {
+
                 var rq = WebRequest.Create(WebResourceUri);
                 rq.Credentials = CredentialCache.DefaultCredentials;
 
@@ -156,13 +161,41 @@ namespace ProjectFlx.Utility
                     {
                         ms.Write(buffer, 0, read);
                     }
-                    return ms.ToArray();
                 }
+                return ms.ToArray();
             }
             catch
             {
                 return null;
             }
+        }
+
+        public static MemoryStream getWebResourceStream(string WebResourceUri)
+        {
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
+            //try
+            //{
+
+                var rq = WebRequest.Create(WebResourceUri);
+                rq.Credentials = CredentialCache.DefaultCredentials;
+
+                var ms = new MemoryStream();
+                byte[] buffer = new byte[16 * 1024];
+                using (var stream = rq.GetResponse().GetResponseStream())
+                {
+                    int read;
+                    while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        ms.Write(buffer, 0, read);
+                    }
+                }
+                return ms;
+            //}
+            //catch
+            //{
+            //    return null;
+            //}
         }
 
         private static byte[] GetMultipartFormData(Dictionary<string, object> postParameters, string boundary)

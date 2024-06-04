@@ -260,6 +260,21 @@ namespace ProjectFlx.Schema
 
         public static class schemaQueryJsonBuilder
         {
+            public static string getJsonString(row Row, List<field> Fields = null)
+            {
+                StringWriter sw = new StringWriter();
+                JsonTextWriter json = new JsonTextWriter(sw);
+
+
+                var Rows = new List<row>();
+                Rows.Add(Row);
+                getRows(json, Rows, Fields);
+
+                json.Flush();
+                sw.Flush();
+
+                return sw.ToString();
+            }
             public static string getJsonString(result Result, List<field> Fields = null)
             {
                 StringWriter sw = new StringWriter();

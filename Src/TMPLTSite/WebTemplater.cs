@@ -109,14 +109,18 @@ namespace ProjectFlx
                 }
             }
             // browser COOKIES
+
+
+
             for (i = 0; i < requestObj.Cookies.Count; i++)
             {
+
                 var cookie = requestObj.Cookies[i];
                 var cookiename_h = $"{cookie.Name}_h";
-
+                
                 newElm = clsBrowserVarsXML.CreateElement("element");
                 newElm.SetAttribute("name", cookie.Name);
-                newElm.SetAttribute("Domain", cookie.Domain);
+                newElm.SetAttribute("Domain",  cookie.Domain);
                 newElm.SetAttribute("HttpOnly", cookie.HttpOnly ? "true" : "false");
 
                 var ts = new TimeSpan(DateTime.Now.Ticks - cookie.Expires.Ticks);
@@ -414,33 +418,51 @@ namespace ProjectFlx
             AddXslParameter("DOC_ACTION", httpC.Request.Path);
             AddXslParameter("DOC_FOLDER", doc_folder);
 
-
-
-
             // DEBUG: before load and transform - give debug a chance
             if (Debugger != null)
                 Debugger(_xml, _xsltPath, _args2);
 
-            var xslt = new XslCompiledTransform();
-            //xslt = LoadTransformation(xslt);
-            System.Threading.Thread t = new System.Threading.Thread(() => xslt = LoadTransformation(xslt), 8 * 1024 * 1024);
-            t.Start();
-            t.Join();
-
-            XsltArgumentList xsltparms = DicToXsltParms();
-            using (var mem = new MemoryStream())
+            try
             {
-                _xml.Save(mem);
-                mem.Flush();
-                mem.Seek(0, SeekOrigin.Begin);
+                var xslt = new XslCompiledTransform();
+                //xslt = LoadTransformation(xslt);
 
-                var readersettings = new XmlReaderSettings();
-                var reader = XmlReader.Create(mem, readersettings);
+                // TODO: when we have bad Xslt code, the exception is not properly handled and causes IIS to die
+                // How to handle this exception?
+                System.Threading.Thread t = new System.Threading.Thread(() => xslt = LoadTransformation(xslt), 8 * 1024 * 1024);
+                t.Start();
+                t.Join();
 
-                using (_writer = new StringWriter())
+                XsltArgumentList xsltparms = DicToXsltParms();
+                using (var mem = new MemoryStream())
                 {
-                    xslt.Transform(reader, xsltparms, _writer);
+                    _xml.Save(mem);
+                    mem.Flush();
+                    mem.Seek(0, SeekOrigin.Begin);
+
+                    var readersettings = new XmlReaderSettings();
+                    var reader = XmlReader.Create(mem, readersettings);
+
+                    using (_writer = new StringWriter())
+                    {
+                        xslt.Transform(reader, xsltparms, _writer);
+                    }
                 }
+            }
+            catch(System.Xml.Xsl.XsltCompileException handled)
+            {
+                System.Diagnostics.Debug.WriteLine("Caught XsltCompileException");
+                System.Diagnostics.Debug.WriteLine(handled.Message);
+            }
+            //catch(System.Xml.Xsl.XslLoadException handled)
+            //{
+
+            //}
+            catch (Exception unhandled)
+            {
+                var ex = new Exception("Failed to Transform xml/xslt", unhandled);
+                ex.Source = "ProjectFlx.FlxTemplater.ProcessTemplate";
+                throw ex;
             }
         }
 

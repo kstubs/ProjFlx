@@ -12,6 +12,8 @@ using System.Text.RegularExpressions;
 using System.Web.Caching;
 using ProjectFlx.Schema;
 using System.Collections.Specialized;
+using System.Web.Security;
+using ProjectFlx.Schema.Extra;
 
 namespace ProjectFlx.DB.SchemaBased
 {
@@ -130,7 +132,7 @@ namespace ProjectFlx.DB.SchemaBased
 
                 ProjectFlx.Schema.results rslts;
                 _Projresults.results.Add(rslts = new ProjectFlx.Schema.results());
-                rslts.schema.Add(query);
+                rslts.schema.Add(query);                
                 rslts.name = query.name;
                 rslts.project = query.project;
                 rslts.Tag = query.Tag;
@@ -333,7 +335,7 @@ namespace ProjectFlx.DB.SchemaBased
                                 
                                 // original subquery code (1st next results query)
                                 if (subindex == 0 && query.subquery != null && query.subquery.fields != null && query.subquery.fields.Count > 0)
-                                {
+                                {                                    
                                     readerToResult(reader, rslts.subresult, query.subquery.fields, query.paging);
 
                                     if (_cache != null && _cachingEnabled)
@@ -401,7 +403,11 @@ namespace ProjectFlx.DB.SchemaBased
             }
         }
 
-
+        public void RemoveQuery(string Name)
+        {
+            var result = _Projresults.results.Find(r=>r.name == Name);
+            _Projresults.results.Remove(result);
+        }
         public void InitializeCommand()
         {
             //_rowsaffected = 0;
@@ -946,7 +952,6 @@ namespace ProjectFlx.DB.SchemaBased
                 return _schemaQuery;
             }
         }
-
         public static void FillParameters(System.Web.HttpContext httpContext, XObject XObject, NameValueCollection NameValue = null)
         {
 
@@ -958,6 +963,8 @@ namespace ProjectFlx.DB.SchemaBased
                     val = NameValue[parm.name];
                 else if (httpContext != null && httpContext.Request.Form[parm.name] != null)
                     val = httpContext.Request.Form[parm.name];
+                else if (httpContext != null && httpContext.Request.QueryString[parm.name] != null)
+                    val = httpContext.Request.QueryString[parm.name];
 
                 if (val != null)
                 {
@@ -965,14 +972,95 @@ namespace ProjectFlx.DB.SchemaBased
                     parm.Text.Add(val);
                 }
             }
-
         }
 
+        public static void FillPaging(System.Web.HttpContext httpContext, XObject XObject, NameValueCollection NameValue = null)
+        {
+
+            void Fill(NameValueCollection namevalue)
+            {
+                string direction = "none";
+                
+                if (namevalue != null && namevalue.HasKeys())
+                {
+                    // paging direction
+                    var key = namevalue["PagingDirection"];
+                    if (key != null)
+                    {
+                        direction = key.ToString();
+                    }
+
+                    // limit
+                    key = namevalue["PagingLimit"];
+                    if (key != null)
+                    {
+                        int limit = -1;
+                        if (int.TryParse(key, out limit))
+                        {
+                            if (XObject.SchemaQuery.paging == null)
+                                XObject.SchemaQuery.paging = new paging();
+
+                            XObject.SchemaQuery.paging.limit = limit;
+                        }
+                    }
+                    key = namevalue["PagingPage"];
+                    if (key != null)
+                    {
+                        int page = -1;
+                        if (int.TryParse(key, out page))
+                        {
+                            if (XObject.SchemaQuery.paging == null)
+                                XObject.SchemaQuery.paging = new paging();
+
+                            switch (direction.ToLower())
+                            {
+                                case "next":
+                                    page += 1;
+                                    break;
+                                case "previous":
+                                    page -= 1;
+                                    break;
+                                case "top":
+                                    page = 1;
+                                    break;
+                                case "last":
+                                    page = 1;
+                                    break;
+                            }
+
+                            XObject.SchemaQuery.paging.pages.current = page;
+                        }
+                    }
+                }
+            }
+
+            // query, form
+            for (var i = 0; i < 2; i++)
+            {
+                NameValueCollection NameValue2 = null;
+                switch(i)
+                {
+                    case 0:
+                        NameValue2 = httpContext.Request.QueryString; break;
+                    case 1:
+                        NameValue2 = httpContext.Request.Form; break;
+                }
+                if (NameValue2 != null && NameValue2.HasKeys())
+                    Fill(NameValue2);
+            }
+
+            if (NameValue != null && NameValue.HasKeys())
+                Fill(NameValue);
+        }
         public static void FillParameters(XObject XObject, NameValueCollection NameValue)
         {
             FillParameters(null, XObject, NameValue);
         }
 
+        public void PageMove(DatabaseQueryPagingDirection PagingDirection)
+        {
+            throw new NotImplementedException();
+        }
     }
 
 }

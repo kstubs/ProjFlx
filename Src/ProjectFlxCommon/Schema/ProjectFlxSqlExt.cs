@@ -219,7 +219,7 @@ namespace ProjectFlx.Schema
         }
         public row FindRow(String Key, int Value)
         {
-            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value.ToString()));
             return row;
         }
 
@@ -241,6 +241,45 @@ namespace ProjectFlx.Schema
         }
     }
 
+    public partial class subresult
+    {
+        /// <summary>
+        /// Finds first row in result with matching Key and Value
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <returns></returns>
+        public row FindRow(String Key, String Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return row;
+        }
+        public row FindRow(String Key, int Value)
+        {
+            var row = this.rowField.Find(r => r.AnyAttr.LookupValue(Key).Equals(Value.ToString()));
+            return row;
+        }
+
+        /// <summary>
+        /// First all rows in result with matching Key and Value
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <returns></returns>
+        public List<row> FindAllRows(String Key, String Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
+        public List<row> FindAllRows(String Key, int Value)
+        {
+            var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
+            return rows;
+        }
+    }
+
+
+
     namespace Extra
     {
         public static class Extensions
@@ -257,7 +296,12 @@ namespace ProjectFlx.Schema
             {
                 try
                 {
+                    if (Result.row != null && Result.row.Count == 0)
+                        return String.Empty;
+
                     var row = Result.row[0];
+
+                    if (row == null) return String.Empty;
                     return row.AnyAttr.LookupValue(Name);
                 }
                 catch { return string.Empty; }
@@ -271,7 +315,18 @@ namespace ProjectFlx.Schema
             /// <returns></returns>
             public static string LookupValue(this row Row, string Name)
             {
+                if (Row == null) return String.Empty;
                 return Row.AnyAttr.LookupValue(Name);
+            }
+            /// <summary>
+            /// Return <T> for given attribute by name
+            /// </summary>
+            /// <param name="Row"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static T LookupValue<T>(this row Row, string Name)
+            {
+                return (T)Convert.ChangeType(Row.AnyAttr.LookupValue(Name), typeof(T));
             }
             /// <summary>
             /// Return value for give attribute by name
@@ -314,6 +369,7 @@ namespace ProjectFlx.Schema
             public static string LookupValue(this parameters Parameters, string Name)
             {
                 var parm = Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
+                if(parm == null) return string.Empty;
                 return parm.Value();
             }
 
@@ -344,6 +400,20 @@ namespace ProjectFlx.Schema
             public static result Lookup(this projectResults Results, String Name)
             {
                 return Results.results.Lookup(Name);
+            }
+
+            public static bool HasRows(this result result)
+            {
+                if (result == null) return false;
+                if (result.row == null) return false;
+                if (result.row.Count == 0) return false;
+
+                return true;
+            }
+
+            public static bool HasRows(this projectResults Results, String Name)
+            {
+                return HasRows(Results.results.Lookup(Name));
             }
 
             public static result Lookup(this projectResults Results, String Name, String ParameterName, String ParameterValue)
@@ -580,6 +650,8 @@ namespace ProjectFlx.Schema
             }
 
             public string Tag { get; set; }
+            public int Limit { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public int CurrentPage { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
             public void checkInputParms()
             {

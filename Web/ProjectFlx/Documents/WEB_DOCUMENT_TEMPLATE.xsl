@@ -21,7 +21,7 @@
 	<xsl:param name="DOC_ACTION"/>
 	<xsl:param name="DOC_FOLDER"/>
 	<xsl:param name="OUT">HTML</xsl:param>
-	<xsl:param name="wbt:verbose" select="true()"/>
+	<xsl:param name="wbt:verbose" select="false()"/>
 
 	<xsl:param name="LoggedOnUser" select="false()"/>
 	<xsl:param name="AuthenticatedUser" select="false()"/>
@@ -125,6 +125,7 @@
 				<xsl:call-template name="flx-timing"/>
 				<xsl:apply-templates select="." mode="wbt:footer"/>
 				<xsl:call-template name="Google-Analytics"/>
+				<xsl:call-template name="Google-Analytics4A"/>
 			</body>
 		</html>
 	</xsl:template>
@@ -133,6 +134,7 @@
 	<xsl:template name="wbt:body-style"/>
 	<xsl:template name="google-universal-tracking"/>
 	<xsl:template name="Google-Analytics"/>
+	<xsl:template name="Google-Analytics4A"/>
 
 	<xsl:variable name="wbt:error_tags" select="key('wbt:key_Tags', 'ProjectFLX_ERROR') | key('wbt:key_Tags', 'UNHANDLED_ERROR') | key('wbt:key_Tags', 'STACK_TRACE')"/>
 
@@ -315,8 +317,15 @@
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">wbt:javascript</xsl:with-param>
 		</xsl:call-template>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832.js"/>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/protobootstrap__132490265329769314.js"/>
+		<!--<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832.js"></script>-->
+<!--		<script src="/ProjectFLX/Bootstrap/ProtoScripty__132132436975227832-1.js"></script>-->
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/prototype-1.7.3.x.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/effects.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/builder.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/controls.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/dragdrop.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/slider.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/scriptaculous/sound.js"></script>
 
 		<!--<script src="/ProjectFLX/Bootstrap/transition_prototype.js"></script>
 		<script src="/ProjectFLX/Bootstrap/affix_prototype.js"></script>
@@ -327,12 +336,15 @@
 		<script src="/ProjectFLX/Bootstrap/scrollspy_prototype.js"></script>
 		<script src="/ProjectFLX/Bootstrap/dropdown_prototype.js"></script> 	
 		<script src="/ProjectFLX/Bootstrap/modal_prototype.js"></script>-->
+		
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/protobootstrap__132490265329769314.js"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Bootstrap/modal_prototype.js"></script>
 
 
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"/>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js?v=1.6" type="text/javascript"/>
-		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_COUNTDOWN.js?v=1.2" type="text/javascript"/>
-
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/event.simulate.js" type="text/javascript"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_SCRIPT.js?v=1.8" type="text/javascript"></script>
+		<script src="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/WBT_COUNTDOWN.js?v=1.2" type="text/javascript"></script>
+		
 		<!--Embeded javascript-->
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Embeded javascript</xsl:with-param>
@@ -405,7 +417,7 @@
 					</xsl:otherwise>
 				</xsl:choose>
 			</xsl:variable>
-			<script src="{$src}"/>
+			<script src="{$src}"></script>
 		</xsl:for-each>
 		<xsl:for-each select="/flx/proj/browser/page/SCRIPT/item">
 			<xsl:sort select="." case-order="lower-first"/>
@@ -420,7 +432,7 @@
 					</xsl:otherwise>
 				</xsl:choose>
 			</xsl:variable>
-			<script src="{$src}"/>
+			<script src="{$src}"></script>
 		</xsl:for-each>
 		<xsl:call-template name="wbt:comment">
 			<xsl:with-param name="comment">Raw javascript</xsl:with-param>
@@ -441,7 +453,6 @@
 		<link rel="stylesheet" href="{$protocol}//www3.meetscoresonline.com/ProjectFLX/Documents/social-buttons.css" type="text/css"/>
 		<xsl:text>&#10;</xsl:text>
 		<xsl:call-template name="sbt:style"/>
-		<xsl:call-template name="pbt:style"/>
 		<xsl:for-each select="/flx/proj/browser/page/STYLE/item">
 			<xsl:variable name="src">
 				<xsl:choose>
@@ -456,6 +467,8 @@
 			<xsl:text>&#10;</xsl:text>
 			<link rel="stylesheet" href="{$src}" type="text/css"/>
 		</xsl:for-each>
+		<!-- this takes precedence over resource CSS since pbt:style is overriden and possible logic in place, so expected style here should overrule (last one in wins, rule at play) -->
+		<xsl:call-template name="pbt:style"/>
 		<xsl:call-template name="sbt:media-style"/>
 		<xsl:apply-templates select="/flx/client//pbt:style"/>
 	</xsl:template>
@@ -890,6 +903,18 @@
 		</xsl:choose>
 	</xsl:template>
 
+	<xsl:template match="Mobile" mode="identity-translate">
+		<xsl:if test="$is-mobile">
+			<xsl:apply-templates select="@* | node()" mode="identity-translate"/>
+		</xsl:if>
+	</xsl:template>
+	
+	<xsl:template match="Desktop" mode="identity-translate">
+		<xsl:if test="not($is-mobile)">
+			<xsl:apply-templates select="@* | node()" mode="identity-translate"/>
+		</xsl:if>
+	</xsl:template>
+	
 	<xsl:template match="@* | node()" name="identity-translate" mode="identity-translate" priority="-1">
 		<xsl:param name="ignore-name-space" select="false()"/>
 		<xsl:if test="$ignore-name-space or not(string(namespace-uri()))">
@@ -1559,7 +1584,7 @@
 					}]]>
 				</script>
 				<xsl:variable name="site-key" select="@site-key"/>
-				<script src="https://www.google.com/recaptcha/api.js"/>
+				<script src="https://www.google.com/recaptcha/api.js"></script>
 				<form id="GOOGLE_RECAPTCHA" method="POST" action="/googRecaptcha.aspx" style="margin-left:auto; margin-right:auto; width:294px">
 					<div class="g-recaptcha" data-callback="gCaptchaResponse" data-sitekey="{$site-key}"/>
 					<p class="lead"> This one time test will insure that you are not a bot. Data integrity is important to us. </p>
@@ -1864,4 +1889,14 @@
 		</xsl:choose>
 	</xsl:template>
 
+	<xsl:template match="wbt:lookup" name="wbt:lookup" mode="identity-translate">
+		<xsl:param name="query" select="@query"/>
+		<xsl:param name="field" select="@field"/>
+		<xsl:value-of select="key('wbt:key_Results', $query)//row/@*[local-name(.)=$field]"/>
+	</xsl:template>
+
+	<xsl:template match="wbt:lookup_querystring" name="wbt:lookup_querystring" mode="identity-translate">
+		<xsl:param name="name" select="text()"/>
+		<xsl:value-of select="key('wbt:key_QueryVars', $name)"/>
+	</xsl:template>
 </xsl:stylesheet>
