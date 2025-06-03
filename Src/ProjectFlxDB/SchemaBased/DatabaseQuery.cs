@@ -1,19 +1,16 @@
-﻿using System;
-using System.Xml;
+﻿using ProjectFlx.Schema;
+using ProjectFlx.Utility;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Collections.Specialized;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
-using ProjectFlx;
-using ProjectFlx.DB;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Caching;
-using ProjectFlx.Schema;
-using System.Collections.Specialized;
-using System.Web.Security;
-using ProjectFlx.Schema.Extra;
+using System.Xml;
 
 namespace ProjectFlx.DB.SchemaBased
 {
@@ -59,9 +56,9 @@ namespace ProjectFlx.DB.SchemaBased
             _cache.Remove(Key);
         }
         private bool _cachingEnabled = false;
-		private int _scalar = 0;
+        private int _scalar = 0;
 
-		public bool CachingEnabled
+        public bool CachingEnabled
         {
             get
             {
@@ -110,18 +107,19 @@ namespace ProjectFlx.DB.SchemaBased
             }
         }
         void _Query(ProjectFlx.Schema.SchemaQueryType query, bool IgnoreResults)
-        {            
+        {
             string timingToken = String.Format("ProjectFlxDB.DB.SchemaBase.DatabaseQuery {0}.{1}", query.project, query.name);
             string cachekey;
 
             this.Tag = query.Tag;
+            var _timing = default(TimingType);
             if (Timing != null)
-                Timing.Start(timingToken);
+                _timing = Timing.Start(timingToken);
 
-                try
-                {
+            try
+            {
 
-                if(_cache != null && query.cache != null)
+                if (_cache != null && query.cache != null)
                 {
                     _cachingEnabled = query.cache.enabled;
                     _cacheMinutes = query.cache.minutes;
@@ -132,13 +130,20 @@ namespace ProjectFlx.DB.SchemaBased
 
                 ProjectFlx.Schema.results rslts;
                 _Projresults.results.Add(rslts = new ProjectFlx.Schema.results());
-                rslts.schema.Add(query);                
+                rslts.schema.Add(query);
                 rslts.name = query.name;
                 rslts.project = query.project;
                 rslts.Tag = query.Tag;
 
+                if (_timing != null)
+                {
+                    _timing.AddMetaData("QueryName", query.name);
+                    _timing.AddMetaData("QueryTag", query.Tag);
+                }
+
                 // cache results
                 cachekey = cacheKeyHelper(query);
+
                 if (CachingEnabled)
                 {
                     var cacheresult = GetCache<result>(cachekey);
@@ -183,6 +188,9 @@ namespace ProjectFlx.DB.SchemaBased
                         _command.CommandType = System.Data.CommandType.Text;
                         break;
                 }
+
+                if (_timing != null)
+                    _timing.AddMetaData("CommandType", _command.CommandType.ToString());
 
                 _command.Parameters.Clear();    // be sure to clear parms in case _comman reused
                 foreach (ProjectFlx.Schema.parameter parm in query.parameters.parameter)
@@ -229,10 +237,14 @@ namespace ProjectFlx.DB.SchemaBased
                                     throw new Exception("Could not parse date: " + value);
 
                             inoutparm = _command.Parameters.AddWithValue(parm.name, dt);
+                            if (_timing != null)
+                                _timing.AddMetaData(parm.name, dt);
                         }
                         else if (parm.type == Schema.fieldType.json)
                         {
                             inoutparm = _command.Parameters.AddWithValue(parm.name, value);
+                            if (_timing != null)
+                                _timing.AddMetaData($"Parameter {parm.name}", value);
                         }
                         else if (parm.type == Schema.fieldType.@int)
                         {
@@ -240,6 +252,8 @@ namespace ProjectFlx.DB.SchemaBased
                             var intval = 0;
                             if (int.TryParse(value, out intval))
                                 inoutparm.Value = intval;
+                            if (_timing != null)
+                                _timing.AddMetaData($"Parameter {parm.name}", intval);
                         }
                         else
                             inoutparm = _command.Parameters.AddWithValue(parm.name, value);
@@ -272,7 +286,7 @@ namespace ProjectFlx.DB.SchemaBased
                             try
                             {
                                 Newtonsoft.Json.Linq.JObject.Parse(Schema.Helper.FlattenList(parm.Text));
-                                
+
                             }
                             catch (Exception handled)
                             {
@@ -283,10 +297,10 @@ namespace ProjectFlx.DB.SchemaBased
                 }
 
                 //int result = 0;
-                
+
                 switch (query.command.action)
                 {
-                    
+
                     case ProjectFlx.Schema.actionType.NonQuery:
                         //result = _command.ExecuteNonQuery();
                         _command.ExecuteNonQuery();         // TODO: return result
@@ -310,7 +324,7 @@ namespace ProjectFlx.DB.SchemaBased
                         break;
                     case ProjectFlx.Schema.actionType.Result:
 
-                        if(query.cache != null && query.cache.enabled && _cache != null)
+                        if (query.cache != null && query.cache.enabled && _cache != null)
                         {
                             _cacheMinutes = query.cache.minutes;
                         }
@@ -318,9 +332,9 @@ namespace ProjectFlx.DB.SchemaBased
                         using (SqlDataReader reader = _command.ExecuteReader())
                         {
                             if (IgnoreResults == true) return;
-                            
+
                             readerToResult(reader, rslts.result, query.fields, query.paging);
-                            
+
                             if (_cache != null && _cachingEnabled)
                             {
                                 var key = cacheKeyHelper(query);
@@ -332,10 +346,10 @@ namespace ProjectFlx.DB.SchemaBased
                             int subindex = 0;
                             while (reader.NextResult())
                             {
-                                
+
                                 // original subquery code (1st next results query)
                                 if (subindex == 0 && query.subquery != null && query.subquery.fields != null && query.subquery.fields.Count > 0)
-                                {                                    
+                                {
                                     readerToResult(reader, rslts.subresult, query.subquery.fields, query.paging);
 
                                     if (_cache != null && _cachingEnabled)
@@ -344,7 +358,8 @@ namespace ProjectFlx.DB.SchemaBased
                                         SaveCache(key, rslts.subresult);
                                     }
                                     subindex++;
-                                } else
+                                }
+                                else
                                 {
                                     // add to subresult2
                                     if (rslts.subresult2 == null)
@@ -363,10 +378,10 @@ namespace ProjectFlx.DB.SchemaBased
                         break;
                     case ProjectFlx.Schema.actionType.Scalar:
                         Object objresult = _command.ExecuteScalar();
-						int scalar = 0;
+                        int scalar = 0;
 
-						if(int.TryParse(objresult == null ? "0" : objresult.ToString(), out scalar))
-						    _scalar = scalar;
+                        if (int.TryParse(objresult == null ? "0" : objresult.ToString(), out scalar))
+                            _scalar = scalar;
 
                         if (IgnoreResults == true) return;
 
@@ -374,10 +389,10 @@ namespace ProjectFlx.DB.SchemaBased
                         var i = new ProjectFlx.Schema.row();
                         XmlDocument xm = new XmlDocument();
                         XmlAttribute att = xm.CreateAttribute("Scalar");
-						att.Value = _scalar.ToString();
+                        att.Value = _scalar.ToString();
                         i.AnyAttr.Add(att);
                         r.row.Add(i);
-						_Projresults.results.Last().result = r;
+                        _Projresults.results.Last().result = r;
 
                         // populate output parameter values
                         foreach (SqlParameter parm in _command.Parameters)
@@ -405,7 +420,7 @@ namespace ProjectFlx.DB.SchemaBased
 
         public void RemoveQuery(string Name)
         {
-            var result = _Projresults.results.Find(r=>r.name == Name);
+            var result = _Projresults.results.Find(r => r.name == Name);
             _Projresults.results.Remove(result);
         }
         public void InitializeCommand()
@@ -506,8 +521,8 @@ namespace ProjectFlx.DB.SchemaBased
                             r.AnyAttr.Add(att);
 
                             // try to expand fields that resemble json
-                            if(att.Value != null)
-                                if(att.Value.Trim().StartsWith("{") && att.Value.Trim().EndsWith("}"))
+                            if (att.Value != null)
+                                if (att.Value.Trim().StartsWith("{") && att.Value.Trim().EndsWith("}"))
                                 {
                                     try
                                     {
@@ -520,7 +535,8 @@ namespace ProjectFlx.DB.SchemaBased
                                         string jsonDetails = String.Format("{{\"{0}\":{1}}}", fname, json);
                                         var innerXml = Newtonsoft.Json.JsonConvert.DeserializeXmlNode(jsonDetails);
                                         innerNodes.Add((XmlElement)innerXml.DocumentElement);
-                                    } catch { }
+                                    }
+                                    catch { }
                                 }
 
                         }
@@ -576,7 +592,7 @@ namespace ProjectFlx.DB.SchemaBased
                                     val = Regex.Replace(val, Schema.Helper.FlattenList(f.regx), f.regx_replace);
                                 }
 
-                                if(f.encode_custom.HasValue() && _customencoder != null)
+                                if (f.encode_custom.HasValue() && _customencoder != null)
                                 {
                                     val = val ?? reader[f.name].ToString();
                                     val = _customencoder.Process(f.encode_custom.ToString(), val);
@@ -789,48 +805,63 @@ namespace ProjectFlx.DB.SchemaBased
             }
         }
 
+        private static object _lock = new object();
         private void SaveCache(string Key, result result)
         {
-            if (_cache == null)
-                return;
-
-            CacheDependency cachedependency = null;
-            if (!String.IsNullOrEmpty(this._cachePath))
+            try
             {
-                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
-                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
-                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
-                string depFile = Path.Combine(_cachePath, keypath + ".cache");
-
-                using (StreamWriter writer = new StreamWriter(depFile))
+                lock (_lock)
                 {
-                    writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                    if (_cache == null)
+                        return;
+
+                    CacheDependency cachedependency = null;
+                    if (!String.IsNullOrEmpty(this._cachePath))
+                    {
+                        //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                        var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                        if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                        string depFile = Path.Combine(_cachePath, keypath + ".cache");
+
+                        using (StreamWriter writer = new StreamWriter(depFile))
+                        {
+                            writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                        }
+                        cachedependency = new CacheDependency(depFile);
+                    }
+                    _cache.Insert(Key, result, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
                 }
-                cachedependency = new CacheDependency(depFile);
             }
-            _cache.Insert(Key, result, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+            catch (IOException) { }
         }
 
         private void SaveCache(string Key, subresult subresult)
         {
-            if (_cache == null)
-                return;
-
-            CacheDependency cachedependency = null;
-            if (!String.IsNullOrEmpty(this._cachePath))
+            try
             {
-                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
-                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
-                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
-                string depFile = Path.Combine(_cachePath, keypath + ".cache");
-
-                using (StreamWriter writer = new StreamWriter(depFile))
+                lock (_lock)
                 {
-                    writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                    if (_cache == null)
+                        return;
+
+                    CacheDependency cachedependency = null;
+                    if (!String.IsNullOrEmpty(this._cachePath))
+                    {
+                        //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                        var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                        if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                        string depFile = Path.Combine(_cachePath, keypath + ".cache");
+
+                        using (StreamWriter writer = new StreamWriter(depFile))
+                        {
+                            writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                        }
+                        cachedependency = new CacheDependency(depFile);
+                    }
+                    _cache.Insert(Key, subresult, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
                 }
-                cachedependency = new CacheDependency(depFile);
             }
-            _cache.Insert(Key, subresult, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+            catch (IOException) { }
         }
 
 
@@ -857,7 +888,7 @@ namespace ProjectFlx.DB.SchemaBased
         #endregion
 
         public Utility.TimingCollection Timing { get; set; }
-		public int Scalar { get => _scalar; }
+        public int Scalar { get => _scalar; }
         public ICustomEncoder CustomEncoder { get => _customencoder; set => _customencoder = value; }
     }
 
@@ -869,8 +900,8 @@ namespace ProjectFlx.DB.SchemaBased
         public XObject(Schema.SchemaType Schema)
         {
             _schema = Schema;
-			if (_schema.query.Count == 1)
-				_schemaQuery = _schema.query[0];
+            if (_schema.query.Count == 1)
+                _schemaQuery = _schema.query[0];
         }
 
         public void setQuery(object ProjQuery)
@@ -893,16 +924,16 @@ namespace ProjectFlx.DB.SchemaBased
             if (n.Length > 1)
                 this.Tag = n[1];
 
-            var q = _schema.query.Find(x=>x.name.Equals(queryname));
+            var q = _schema.query.Find(x => x.name.Equals(queryname));
 
-            if(q == null)
+            if (q == null)
                 throw new ProjectFlx.Exceptions.ProjectException(new Exceptions.ProjectExceptionArgs("Project Query Not Found " + ProjQueryName, Exceptions.SeverityLevel.Critical));
 
             if (_parms.ContainsKey(ProjQueryName))
             {
                 q.parameters = _parms[ProjQueryName];
             }
-            else if(q.parameters != null)
+            else if (q.parameters != null)
             {
                 _parms.Add(ProjQueryName, q.parameters.Clone());
             }
@@ -944,7 +975,7 @@ namespace ProjectFlx.DB.SchemaBased
 
         public Schema.SchemaQueryType SchemaQuery
         {
-            get 
+            get
             {
                 if (_schemaQuery == null)
                     throw new ProjectFlx.Exceptions.ProjectException(new Exceptions.ProjectExceptionArgs("SchemaQuery Not Set", Exceptions.SeverityLevel.Critical));
@@ -980,7 +1011,7 @@ namespace ProjectFlx.DB.SchemaBased
             void Fill(NameValueCollection namevalue)
             {
                 string direction = "none";
-                
+
                 if (namevalue != null && namevalue.HasKeys())
                 {
                     // paging direction
@@ -1038,7 +1069,7 @@ namespace ProjectFlx.DB.SchemaBased
             for (var i = 0; i < 2; i++)
             {
                 NameValueCollection NameValue2 = null;
-                switch(i)
+                switch (i)
                 {
                     case 0:
                         NameValue2 = httpContext.Request.QueryString; break;

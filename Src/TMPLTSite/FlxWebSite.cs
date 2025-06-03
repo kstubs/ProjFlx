@@ -1,23 +1,19 @@
-using System;
-using System.IO;
-using System.Text;
-using System.Linq;
-using System.Configuration;
-using System.Collections;
-using System.Collections.Generic;
-
-using System.Web;
-using System.Runtime.Caching;
-using System.Xml;
-using ProjectFlx.Exceptions;
 using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
-using closure = ProjectFlx.Utility.Closure;
-using System.Web.SessionState;
-using ProjectFlx.DB;
+using ProjectFlx.Exceptions;
 using ProjectFlx.Schema.Extra;
+using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
+using System.Configuration;
+using System.IO;
+using System.Linq;
+using System.Runtime.Caching;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Web;
+using System.Web.SessionState;
+using System.Xml;
+using closure = ProjectFlx.Utility.Closure;
 
 namespace ProjectFlx
 {
@@ -25,14 +21,16 @@ namespace ProjectFlx
 
     public class FlxMain : IHttpHandler, IRequiresSessionState, FlxSiteInterface, FlxPageInterface
     {
+        private Queries _queries = null;
+
         // private class variables
         private XmlDocument clsXM = new XmlDocument();
         protected bool wbtProcessPageScript = true;
-        protected HttpContext Current;
         protected HttpResponse Response;
         protected HttpRequest Request;
-        protected System.Web.SessionState.HttpSessionState Session;
+        protected HttpContext Current;
         protected HttpServerUtility Server;
+        protected System.Web.SessionState.HttpSessionState Session;
 
         private ObjectCache _cache = MemoryCache.Default;
         private string _cacheDependencyPath = null;
@@ -145,18 +143,19 @@ namespace ProjectFlx
                     TMPLT_MAIN();
                     TMPLT_TERMINATE();
                 }
-                catch (System.Threading.ThreadAbortException) { }
                 catch (ProjectException handled)
                 {
                     TMPLT.AddException(handled);
                     if (_exceptionInTerminate)
                     {
                         HandleUnHandledErrors(handled);
-                    } else
+                    }
+                    else
                     {
                         TMPLT_TERMINATE();
                     }
                 }
+                // aborted thread should have be snuffed
                 catch (Exception e)
                 {
                     TMPLT.AddException(e);
@@ -279,11 +278,11 @@ namespace ProjectFlx
                 _SiteMap = PageHeirarchyCombined.Equals("sitemap") || PageHeirarchyCombined.Equals("sitemapxml");
 
                 // recover user roles (if exists)
-                if(!String.IsNullOrEmpty(TMPLT.LookupCookieVars("user-roles")))
+                if (!String.IsNullOrEmpty(TMPLT.LookupCookieVars("user-roles")))
                 {
                     var qroles = TMPLT.LookupCookieVars("user-roles");
                     var jobj = Newtonsoft.Json.Linq.JObject.Parse(qroles);
-                    foreach(var obj in jobj["role"])
+                    foreach (var obj in jobj["role"])
                     {
                         var x = Convert.ToInt32(obj);
                         AddUserRole(x);
@@ -394,11 +393,23 @@ namespace ProjectFlx
                 var current = TMPLT.DOCxml.SelectSingleNode("/flx/client");
                 wbtQuery(current);
 
-                // Main Call (2 of 3) - Call Site Main
-                SITE_MAIN();
+                try
+                {
+                    // Main Call (2 of 3) - Call Site Main
+                    SITE_MAIN();
+                }
+                catch (Exception unhandled)
+                {
+                    HandleUnHandledErrors(unhandled);
+                }
 
                 // Site Terminate Event - overrideable
                 SITE_TERMINATE();
+            }
+            catch (System.Threading.ThreadAbortException) { }
+            catch
+            {
+                throw;
             }
             finally
             {
@@ -422,6 +433,7 @@ namespace ProjectFlx
                 DirectoryInfo projectFlx = new DirectoryInfo(Server.MapPath(_clientFlxpath));
                 recurseForSiteMap(projectFlx);
             }
+            TMPLT.XmlStatus = LoadStatus.LOADED;
 
             // loop every file
 
@@ -434,7 +446,6 @@ namespace ProjectFlx
                 TMPLT.AddXslParameter("OUT", "XML");
                 TMPLT.ProcessTemplate();
                 Response.Write(TMPLT.Result);
-                Response.Flush();
                 ClearProcess = true;
             }
 
@@ -518,11 +529,10 @@ namespace ProjectFlx
                     Timing.Stop("FLX");
                     if (_debug)
                         TMPLT.AddXML(Utility.TimingDebugger.Serialize(TimingDebugger));
-                    TMPLT.ProcessTemplate(); 
+                    TMPLT.ProcessTemplate();
 
                     Response.ContentType = "text/html";
                     Response.Write(TMPLT.Result);
-                    Response.Flush();
                 }
             }
             catch (Exception unhandled)
@@ -605,10 +615,10 @@ namespace ProjectFlx
                     var projflxcookie = TMPLT.DOCxml.SelectSingleNode("/flx/proj/browser/cookievars/element[@name='ProjFLX']");
                     if (projflxcookie == null)
                     {
-                        for(int x = 0; x<Request.Cookies.Keys.Count; x++)
+                        for (int x = 0; x < Request.Cookies.Keys.Count; x++)
                         {
                             var key = Request.Cookies.Keys[x];
-                            if(key.EndsWith("_h"))
+                            if (key.EndsWith("_h"))
                                 throw new CookieTamperedException("Cookies Tampered - ProjFLX Cookie Not Found");
                         }
                     }
@@ -902,6 +912,11 @@ namespace ProjectFlx
                 AssertValidCookies();
                 Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.get-assert-roles-cookies");
             }
+            catch(Exception unhandled)
+            {
+                HandleUnHandledErrors(unhandled);
+                throw;
+            }
             finally
             {
                 Timing.Stop("ProjectFlx.FlxMain.SITE_INIT");
@@ -989,7 +1004,7 @@ namespace ProjectFlx
             att.Value = qnode.SelectSingleNode("command/action").InnerText;
             importnode.Attributes.Append(att);
 
-            if(qnode.SelectSingleNode("parameters") != null)
+            if (qnode.SelectSingleNode("parameters") != null)
             {
                 var newnode = importnode.OwnerDocument.ImportNode(qnode.SelectSingleNode("parameters"), true);
                 importnode.AppendChild(newnode);
@@ -1066,7 +1081,7 @@ namespace ProjectFlx
                 var qproj = Request.Form["wbt_execute_project"];
                 var qquery = Request.Form["wbt_execute_query"];
 
-                if(qproj == null)
+                if (qproj == null)
                     qproj = Request.Form["wbt_update_project"];
 
                 if (qquery == null)
@@ -1097,7 +1112,7 @@ namespace ProjectFlx
             }
 
             foreach (string s in qresources)
-            {                
+            {
                 var xm = new XmlDocument();
                 xm.Load((_useCdn) ? Utility.Paths.CombinePaths(_resources.Host, s) : Server.MapPath(s));
 
@@ -1110,7 +1125,7 @@ namespace ProjectFlx
                     projsql.setParameter(parm.Attributes["name"].Value, getValueFromWbtParm(parm.InnerText));
 
                 projsql.fillParms(Request.QueryString);
-                if(!isUpdateQuery)      // form vars reserved for update query actions
+                if (!isUpdateQuery)      // form vars reserved for update query actions
                     projsql.fillParms(Request.Form);
 
                 try
@@ -1151,11 +1166,11 @@ namespace ProjectFlx
                 }
                 else
                 {
-                    if(q.SelectNodes("fields/field").Count > 0)
+                    if (q.SelectNodes("fields/field").Count > 0)
                         projsql.setQuery(ProjectFlx.Schema.SchemaQueryType.Create(q.Attributes["name"].Value, Schema.actionType.Result, q.Attributes["name"].Value, q.SelectSingleNode("text").InnerText, q.SelectNodes("fields/field")));
                     else
                         projsql.setQuery(ProjectFlx.Schema.SchemaQueryType.Create(q.Attributes["name"].Value, Schema.actionType.Result, q.Attributes["name"].Value, q.SelectSingleNode("text").InnerText));
-                    
+
                 }
 
 
@@ -1182,7 +1197,7 @@ namespace ProjectFlx
 
                     dbq.Query(projsql);
                 }
-                catch(Exception unhandled)
+                catch (Exception unhandled)
                 {
                     TMPLT.AddException(unhandled);
                 }
@@ -1219,7 +1234,7 @@ namespace ProjectFlx
             if (Regex.IsMatch(parm, pattern))
             {
                 var search = Regex.Match(parm, pattern).Groups[1].Value;
-                switch(search)
+                switch (search)
                 {
                     case "form":
                         val = TMPLT.LookupFormVars(Regex.Match(parm, pattern).Groups[2].Value);
@@ -1253,7 +1268,7 @@ namespace ProjectFlx
             mem.Flush();
             mem.Seek(0, SeekOrigin.Begin);
             var settingsr = new XmlReaderSettings() { IgnoreProcessingInstructions = true, IgnoreWhitespace = true };
-            
+
             var reader = XmlReader.Create(mem, settingsr);
 
             writer.WriteStartDocument();
@@ -1301,9 +1316,9 @@ namespace ProjectFlx
                     if (reader.IsEmptyElement)
                         writer.WriteAttributeString("flx_empty_content", "true");
 
-                    
-                        
-                    if(reader.NodeType == XmlNodeType.EndElement || reader.IsEmptyElement)
+
+
+                    if (reader.NodeType == XmlNodeType.EndElement || reader.IsEmptyElement)
                         writer.WriteEndElement();
                 }
             }
@@ -1339,7 +1354,7 @@ namespace ProjectFlx
                 if (_projFlxUseCache)
                 {
                     if (CacheContains(
-                        CacheKeyEnum.XmlCacheKey, 
+                        CacheKeyEnum.XmlCacheKey,
                         CacheKeyEnum.XslCacheKey,
                         CacheKeyEnum.ContentPathKey,
                         CacheKeyEnum.ContextCacheKey))
@@ -1375,9 +1390,9 @@ namespace ProjectFlx
                 string xslpath = null;
                 string localxmlpath = null;
 
-                void temp_writeDebug (string token, params object[] value)
+                void temp_writeDebug(string token, params object[] value)
                 {
-                    if(value != null)
+                    if (value != null)
                     {
                         var values = String.Join(", ", value);
                         var msg = string.Format("{0}: {1}", token, values);
@@ -1389,8 +1404,6 @@ namespace ProjectFlx
 
                 bool resolveResource(int i, string path, string extension)
                 {
-                    temp_writeDebug("TEMP_000", "resolveResource", i, path, extension);
-
                     bool found = false;
                     string resourcePath;
 
@@ -1398,12 +1411,8 @@ namespace ProjectFlx
 
                     found = _resources.Exists(resourcePath);
 
-                    temp_writeDebug("TEMP_000.a found", found, resourcePath);
-
                     if (!found)
                     {
-                        temp_writeDebug("TEMP_001");
-
                         if (i == 4)
                             resourcePath = String.Format("{0}/{1}.{2}.{3}.{4}.{5}", path, _pageHeirarchy[0], _pageHeirarchy[1], _pageHeirarchy[2], _pageHeirarchy[3], extension);
                         else if (i == 3)
@@ -1421,35 +1430,26 @@ namespace ProjectFlx
                         found = found || _resources.Exists(resourcePath);
                     }
 
-                    temp_writeDebug("TEMP_002", found);
                     return found;
                 }
 
-                temp_writeDebug("TEMP_100 _pageHeirarchy.Count", _pageHeirarchy.Count);
                 //burn down approach, looking for relative content
                 for (int x = _pageHeirarchy.Count; x > 0; x--)
                 {
-
-                    temp_writeDebug("TEMP_101", x);
-
                     localxmlpath = String.Join("/", _pageHeirarchy.ToArray(), 0, x);
 
                     if (!foundXml)
                     {
                         for (int i = _pageHeirarchy.Count; i > 0; i--)
                         {
-                            temp_writeDebug("TEMP_102", x);
                             foundXml = resolveResource(i, localxmlpath, "xml");
 
                             if (foundXml)
                                 break;
                         }
 
-                        temp_writeDebug("TEMP_101.a foundXml", foundXml);
-
                         if (foundXml)
                         {
-                            temp_writeDebug("TEMP_103", x);
                             // if page heirarchy doesn't match found xml, map the resource
                             if (!_pageHeirarchy.Count.Equals(x))
                             {
@@ -1460,12 +1460,9 @@ namespace ProjectFlx
 
                             try
                             {
-                                temp_writeDebug("TEMP_104");
-
                                 resultcontentpath = localxmlpath;
                                 if (_useCdn)
                                 {
-                                    temp_writeDebug("TEMP_105");
                                     // HACK! if the Xml you are trying to load is not valid Xml, no exception is caught here and you exit this code block hardstop
                                     // Need a way to test if the resource is valid Xml
                                     TMPLT.XmlStatus = LoadStatus.LOADING;
@@ -1474,14 +1471,13 @@ namespace ProjectFlx
                                 }
                                 else
                                 {
-                                    temp_writeDebug("TEMP_106");
                                     TMPLT.XmlStatus = LoadStatus.LOADING;
                                     content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
                                     TMPLT.XmlStatus = LoadStatus.LOADED;
                                 }
 
                             }
-                            catch(Exception unhandled)
+                            catch (Exception unhandled)
                             {
                                 var args = new ProjectExceptionArgs("Invalid Resource Load", "ProjectFlx.FlxMain", "getXmlResources", "content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));", SeverityLevel.Critical, LogLevel.Debug);
                                 throw new ProjectException(args, unhandled);
@@ -1489,12 +1485,10 @@ namespace ProjectFlx
                         }
                     }
 
-                    temp_writeDebug("TEMP_107");
                     if (!foundXsl)
                     {
                         for (int i = _pageHeirarchy.Count; i > 0; i--)
                         {
-                            temp_writeDebug("TEMP_108", i);
                             foundXsl = resolveResource(i, localxmlpath, "xsl");
 
                             if (foundXsl)
@@ -1503,7 +1497,6 @@ namespace ProjectFlx
 
                         if (foundXsl)
                         {
-                            System.Diagnostics.Debug.WriteLine("TEMP_109");
                             resultcontentpath = localxmlpath;
                             xslpath = _resources.FullWebPath(_resources.IndexOf) + "?timestamp" + DateTime.Now.ToString("yyyyMMddHHmmssffff");
                             break;
@@ -1511,38 +1504,31 @@ namespace ProjectFlx
                     }
                 }
 
-                temp_writeDebug("TEMP_110 foundXml/foundXsl", foundXml, foundXsl);
-
                 #region default content - look for default content in root client projectFlx path considering a default as well
                 if (!foundXml || !foundXsl)
                 {
-                    temp_writeDebug("TEMP_111");
                     if (!foundXml)
                         resultcontentpath = localxmlpath = "";
 
                     string[] resource = new string[] { _pageHeirarchy[0], "default" };
                     foreach (string s in resource)
                     {
-                        temp_writeDebug("TEMP_112", s);
                         if (!foundXml && _resources.Exists(String.Format("{0}.xml", s)))
                         {
-                            temp_writeDebug("TEMP_113");
                             if (s == "default")
                                 resultcontentpath = "default";
 
                             if (_useCdn)
                             {
-                                temp_writeDebug("TEMP_114");
                                 TMPLT.XmlStatus = LoadStatus.LOADING;
                                 content.Load(_resources.FullWebPath(_resources.IndexOf));
                                 TMPLT.XmlStatus = LoadStatus.LOADED;
                             }
                             else
                             {
-                                temp_writeDebug("TEMP_115");
                                 TMPLT.XmlStatus = LoadStatus.LOADING;
 
-                                if(_resources.IndexOf == -1)
+                                if (_resources.IndexOf == -1)
                                 {
                                     // TODO: when running simultaneous Ajax requests where the default document will be resolved
                                     // the code is getting tripped up.  This is a multe threading issue
@@ -1552,10 +1538,10 @@ namespace ProjectFlx
                                     // NEED: a means to ignore Xml/Xsl resources when we are making Ajax requests
                                     temp_writeDebug("TEMP_116 ********** SHOULD NOT BE HERE **********");
                                     // shouldn't be here!!
-                                    TMPLT.XmlStatus = LoadStatus.FAIL;                                    
-                                } else
+                                    TMPLT.XmlStatus = LoadStatus.FAIL;
+                                }
+                                else
                                 {
-                                    temp_writeDebug("TEMP_117");
                                     content.Load(Server.MapPath(_resources.AbsolutePath(_resources.IndexOf)));
                                     TMPLT.XmlStatus = LoadStatus.LOADED;
                                 }
@@ -1578,9 +1564,9 @@ namespace ProjectFlx
                 if (foundXml)
                 {
                     if (String.IsNullOrEmpty(xslpath))
-						TMPLT.setXslt(Path.Combine(_projectFlxPath, "Documents/WEB_DOCUMENT_TEMPLATE.xsl"));
-					else
-						TMPLT.setXslt(xslpath);
+                        TMPLT.setXslt(Path.Combine(_projectFlxPath, "Documents/WEB_DOCUMENT_TEMPLATE.xsl"));
+                    else
+                        TMPLT.setXslt(xslpath);
                 }
                 else
                 {
@@ -1617,10 +1603,9 @@ namespace ProjectFlx
                 }
                 #endregion
 
-                temp_writeDebug("TEMP_2000");
                 if (_projFlxUseCache)
                 {
-                    if(!String.IsNullOrEmpty(mapResource))
+                    if (!String.IsNullOrEmpty(mapResource))
                     {
                         // TODO: map this
                         MapPage(mapResource);
@@ -1652,7 +1637,7 @@ namespace ProjectFlx
         public static Dictionary<string, string> MapPageKeys = new Dictionary<string, string>();
         private void MapPage(string NewPageHeirarchy)
         {
-            lock(_lock)
+            lock (_lock)
             {
                 if (MapPageKeys.Keys.Any(a => a.Equals(PageHeirarchyCombined)))
                     MapPageKeys.Remove(PageHeirarchyCombined);
@@ -1673,18 +1658,25 @@ namespace ProjectFlx
                 try
                 {
                     // Page Initialize - overrideable
+                    Timing.Start("ProjectFlx.FlxMain.PAGE_INIT");
                     PAGE_INIT();
+                    Timing.Stop("ProjectFlx.FlxMain.PAGE_INIT");
 
                     // Main Call (3 of 3) - Call Page Main
+                    Timing.Start("ProjectFlx.FlxMain.PAGE_MAIN");
                     PAGE_MAIN();
+                    Timing.Stop("ProjectFlx.FlxMain.PAGE_MAIN");
 
                     // Page Terminate Event - overrideable
+                    Timing.Start("ProjectFlx.FlxMain.PAGE_TERMINATE");
                     PAGE_TERMINATE();
+                    Timing.Stop("ProjectFlx.FlxMain.PAGE_TERMINATE");
                 }
-                catch (System.Threading.ThreadAbortException) { }
+                // aborted thread should be snuffed
                 catch (Exception unhandled)
                 {
                     TMPLT.AddException(unhandled);
+                    HandleUnHandledErrors(unhandled);
                 }
                 finally
                 {
@@ -1701,15 +1693,23 @@ namespace ProjectFlx
         {
             foreach (var s in resources.collectResources(".xml"))
             {
-                TMPLT.AddXML(Utility.Web.getWebResource(Utility.Paths.CombinePaths(_resources.Host, s)));
+                var xm = Utility.Web.getWebResource(Utility.Paths.CombinePaths(_resources.Host, s));
+                if(xm != null)
+                    TMPLT.AddXML(xm);
             }
         }
 
         private void recurseForSiteMap(DirectoryInfo projectFlx)
         {
+            var added = new List<string>();
+
             // recurse files
             foreach (FileInfo f in projectFlx.GetFiles("*.xml"))
             {
+                if (added.Any(a => a == f.FullName))
+                    continue;
+
+                added.Add(f.FullName);
                 using (StreamReader r = new StreamReader(f.FullName))
                 {
                     TMPLT.AddXML(r.ReadToEnd());
@@ -1719,7 +1719,7 @@ namespace ProjectFlx
             // recurse folders
             foreach (DirectoryInfo d in projectFlx.GetDirectories())
                 recurseForSiteMap(d);
-            
+
         }
 
         /// <summary>
@@ -1742,7 +1742,7 @@ namespace ProjectFlx
                 TMPLT.AddCommentTag("_AuthenticatedUser", _AuthenticatedUser, "FlxWebSite", "SITE_TERMINATE");
 
                 TMPLT.AddCommentTag("Executing_Class", this.GetType().FullName);
-                
+
                 if (_SiteMap)
                     return;
 
@@ -1805,7 +1805,7 @@ namespace ProjectFlx
                             null,
                             false);
 
-                        if(gc.Xml != null)
+                        if (gc.Xml != null)
                             TMPLT.AddXML(gc.Xml);
 
                         if (!gc.Success)
@@ -1925,7 +1925,7 @@ namespace ProjectFlx
         protected bool CacheContains(params CacheKeyEnum[] Key)
         {
             var result = true;
-            foreach(var k in Key)
+            foreach (var k in Key)
             {
                 result = CacheContains(_cacheKeys[k]);
                 if (!result)
@@ -1941,7 +1941,7 @@ namespace ProjectFlx
 
             return (_cache[Key] == null) ? false : true;
         }
-        
+
         protected void SaveCache(CacheKeyEnum Key, Object Value, double CacheMinutes)
         {
             SaveCache(_cacheKeys[Key], Value, CacheMinutes);
@@ -1951,34 +1951,39 @@ namespace ProjectFlx
 
         protected void SaveCache(string Key, Object Value, double CacheMinutes, bool ForceUseCache = false)
         {
-            if (!_projFlxUseCache && !ForceUseCache)
-                return;
-
-            lock (_lock)
+            try
             {
-                if (_cache == null)
+                if (!_projFlxUseCache && !ForceUseCache)
                     return;
 
-                var cachedependency = new CacheItemPolicy();
-                if (!String.IsNullOrEmpty(this._cacheDependencyPath))
+                lock (_lock)
                 {
-                    var filename = (Key.IndexOf(':') > 0 ? Key.Substring(Key.IndexOf(':')) : Key).Split(Path.GetInvalidFileNameChars());
-                    var keypath = string.Concat(filename);
-                    if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
-                    string depFile = Path.Combine(_cacheDependencyPath, keypath + ".cache");
-                    using (StreamWriter writer = new StreamWriter(depFile))
-                    {
-                        writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
-                    }
-                    List<string> files = new List<string>();
-                    files.Add(depFile);
-                    cachedependency.AbsoluteExpiration = DateTime.Now.AddMinutes(CacheMinutes);
-                    cachedependency.ChangeMonitors.Add(new HostFileChangeMonitor(files));
-                }
+                    if (_cache == null)
+                        return;
 
-                var cache = new CacheItem(Key, Value);
-                _cache.Set(cache, cachedependency);
+                    var cachedependency = new CacheItemPolicy();
+                    if (!String.IsNullOrEmpty(this._cacheDependencyPath))
+                    {
+                        var filename = (Key.IndexOf(':') > 0 ? Key.Substring(Key.IndexOf(':')) : Key).Split(Path.GetInvalidFileNameChars());
+                        var keypath = string.Concat(filename);
+                        if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                        string depFile = Path.Combine(_cacheDependencyPath, keypath + ".cache");
+                        using (StreamWriter writer = new StreamWriter(depFile))
+                        {
+                            writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                        }
+                        List<string> files = new List<string>();
+                        files.Add(depFile);
+                        cachedependency.AbsoluteExpiration = DateTime.Now.AddMinutes(CacheMinutes);
+                        cachedependency.ChangeMonitors.Add(new HostFileChangeMonitor(files));
+                    }
+
+                    var cache = new CacheItem(Key, Value);
+                    _cache.Set(cache, cachedependency);
+                }
             }
+            // prevent IO Disk Collision
+            catch(IOException) { }
         }
 
         public virtual void PAGE_INIT()
@@ -1989,19 +1994,32 @@ namespace ProjectFlx
         {
         }
 
+
+        // TODO: this is handling last error message used in _H;andledUnhandledErrors routine
+        // to get out if already handled.  This has been replaced with a simple boolean test and should be removed
+        protected string _handleUnHandledErrorMessage = null;
         public virtual void HandleUnHandledErrors(Exception e)
         {
             _HandleUnHandledErrors(e);
         }
 
-        protected void _HandleUnHandledErrors(Exception e)
+        protected bool _handledUnhandled = false;
+        private void _HandleUnHandledErrors(Exception e)
         {
+            if (_handledUnhandled) return;
+            _handledUnhandled = true;
+
+            if (_handleUnHandledErrorMessage?.Equals(e.Message, StringComparison.OrdinalIgnoreCase) == true)
+                return;
+
             if (TMPLTUnhandledException != null)
                 TMPLTUnhandledException(e);
 
             // abort when client not connected
             if (!Response.IsClientConnected)
                 return;
+
+            _handleUnHandledErrorMessage = e.Message;
 
             Response.Write(@"<html><body>");
             Response.Write("<div style='margin-top:25px; padding:25px; text-align:center; font-family:arial; border:solid 1px #999'>");
@@ -2072,9 +2090,9 @@ namespace ProjectFlx
         {
             get
             {
-                if(_pageHeirarchy.Count > 1)
+                if (_pageHeirarchy.Count > 1)
                     return _pageHeirarchy[1].ToLower();
-                else 
+                else
                     return String.Empty;
             }
         }
@@ -2135,7 +2153,7 @@ namespace ProjectFlx
 
         public virtual void ProcessRequest(HttpContext context)
         {
-            
+
             Current = context;
             Server = context.Server;
             Response = context.Response;
@@ -2168,7 +2186,7 @@ namespace ProjectFlx
 
         public bool PageHeirarchyContains(string Value)
         {
-            var s =_pageHeirarchy.Find(f => f.Equals(Value.ToLower(), StringComparison.CurrentCultureIgnoreCase));
+            var s = _pageHeirarchy.Find(f => f.Equals(Value.ToLower(), StringComparison.CurrentCultureIgnoreCase));
             return !String.IsNullOrEmpty(s);
         }
 
@@ -2221,9 +2239,9 @@ namespace ProjectFlx
 
         public XmlNamespaceManager NSMGR { get; private set; }
         public string ResourceContentPath { get; private set; }
-		// TODO: examine user and page roles usage
+        // TODO: examine user and page roles usage
         protected List<int> PageRoles { get => _pageRoles; }
-		protected List<int> UserRoles
+        protected List<int> UserRoles
         {
             get
             {
@@ -2262,7 +2280,7 @@ namespace ProjectFlx
         public string CacheDependencyPath { get => _cacheDependencyPath; set => _cacheDependencyPath = value; }
 
         private List<int> _pageRoles = new List<int>();
-		private List<int> _userRoles = new List<int>();
+        private List<int> _userRoles = new List<int>();
         private bool _validUserAgent;
         private const string PAGE_NODE = "page";
         private const string CONTENT_NODE = "content";
@@ -2274,216 +2292,155 @@ namespace ProjectFlx
         /// <param name="Role"></param>
         /// <exception cref="Exceptions.InvalidRolesException"></exception>
         protected virtual void AssertRoles()
-		{
-			// no foul - no roles to assert
-			if (PageRoles.Count == 0)
-				return;
-
-			// foul - when user not logged on
-			if (!LoggedOnUser)
-				throw new Exceptions.LogonRequiredException("Page roles require a logged on user");
-
-			// foul - when logged on user has no roles and there are roles to assert
-			if (_userRoles.Count == 0)
-				throw new Exceptions.InvalidRolesException(String.Format("No roles ror user found.  Roles required for the page, expecting: {0}", String.Join(",", PageRoles.ToArray())));
-
-			bool hasRole = true;		// assume true - for each page role, user must have that role
-										// ex. page role: 10000, 100001 
-										// user role: 10000,100001,10003 PASS
-										// user role: 10000, 10003 FAIL - expecting role 100001
-			foreach (var r in PageRoles)
-			{
-				hasRole = hasRole && (_userRoles.IndexOf(r) > -1);
-			};
-
-			if (!hasRole)
-				throw new Exceptions.InvalidRolesException(String.Format("User roles do not meet page roles, expecting: {0}", String.Join(",", PageRoles.ToArray())));
-		}
-
-		private void getPageRoles()
-		{
-			var xpath = "/flx/client/page[@name=/flx/client-context/page/@name]/pbt:Roles[not(preceding-sibling::*)]";
-			var nodes = TMPLT.DOCxml.SelectNodes(xpath, NSMGR);
-			foreach (XmlNode node in nodes)
-			{
-				_pageRoles.Add(int.Parse(node.InnerText));
-			}
-		}
-
-
-        #region quick query
-        public class FieldNameCollection : List<FieldName>
         {
-            public void Add(string Name, ProjectFlx.Schema.fieldType Type)
+            // no foul - no roles to assert
+            if (PageRoles.Count == 0)
+                return;
+
+            // foul - when user not logged on
+            if (!LoggedOnUser)
+                throw new Exceptions.LogonRequiredException("Page roles require a logged on user");
+
+            // foul - when logged on user has no roles and there are roles to assert
+            if (_userRoles.Count == 0)
+                throw new Exceptions.InvalidRolesException(String.Format("No roles ror user found.  Roles required for the page, expecting: {0}", String.Join(",", PageRoles.ToArray())));
+
+            bool hasRole = true;        // assume true - for each page role, user must have that role
+                                        // ex. page role: 10000, 100001 
+                                        // user role: 10000,100001,10003 PASS
+                                        // user role: 10000, 10003 FAIL - expecting role 100001
+            foreach (var r in PageRoles)
             {
-                this.Add(new FieldName()
-                {
-                    Name = Name,
-                    Type = Type
-                });
-            }
-        }
-        public class FieldName
-        {
-            public string Name { get; set; }
-            public ProjectFlx.Schema.fieldType Type { get; set; }
-        }
-        public class QueryPromise
-        {
-            public bool OneOrMore { get; set; }
-            public int Rows { get; set; }
-            public string Message { get; set; }
+                hasRole = hasRole && (_userRoles.IndexOf(r) > -1);
+            };
+
+            if (!hasRole)
+                throw new Exceptions.InvalidRolesException(String.Format("User roles do not meet page roles, expecting: {0}", String.Join(",", PageRoles.ToArray())));
         }
 
-        private QueryPromise _promise = null;
-        private int _scalar;
-
-        protected void ExecuteRawQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, FieldNameCollection Fields = null, NameValueCollection Parms = null)
+        private void getPageRoles()
         {
-            var result = Result ?? new ProjectFlx.Schema.projectResults();
-            using (var db = new DatabaseConnection())
-            using (var dq = new ProjectFlx.DB.SchemaBased.DatabaseQuery(db, result))
+            var xpath = "/flx/client/page[@name=/flx/client-context/page/@name]/pbt:Roles[not(preceding-sibling::*)]";
+            var nodes = TMPLT.DOCxml.SelectNodes(xpath, NSMGR);
+            foreach (XmlNode node in nodes)
             {
-                string sql = Select;
-                if (Parms != null)
-                {
-                    foreach (var key in Parms.AllKeys)
-                    {
-                        var skey = $"[{key}]";
-                        sql = sql.Replace(skey, Parms[key].Replace("'", "''"));
-                    }
-                }
-                var schema = ProjectFlx.Schema.SchemaQueryType.Create(QueryName, ProjectFlx.Schema.actionType.Result, QueryName, sql);
-                if (Fields != null)
-                {
-                    schema.fields = new List<ProjectFlx.Schema.field>();
-                    foreach (var field in Fields)
-                        schema.fields.Add(new ProjectFlx.Schema.field()
-                        {
-                            name = field.Name,
-                            type = field.Type
-                        });
-                }
-
-                dq.Query(schema);
-
-                this._scalar = dq.Scalar;
-            }
-
-            TMPLT.AddXML(result);
-        }
-        protected void ExecuteRawQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, NameValueCollection Parms = null)
-        {
-            ExecuteRawQuery(TMPLT, Project, QueryName, Select, Result, null, Parms);
-        }
-
-        protected void ExecuteRawQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, string Select, FieldNameCollection Fields)
-        {
-            ExecuteRawQuery(TMPLT, Project, QueryName, Select, null, Fields, null);
-        }
-
-        protected void ExecuteRawQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, string Select)
-        {
-            ExecuteRawQuery(TMPLT, Project, QueryName, Select, null, null, null);
-        }
-
-        protected void ExecuteQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, NameValueCollection Parms = null)
-        {
-            var result = new ProjectFlx.Schema.projectResults();
-            ExecuteQuery(Project, QueryName, result, Parms);
-
-            if (TMPLT != null)
-                TMPLT.AddXML(result);
-        }
-
-        protected virtual void ExecuteQuery(string Project, string QueryName, NameValueCollection Parms = null)
-        {
-            var result = new ProjectFlx.Schema.projectResults();
-            ExecuteQuery(Project, QueryName, result, Parms);
-        }
-
-        protected virtual ProjectFlx.Schema.result ExecuteQuery2(string Project, string QueryName, NameValueCollection Parms = null)
-        {
-            return ExecuteQuery2(Project, QueryName, null, Parms);
-        }
-        protected virtual ProjectFlx.Schema.result ExecuteQuery2(string Project, string QueryName, QueryPromise Promise, NameValueCollection Parms = null)
-        {
-            var projresult = new ProjectFlx.Schema.projectResults();
-            ExecuteQuery(Project, QueryName, projresult, Parms);
-
-            var result = projresult.Lookup(QueryName);
-            if (_promise != null)
-            {
-                if (_promise.OneOrMore)
-                {
-                    if (result.row.Count == 0)
-                        throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting One Or More row(s), none found.");
-                }
-                if (!result.row.Count.Equals(_promise.Rows))
-                    throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting {_promise.Rows} row(s), actual {result.row.Count} row(s) found.");
-            }
-
-            return result;
-        }
-
-        protected virtual string ExecuteQueryJson(string Project, string QueryName, NameValueCollection Parms = null)
-        {
-            var result = new ProjectFlx.Schema.projectResults();
-            ExecuteQuery(Project, QueryName, result, Parms);
-
-            return ProjectFlx.Schema.Helper.schemaQueryJsonBuilder.getJsonString(result);
-        }
-
-        protected virtual void ExecuteQuery(string Project, string QueryName, ProjectFlx.Schema.projectResults Results, NameValueCollection Parms = null)
-        {
-            var x = new NameValueCollection();
-
-            using (var db = new DatabaseConnection())
-            using (var dq = new ProjectFlx.DB.SchemaBased.DatabaseQuery(db, Results))
-            {
-                var schema = ProjectFlx.Schema.SchemaType.GetSchemaType(Server.MapPath("/ProjectSQL.xml"), Project);
-                var xobj = new ProjectFlx.DB.SchemaBased.XObject(schema);
-                
-                xobj.setQuery(QueryName);
-                ProjectFlx.DB.SchemaBased.XObject.FillParameters(Current, xobj, Parms);
-                ProjectFlx.DB.SchemaBased.XObject.FillPaging(Current, xobj, Parms);
-                dq.Query(xobj);
-                var Result = Results.Lookup(QueryName);
-
-                if (_promise != null)
-                {
-                    if (_promise.OneOrMore)
-                    {
-                        if (Result.row.Count == 0)
-                            throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting One Or More row(s), none found.");
-                        return;
-                    }
-                    if (!Result.row.Count.Equals(_promise.Rows))
-                        throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting {_promise.Rows} row(s), actual {Result.row.Count} row(s) found.");
-                }
-                this._scalar = dq.Scalar;
+                _pageRoles.Add(int.Parse(node.InnerText));
             }
         }
 
-        protected virtual void ExecuteQuery(string Project, string QueryName, ProjectFlx.Schema.result Result, NameValueCollection Parms = null)
+        #region quick queries (pass through to our _queries class)
+
+
+
+        private bool QueriesInitialized = false;
+        private void InitializeQueries()
         {
-            var projresult = new ProjectFlx.Schema.projectResults();
-            ExecuteQuery(Project, QueryName, projresult, Parms);
-            Result.row = projresult.Lookup(QueryName).row;
-            if (_promise != null)
-            {
-                if (_promise.OneOrMore)
-                {
-                    if (Result.row.Count == 0)
-                        throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting One Or More row(s), none found.");
-                    return;
-                }
-                if (!Result.row.Count.Equals(_promise.Rows))
-                    throw new QueryPromiseException($"Promise failed for query {QueryName}, expecting {_promise.Rows} row(s), actual {Result.row.Count} row(s) found.");
-            }
+            if (QueriesInitialized) return;
+                        
+            if (_queries == null)
+                _queries = new Queries(Current, Server, Timing);
+
+            QueriesInitialized = true;
+        }
+
+        protected void ExecuteQuery(string Project, string QueryName, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Parms);
+        }
+        protected void ExecuteQuery(string Project, string QueryName, Queries.QueryPromise Promise, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Promise, Parms);
+        }
+        protected void ExecuteQuery(string Project, string QueryName, Schema.projectResults Results, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteQuery(Project, QueryName, Results, Parms);
+        }
+        protected void ExecuteQuery(string Project, string QueryName, Schema.projectResults Results, Queries.QueryPromise Promise, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Results, Promise, Parms);
+        }
+        protected void ExecuteQuery(FlxTemplater TMPLT, string Project, string QueryName)
+        {
+            InitializeQueries();
+            var Results = new Schema.projectResults();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Results, null, null);
+        }
+
+        protected void ExecuteQuery(FlxTemplater TMPLT, string Project, string QueryName, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            var Results = new Schema.projectResults();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Results, null, Parms);
+        }
+
+        protected void ExecuteQuery(FlxTemplater TMPLT, string Project, string QueryName, Schema.projectResults Results, Queries.QueryPromise Promise, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteQuery(TMPLT, Project, QueryName, Results, Promise, Parms);
+        }
+
+        protected void ExecuteRawQuery(string Project, string QueryName, string Select)
+        {
+            InitializeQueries();
+            _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select);
+        }
+        protected void ExecuteRawQuery(string Project, string QueryName, string Select, Queries.FieldNameCollection Fields)
+        {
+            InitializeQueries();
+            _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select, Fields);
+        }
+        protected void ExecuteRawQuery(string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select, Result, Parms);
+        }
+        protected void ExecuteRawQuery( string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, Queries.FieldNameCollection Fields = null, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select, Result, Fields, Parms);
+        }
+        
+        protected ProjectFlx.Schema.result ExecuteQuery2(string Project, string QueryName, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            return _queries.ExecuteQuery2(Project, QueryName, Parms);
+        }
+        protected ProjectFlx.Schema.result ExecuteQuery2(string Project, string QueryName, Queries.QueryPromise Promise, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            return _queries.ExecuteQuery2(Project, QueryName, Promise, Parms);
+        }
+
+        protected string ExecuteQueryJson(string Project, string QueryName, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            return _queries.ExecuteQueryJson(Project, QueryName, Parms);
+        }
+
+        protected int ExecuteScalar(string Project, string QueryName, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            return _queries.ExecuteScalar(Project, QueryName, Parms);
         }
 
         #endregion
 
+        // Quick Queries not defined by the Interface
+        protected void ExecuteQuery(string Project, string QueryName, Schema.result Result, NameValueCollection Parms = null)
+        {
+            InitializeQueries();
+            var results = new ProjectFlx.Schema.projectResults();
+
+            results.results.Add(new Schema.results() { result = Result });
+            _queries.ExecuteQuery(Project, QueryName, results, Parms);
+
+            var result = results.Lookup(QueryName);
+            foreach (var row in result.row)
+                Result.row.Add(row);            
+        }
     }
 }

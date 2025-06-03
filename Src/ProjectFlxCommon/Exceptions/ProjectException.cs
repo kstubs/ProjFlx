@@ -1,7 +1,5 @@
 using System;
 using System.Xml;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ProjectFlx.Exceptions
 {
@@ -10,9 +8,10 @@ namespace ProjectFlx.Exceptions
         ProjectExceptionArgs _args;
         ProjectExceptionHandler _handler = null;
 
-		public ProjectException() { }
+        public ProjectException() { }
 
-        public ProjectException(string Message) : base(Message) {
+        public ProjectException(string Message) : base(Message)
+        {
             _args = new ProjectExceptionArgs(Message);
         }
         public ProjectException(ProjectExceptionArgs Args) : base(Args.Message)
@@ -47,7 +46,7 @@ namespace ProjectFlx.Exceptions
                 if (_handler == null)
                     return null;
 
-                return  _handler.XmlDocument;
+                return _handler.XmlDocument;
             }
         }
     }

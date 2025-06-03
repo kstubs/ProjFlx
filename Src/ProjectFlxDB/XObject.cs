@@ -1,12 +1,11 @@
-﻿using System;
-using System.Xml;
-using System.Text;
-using System.Text.RegularExpressions;
+﻿using ProjectFlx.Exceptions;
+using ProjectFlx.Schema;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using ProjectFlx.Exceptions;
-using ProjectFlx.Schema;
+using System.Text.RegularExpressions;
 using System.Web.Caching;
+using System.Xml;
 
 namespace ProjectFlx.DB
 {
@@ -73,7 +72,7 @@ namespace ProjectFlx.DB
         }
         #endregion
 
-        [Obsolete ("Untested")]
+        [Obsolete("Untested")]
         public XObject(DatabaseQuery Query, IProject Project)
         {
             _query = Query;
@@ -105,7 +104,7 @@ namespace ProjectFlx.DB
             XmlNode node = xm.SelectSingleNode(xpath);
 
             if (node == null)
-                throw new ProjectException(new ProjectExceptionArgs("Invalid ProjectSQL Doc", 
+                throw new ProjectException(new ProjectExceptionArgs("Invalid ProjectSQL Doc",
                     "ProjectFlx.DB.XObject, FLX", "XObject(DatabaseQuery Query, string ProjectSqlPath, string ProjectSqlName)",
                     String.Format("string xpath = String.Format(\"/projectSql/child::node()[local-name()='{0}']\"", _projectSqlName), SeverityLevel.Critical, LogLevel.Event));
 
@@ -167,7 +166,7 @@ namespace ProjectFlx.DB
                     _query.Limit = limit;
                 }
 
-                
+
             }
             catch (Exception unhandled)
             {
@@ -296,12 +295,12 @@ namespace ProjectFlx.DB
         {
             System.Collections.Specialized.NameValueCollection namesvalues = new System.Collections.Specialized.NameValueCollection();
 
-            foreach(DBParameterField fld in _xobject.ParameterFields)
+            foreach (DBParameterField fld in _xobject.ParameterFields)
             {
                 var q = (string[])httpContext.Request.Form.GetValues(fld.AliasName);
 
                 foreach (string v in q)
-                    namesvalues.Add(fld.ParameterName, v);                
+                    namesvalues.Add(fld.ParameterName, v);
             }
 
             return namesvalues;
@@ -326,7 +325,7 @@ namespace ProjectFlx.DB
         {
             get
             {
-                return _fields.Find(delegate(DBParameterField f) { return f.AliasName.Equals(AliasName); }).ParameterName;
+                return _fields.Find(delegate (DBParameterField f) { return f.AliasName.Equals(AliasName); }).ParameterName;
             }
         }
 
@@ -387,6 +386,6 @@ namespace ProjectFlx.DB
                 thisobj.ParameterName.Equals(this.ParameterName);
         }
     }
-    
+
 
 }

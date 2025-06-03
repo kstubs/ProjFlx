@@ -840,7 +840,8 @@ namespace ProjectFlx.Schema {
             System.IO.StringReader stringReader = null;
             try {
                 stringReader = new System.IO.StringReader(xml);
-                return ((SchemaQueryType)(Serializer.Deserialize(System.Xml.XmlReader.Create(stringReader))));
+                XmlReaderSettings settings = new XmlReaderSettings { IgnoreNamespace = true };
+                return ((SchemaQueryType)(Serializer.Deserialize(System.Xml.XmlReader.Create(stringReader, settings))));
             }
             finally {
                 if ((stringReader != null)) {

@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -20,6 +17,19 @@ namespace ProjectFlx.Utility
         [XmlIgnore]
         public TimeSpan TimeSpanEnd { get; set; }
         public double ExecutionTime { get; set; }
+
+        [XmlArray("MetaData")]
+        [XmlArrayItem("Item")]
+        public List<MetaData> MetaData { get; set; }
+        public void AddMetaData(string Name, Object Value)
+        {
+            if (this.MetaData == null)
+                this.MetaData = new List<MetaData>();
+
+            this.MetaData.Add(new Utility.MetaData() { Name = Name, Value = Value?.ToString() ?? String.Empty });
+        }
+
+
     }
     public class TimingCollection
     {
@@ -33,11 +43,11 @@ namespace ProjectFlx.Utility
 
         [XmlAttribute]
         public String Name { get; set; }
-        
+
         [XmlAttribute]
         public double ExecutionTime { get; set; }
 
-        public void Start(string Name)
+        public TimingType Start(string Name)
         {
             _list.Add(new TimingType()
             {
@@ -47,6 +57,8 @@ namespace ProjectFlx.Utility
 
             if (String.IsNullOrEmpty(this.Name))
                 this.Name = Name;
+
+            return _list.Last();
         }
 
         public void Stop()
@@ -62,8 +74,7 @@ namespace ProjectFlx.Utility
                 timing.ExecutionTime = timing.TimeSpanEnd.Subtract(timing.TimeSpanStart).TotalMilliseconds;
             }
 
-            if (timing == _list[0])
-                ExecutionTime = timing.ExecutionTime;
+            this.ExecutionTime = _list.Sum(f => f.ExecutionTime);
         }
 
         public TimingCollection New(string Name)
@@ -102,11 +113,11 @@ namespace ProjectFlx.Utility
                 _collection = value;
             }
         }
-        
+
     }
 
     public class TimingDebugger
-    {        
+    {
         [XmlElement("TimingGroup")]
         public List<TimingCollection> List
         {
@@ -125,6 +136,24 @@ namespace ProjectFlx.Utility
             return List.Last();
         }
 
+        [XmlArray("MetaData")]
+        [XmlArrayItem("Item")]
+        public List<MetaData> MetaData { get; set; }
+        public void AddMetaData(string Name, Object Value)
+        {
+            if(this.MetaData == null)
+                this.MetaData = new List<MetaData>();
+
+            this.MetaData.Add(new Utility.MetaData() { Name = Name, Value = Value?.ToString() ?? String.Empty });
+        }
+
+        public double ExecutionTime
+        {
+            get
+            {
+                return this.List.Sum(x => x.ExecutionTime);
+            }
+        }
         public static XmlDocument Serialize(TimingDebugger TimingDebuggerObj)
         {
             var mgr = new XmlSerializerNamespaces();
@@ -143,5 +172,11 @@ namespace ProjectFlx.Utility
                 return xml;
             }
         }
+    }
+
+    public class MetaData
+    {
+        public string Name { get; set; }
+        public string Value { get; set; }
     }
 }

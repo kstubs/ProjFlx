@@ -1,17 +1,17 @@
-﻿using System;
-using System.IO;
-using System.Net;
-using System.Xml;
+﻿using ProjectFlx.Exceptions;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
-using ProjectFlx.Exceptions;
+using System.Xml;
 
 namespace ProjectFlx.Utility.Closure
 {
     public enum RequestType { js_code, code_url };
-    public enum OutputFormat { xml, json, text};
-    public enum CompilationLevel {WHITESPACE_ONLY, SIMPLE_OPTIMIZATIONS, ADVANCED_OPTIMIZATIONS };
+    public enum OutputFormat { xml, json, text };
+    public enum CompilationLevel { WHITESPACE_ONLY, SIMPLE_OPTIMIZATIONS, ADVANCED_OPTIMIZATIONS };
     public enum OutputInfo { compiled_code, warnings, errors, statistics };
     public enum WarningLevel { QUIET, DEFAULT, VERBOSE };
 
@@ -75,7 +75,7 @@ namespace ProjectFlx.Utility.Closure
             _outFormat = OutputFormat.xml;
 
             StringBuilder parms = new StringBuilder();
-            parms.Append(String.Format(@"compilation_level={0}", CompilationLevel.ToString()));            
+            parms.Append(String.Format(@"compilation_level={0}", CompilationLevel.ToString()));
             parms.Append(String.Format(@"&output_format={0}", _outFormat.ToString().ToLower()));
             parms.Append(@"&output_file_name=" + temp_file);
             parms.Append(String.Format(@"&warning_level={0}", WarningLevel.ToString().ToLower()));
@@ -83,7 +83,7 @@ namespace ProjectFlx.Utility.Closure
                 parms.Append(@"&formatting=pretty_print");
             parms.Append(@"&formatting=print_input_delimiter");
 
-            foreach(OutputInfo oi in OutputInfos )
+            foreach (OutputInfo oi in OutputInfos)
                 parms.Append(String.Format(@"&output_info={0}", oi.ToString()));
 
             if (!String.IsNullOrEmpty(ExternsJS))
@@ -136,7 +136,7 @@ namespace ProjectFlx.Utility.Closure
                     //if (testNodes.Count > 0)
                     //    _errors = true;
                 }
-                catch(Exception unhandled)
+                catch (Exception unhandled)
                 {
                     var args = new ProjectFlx.Exceptions.ProjectExceptionArgs("Google Closure Exception Caught");
                     throw new ProjectFlx.Exceptions.ProjectException(args, unhandled); ;
@@ -190,11 +190,11 @@ namespace ProjectFlx.Utility.Closure
             {
                 string script = null;
                 try
-                { 
+                {
                     XmlNode node = this.Xml.SelectSingleNode("/compilationResult/compiledCode");
-                    script = node.InnerText;                
+                    script = node.InnerText;
                 }
-                catch(Exception unhandled)
+                catch (Exception unhandled)
                 {
                     script = unhandled.Message;
                 }
@@ -282,7 +282,7 @@ namespace ProjectFlx.Utility.Closure
                     gc.Dispose();
 
             }
-            
+
             return document;
         }
     }

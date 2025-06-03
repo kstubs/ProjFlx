@@ -1,15 +1,13 @@
-﻿using System;
-using System.IO;
-using System.Xml;
+﻿using Newtonsoft.Json;
+using ProjectFlx.Schema.Extra;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
-using Newtonsoft.Json;
-using ProjectFlx.Schema;
-using System.Web;
-using System.Net;
-using ProjectFlx.Schema.Extra;
 using System.Text.RegularExpressions;
+using System.Web;
+using System.Xml;
 
 namespace ProjectFlx.Schema
 {
@@ -58,7 +56,7 @@ namespace ProjectFlx.Schema
                 XWriter.WriteStartElement("result");
 
                 var groupingValues = new Dictionary<string, string>();
-                foreach(var s in Grouped)
+                foreach (var s in Grouped)
                     groupingValues.Add(s.Trim(), null);
                 int depth;
 
@@ -97,7 +95,7 @@ namespace ProjectFlx.Schema
                     }
                 }
                 // close last grouping items
-                for(int x = 0; x < groupingValues.Count; x++)
+                for (int x = 0; x < groupingValues.Count; x++)
                     XWriter.WriteEndElement();
 
                 XWriter.WriteEndElement();
@@ -154,7 +152,8 @@ namespace ProjectFlx.Schema
                                 g.Row = new List<row>();
                             g.Row.Add(row);
                         }
-                    } else if(g != null)
+                    }
+                    else if (g != null)
                     {
                         // existing group found
                         g.Row.Add(row);
@@ -214,7 +213,7 @@ namespace ProjectFlx.Schema
                 }
                 finally
                 {
-                    if(Timing != null)
+                    if (Timing != null)
                         Timing.Stop("getResultGrouped");
                 }
             }
@@ -241,7 +240,7 @@ namespace ProjectFlx.Schema
             public static void getRowGrouped(row Row, XmlWriter XWriter)
             {
                 XWriter.WriteStartElement("row");
-                for (int x = 0; x < Row.AnyAttr.Count; x++ )
+                for (int x = 0; x < Row.AnyAttr.Count; x++)
                 {
                     XWriter.WriteAttributeString(Row.AnyAttr[x].Name, Row.AnyAttr[x].Value.ToString());
                 }
@@ -324,9 +323,9 @@ namespace ProjectFlx.Schema
                     json.WritePropertyName("ProjectID");
 
                     // get projectid, for subjhow
-                    json.WriteValue((rslts.schema.Count > 0 ) ? rslts.schema[0].project : ProjectResults.results[0].schema[0].project);
+                    json.WriteValue((rslts.schema.Count > 0) ? rslts.schema[0].project : ProjectResults.results[0].schema[0].project);
                     json.WritePropertyName("QueryID");
-                    json.WriteValue((rslts.schema.Count > 0 ) ? rslts.schema[0].name : String.Format("{0}.subquery",  ProjectResults.results[0].schema[0].name));
+                    json.WriteValue((rslts.schema.Count > 0) ? rslts.schema[0].name : String.Format("{0}.subquery", ProjectResults.results[0].schema[0].name));
 
                     if (rslts.schema.Count > 0)
                     {
@@ -349,7 +348,7 @@ namespace ProjectFlx.Schema
                     json.WritePropertyName("result");
                     getRowJsonStringArray(json, rslts.result, (rslts.schema.Count > 0) ? rslts.schema[0].fields : ProjectResults.results[0].schema[0].fields);
 
-                    if(rslts.subresult != null)
+                    if (rslts.subresult != null)
                     {
                         json.WritePropertyName("subquery");
                         json.WriteStartObject();
@@ -357,16 +356,16 @@ namespace ProjectFlx.Schema
                         getRowJsonStringArray(json, rslts.subresult, (rslts.schema.Count > 0) ? rslts.schema[0].subquery.fields : ProjectResults.results[0].schema[0].subquery.fields);
                         json.WriteEndObject();
                     }
-                    if(rslts.subresult2 != null)
+                    if (rslts.subresult2 != null)
                     {
                         json.WritePropertyName("subresults");
                         json.WriteStartArray();
 
-                        foreach(var result2 in rslts.subresult2.result)
+                        foreach (var result2 in rslts.subresult2.result)
                         {
                             json.WriteStartObject();
                             json.WritePropertyName("result");
-                            getRowJsonStringArray(json, result2,null);
+                            getRowJsonStringArray(json, result2, null);
                             json.WriteEndObject();
                         }
                         json.WriteEndArray();
@@ -411,7 +410,7 @@ namespace ProjectFlx.Schema
                     {
                         json.WritePropertyName(att.Name);
                         var fld = default(field);
-                        if(fields != null)
+                        if (fields != null)
                             fld = fields.Find(p => p.name.Equals(att.Name));
 
                         // TODO: reintroduce parmdisplay field names need field name and display name??
@@ -445,17 +444,17 @@ namespace ProjectFlx.Schema
                                 var dt = new DateTime(1970, 1, 1);
                                 if (DateTime.TryParse(att.Value, out dt) &&
                                     dt.ToString("d").Equals("1/1/1970"))
-                                        json.WriteValue(att.Value);
-                                    else
-                                        json.WriteValue(dt.ToString("d"));
+                                    json.WriteValue(att.Value);
+                                else
+                                    json.WriteValue(dt.ToString("d"));
                                 break;
                             case fieldType.datetime:
                                 var dttime = new DateTime(1970, 1, 1);
-                                if(DateTime.TryParse(att.Value, out dttime) &&
+                                if (DateTime.TryParse(att.Value, out dttime) &&
                                     dttime.ToString("d").Equals("1/1/1970"))
-                                        json.WriteValue(att.Value);
-                                    else
-                                        json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
+                                    json.WriteValue(att.Value);
+                                else
+                                    json.WriteValue(dttime.ToString("MM-dd-yyyy HH':'mm':'ss tt"));
                                 break;
                             default:
                                 json.WriteValue(att.Value.Trim());
@@ -584,7 +583,7 @@ namespace ProjectFlx.Schema
             json.WriteEndObject();
             json.WriteEndArray();
             json.WriteEndObject();
-    
+
             json.Flush();
             sw.Flush();
 
@@ -613,7 +612,7 @@ namespace ProjectFlx.Schema
                 sb.AppendLine();
 
                 var splitArray = Regex.Split(line, @"(\bselect\b|\bupdate\b|\binsert\b|\bset\b|\bwhere\b)", RegexOptions.IgnoreCase);
-                if(splitArray.Length == 1)
+                if (splitArray.Length == 1)
                 {
                     sb.Append(line);
                     continue;

@@ -1,40 +1,35 @@
 using System;
-using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Security.Cryptography;
-using System.Web;
-using System.Net;
-using System.Reflection;
+using System.Text;
 
 namespace ProjectFlx.Utility
 {
-		///////////////////////////////////////////////////////////////////////////////
-		// SAMPLE: Hashing data with salt using MD5 and several SHA algorithms.
-		//
-		// To run this sample, create a new Visual C# project using the Console
-		// Application template and replace the contents of the Class1.cs file with
-		// the code below.
-		//
-		// THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
-		// EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
-		// WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
-		// 
-		// Copyright (C) 2002 Obviex(TM). All rights reserved.
-		// 
+    ///////////////////////////////////////////////////////////////////////////////
+    // SAMPLE: Hashing data with salt using MD5 and several SHA algorithms.
+    //
+    // To run this sample, create a new Visual C# project using the Console
+    // Application template and replace the contents of the Class1.cs file with
+    // the code below.
+    //
+    // THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+    // EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+    // WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+    // 
+    // Copyright (C) 2002 Obviex(TM). All rights reserved.
+    // 
 
-		/// <summary>
-		/// This class generates and compares hashes using MD5, SHA1, SHA256, SHA384, 
-		/// and SHA512 hashing algorithms. Before computing a hash, it appends a
-		/// randomly generated salt to the plain text, and stores this salt appended
-		/// to the result. To verify another plain text value against the given hash,
-		/// this class will retrieve the salt value from the hash string and use it
-		/// when computing a new hash of the plain text. Appending a salt value to
-		/// the hash may not be the most efficient approach, so when using hashes in
-		/// a real-life application, you may choose to store them separately. You may
-		/// also opt to keep results as byte arrays instead of converting them into
-		/// base64-encoded strings.
-		/// </summary>
+    /// <summary>
+    /// This class generates and compares hashes using MD5, SHA1, SHA256, SHA384, 
+    /// and SHA512 hashing algorithms. Before computing a hash, it appends a
+    /// randomly generated salt to the plain text, and stores this salt appended
+    /// to the result. To verify another plain text value against the given hash,
+    /// this class will retrieve the salt value from the hash string and use it
+    /// when computing a new hash of the plain text. Appending a salt value to
+    /// the hash may not be the most efficient approach, so when using hashes in
+    /// a real-life application, you may choose to store them separately. You may
+    /// also opt to keep results as byte arrays instead of converting them into
+    /// base64-encoded strings.
+    /// </summary>
     public class SimpleHash
     {
         /// <summary>
@@ -347,11 +342,11 @@ namespace ProjectFlx.Utility
             private byte[] UInt32ToBigEndianBytes(UInt32 x)
             {
                 return new byte[] {
-			(byte)((x >> 24) & 0xff),
-			(byte)((x >> 16) & 0xff),
-			(byte)((x >> 8) & 0xff),
-			(byte)(x & 0xff)
-		};
+            (byte)((x >> 24) & 0xff),
+            (byte)((x >> 16) & 0xff),
+            (byte)((x >> 8) & 0xff),
+            (byte)(x & 0xff)
+        };
             }
         }
     }

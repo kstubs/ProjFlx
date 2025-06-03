@@ -59,14 +59,14 @@
     <Compile Include="XObject.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ProjectFlxCommon\ProjectFlxCommon.csproj">
       <Project>{51f7178c-fc13-4a7c-b8a2-4f346cef752c}</Project>
       <Name>ProjectFlxCommon</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="app.config" />
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

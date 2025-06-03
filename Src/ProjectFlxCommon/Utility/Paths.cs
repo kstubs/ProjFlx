@@ -1,10 +1,9 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Globalization;
 
 namespace ProjectFlx.Utility
 {
@@ -95,7 +94,7 @@ namespace ProjectFlx.Utility
             var util = new CultureInfo("en-US", false).TextInfo;
 
             foreach (var s in aPath)
-            {                
+            {
                 result.Add(util.ToTitleCase(s));
             }
 

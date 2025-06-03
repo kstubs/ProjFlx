@@ -1,13 +1,14 @@
-﻿using System;
+﻿using ProjectFlx.Exceptions;
+using ProjectFlx.Schema.Extra;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
-using System.Text;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
-using ProjectFlx.Schema.Extra;
-using ProjectFlx.Exceptions;
 
 namespace ProjectFlx.Schema
 {
@@ -15,12 +16,13 @@ namespace ProjectFlx.Schema
     {
         /// <summary>
         /// Gets parameter value for named parameter off the default schema object and result
+        /// For more accurate results, consider calling this method off of the results class. 
         /// </summary>
         /// <param name="ParameterName">Paramter name to lookup</param>
         /// <returns>String value (or null)</returns>
         public string getParameterValue(string ParameterName)
         {
-            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate(parameter p) { return p.name == ParameterName; });
+            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate (parameter p) { return p.name == ParameterName; });
             return Helper.FlattenList(parm.Text);
         }
 
@@ -31,7 +33,7 @@ namespace ProjectFlx.Schema
         /// <param name="ParameterValue"></param>
         public void setParameterValue(string ParameterName, string ParameterValue)
         {
-            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate(parameter p) { return p.name == ParameterName; });
+            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate (parameter p) { return p.name == ParameterName; });
             parm.Text = new List<string>();
             if (parm != null)
                 parm.Text.Add(ParameterValue);
@@ -43,11 +45,22 @@ namespace ProjectFlx.Schema
         /// <param name="ParameterName"></param>
         public void clearParameterValue(string ParameterName)
         {
-            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate(parameter p) { return p.name == ParameterName; });
+            parameter parm = results[0].schema[0].parameters.parameter.Find(delegate (parameter p) { return p.name == ParameterName; });
             if (parm != null)
                 parm.Text = new List<string>();
         }
+        public string SerializeJSON()
+        {
+            return Newtonsoft.Json.JsonConvert.SerializeObject(this);
+        }
 
+        public static projectResults Create()
+        {
+            var projresults = new projectResults();
+            projresults.results = ProjectFlx.Schema.results.Create();
+            
+            return projresults;
+        }
     }
 
     public partial class parameters
@@ -58,7 +71,7 @@ namespace ProjectFlx.Schema
             if (this.parameter == null)
                 this.parameter = new List<parameter>();
 
-            this.parameter.Add(parm = new parameter() { name = Name, type=fieldType.text });
+            this.parameter.Add(parm = new parameter() { name = Name, type = fieldType.text });
             parm.Text = new List<string>();
             parm.Text.Add(Value);
         }
@@ -161,7 +174,8 @@ namespace ProjectFlx.Schema
             this.parameters.parameter.Add(parm);
             parm.Text = new List<string>();
 
-            if(Size != 0) {
+            if (Size != 0)
+            {
                 parm.size = Size;
                 parm.sizeSpecified = true;
             }
@@ -204,6 +218,29 @@ namespace ProjectFlx.Schema
         }
     }
 
+    public partial class results
+    {
+        /// <summary>
+        /// Gets parameter value for named parameter off the default schema object and result
+        /// </summary>
+        /// <param name="ParameterName">Paramter name to lookup</param>
+        /// <returns>String value (or null)</returns>
+        public string getParameterValue(string ParameterName)
+        {
+            parameter parm = this.schema[0].parameters.parameter.Find(delegate (parameter p) { return p.name == ParameterName; });
+            return Helper.FlattenList(parm.Text);
+        }
+
+        public static List<results> Create()
+        {
+            var results = new results();
+            results.schema = new List<SchemaQueryType>();
+            results.result = new result();
+            results.result.row = new List<row> { new row() };
+
+            return new List<results> { results };
+        }
+    }
     public partial class result
     {
         /// <summary>
@@ -238,6 +275,25 @@ namespace ProjectFlx.Schema
         {
             var rows = this.rowField.FindAll(r => r.AnyAttr.LookupValue(Key).Equals(Value));
             return rows;
+        }
+
+        public string SerializeJSON()
+        {
+            return Newtonsoft.Json.JsonConvert.SerializeObject(this);
+        }
+
+        public void Add(row row)
+        {
+            if (this.row == null)
+                this.row = new List<row>();
+            this.row.Add(row);
+        }
+
+        public static result Create()
+        {
+            var result = new result();
+            result.row = new List<row>();
+            return result;
         }
     }
 
@@ -296,6 +352,9 @@ namespace ProjectFlx.Schema
             {
                 try
                 {
+                    if (Result == null)
+                        return string.Empty;
+
                     if (Result.row != null && Result.row.Count == 0)
                         return String.Empty;
 
@@ -369,7 +428,7 @@ namespace ProjectFlx.Schema
             public static string LookupValue(this parameters Parameters, string Name)
             {
                 var parm = Parameters.parameter.FirstOrDefault(p => { return p.name.Equals(Name); });
-                if(parm == null) return string.Empty;
+                if (parm == null) return string.Empty;
                 return parm.Value();
             }
 
@@ -389,14 +448,46 @@ namespace ProjectFlx.Schema
                 return Results.results.FindAll(r => { return r.name.Equals(Name); });
             }
 
+            /// <summary>
+            /// Returns the result of the List<results> class
+            /// </summary>
+            /// <param name="Results"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
             public static result Lookup(this List<results> Results, String Name)
             {
-                var results = Results.Where(w => w.name == Name).LastOrDefault();
+
+                var name = Name.Split('#')[0];      // name can come through as queryname#tag  
+
+                var results = Results.Where(w => w.name == name).LastOrDefault();
                 if (results == null) return null;
                 else
                     return results.result;
             }
 
+            /// <summary>
+            /// Returns the Results of the projeResults class (so the parent of result)
+            /// </summary>
+            /// <param name="Results"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static results LookupResults(this projectResults Results, String Name)
+            {
+
+                var name = Name.Split('#')[0];      // name can come through as queryname#tag  
+
+                var results = Results.results.Where(w => w.name == name).LastOrDefault();
+                if (results == null) return null;
+                else
+                    return results;
+            }
+
+            /// <summary>
+            /// Returns the child result of the projectResults class
+            /// </summary>
+            /// <param name="Results"></param>
+            /// <param name="Name"></param>
+            /// <returns></returns>
             public static result Lookup(this projectResults Results, String Name)
             {
                 return Results.results.Lookup(Name);
@@ -422,9 +513,11 @@ namespace ProjectFlx.Schema
                 var temp2 = temp1.schema.FirstOrDefault().parameters.parameter.Find((f) => { return f.name.Equals(ParameterName); });
                 var temp3 = temp1.schema.FirstOrDefault().parameters.Lookup(ParameterName);
 
-                var result = Results.results.Where((r) => {
+                var result = Results.results.Where((r) =>
+                {
                     return r.name.Equals(Name) &&
-                    r.schema[0].parameters.Lookup(ParameterName).Value().Equals(ParameterValue); }).FirstOrDefault();
+                    r.schema[0].parameters.Lookup(ParameterName).Value().Equals(ParameterValue);
+                }).FirstOrDefault();
 
                 if (result == null)
                     return null;
@@ -462,7 +555,7 @@ namespace ProjectFlx.Schema
             public commonProj(String ProjectSqlPath)
             {
                 _xm = new XmlDocument();
-                if(Regex.Match(ProjectSqlPath, "^http(s)?://").Success)
+                if (Regex.Match(ProjectSqlPath, "^http(s)?://").Success)
                 {
                     _xm.Load(ProjectSqlPath);
                 }
@@ -489,7 +582,7 @@ namespace ProjectFlx.Schema
                 if (_catalog == null)
                     throw new Exception(String.Format("Project Not Found: {0}", Catalog));
                 _project = _catalog.LocalName;
-            } 
+            }
 
             public commonProj(ProjectFlx.Schema.projectSql ProjSql, String Catalog)
             {
@@ -603,9 +696,9 @@ namespace ProjectFlx.Schema
                 var q = _query.parameters.parameter.FirstOrDefault(p => { return p.name == Name; });
                 if (q != null)
                 {
-                    q.Text = new List<string>();                    
-                    q.Text.Add(val);                    
-                    if(Size != 0)
+                    q.Text = new List<string>();
+                    q.Text.Add(val);
+                    if (Size != 0)
                     {
                         q.size = Size;
                         q.sizeSpecified = true;
@@ -613,7 +706,7 @@ namespace ProjectFlx.Schema
                 }
                 else
                 {
-                    if(Size != 0)
+                    if (Size != 0)
                         _query.AddParameter(Name, val, FieldType, InOut, Size);
                     else
                         _query.AddParameter(Name, val, FieldType, InOut);
@@ -622,7 +715,7 @@ namespace ProjectFlx.Schema
 
 
             public void setQuery(string ProjQueryName)
-            {                
+            {
                 var xpath = String.Format("query[@name='{0}']", ProjQueryName);
                 _query = new SchemaQueryType();
                 var node = _catalog.SelectSingleNode(xpath);
@@ -658,7 +751,7 @@ namespace ProjectFlx.Schema
                 var format_exception_required = "Value for input: {0} is required.";
                 var format_exception_regx = "Value for input: {0} does not match expected pattern.  Check your projSql settings.";
 
-                foreach(var parm in _query.parameters.parameter)
+                foreach (var parm in _query.parameters.parameter)
                 {
                     string regxName = null;
                     var val = Helper.FlattenList(parm.Text);
@@ -669,7 +762,7 @@ namespace ProjectFlx.Schema
                         throw new ProjectException(String.Format(format_exception_required, field_name));
 
                     // match regx
-                    if(!String.IsNullOrEmpty(val) && parm.regx != null && _regx != null && !String.IsNullOrEmpty(regxName = Helper.FlattenList(parm.regx)))
+                    if (!String.IsNullOrEmpty(val) && parm.regx != null && _regx != null && !String.IsNullOrEmpty(regxName = Helper.FlattenList(parm.regx)))
                     {
                         var xpath = String.Format("root/regx[@name='{0}']", regxName);
                         var patternNode = _regx.SelectSingleNode(xpath);

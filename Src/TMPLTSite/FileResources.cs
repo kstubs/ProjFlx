@@ -1,11 +1,9 @@
-﻿using System;
+﻿using ProjectFlx.Utility;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Collections;
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using ProjectFlx.Utility;
 
 namespace ProjectFlx
 {
@@ -212,20 +210,21 @@ namespace ProjectFlx
         {
             var name = Paths.BeginWhack(Paths.CombinePaths(Root, SubPath));
             var list = (from r in _resources
-                         where r.getPath().ToLower().Equals(name.ToLower()) && (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                         select r).ToList();
+                        where r.getPath().ToLower().Equals(name.ToLower()) && (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
+                        select r).ToList();
 
             var maxlist = new List<FileResource>();
 
             foreach (var resource in list)
             {
                 var item = maxlist.FirstOrDefault(m => m.Name == resource.Name);
-                if(item == null) {
+                if (item == null)
+                {
                     maxlist.Add(resource);
                 }
                 else
                 {
-                    if(resource.Version > item.Version)
+                    if (resource.Version > item.Version)
                     {
                         item.Version = resource.Version;
                         item.RelativeName = resource.RelativeName;
@@ -250,7 +249,8 @@ namespace ProjectFlx
         {
             var query = from r in _resources
                         where (r.Extension.ToLower() == FileExtension.ToLower() || FileExtension == "*.*" || String.IsNullOrEmpty(FileExtension))
-                        select Utility.Paths.CombinePaths(_root, r.RelativeName);
+                        //select Utility.Paths.CombinePaths(_root, r.RelativeName);
+                        select r.RelativeName;
             var x = query.ToList();
             return query.ToList();
         }
