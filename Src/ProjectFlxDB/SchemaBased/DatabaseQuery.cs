@@ -575,6 +575,20 @@ namespace ProjectFlx.DB.SchemaBased
                             }
                             att.Value = json;
                         }
+                        else if(f.type == Schema.fieldType.xml)
+                        {
+                            var rawxml = reader[f.name].ToString().TrimEnd();
+                            try
+                            {
+                                var xmldoc = new XmlDocument();
+                                xmldoc.LoadXml(rawxml);
+                                //var innerXml = Newtonsoft.Json.JsonConvert.DeserializeXmlNode(jsonDetails);
+                                innerNodes.Add((XmlElement)xmldoc.DocumentElement);
+                            } catch
+                            {
+                                att.Value = safeXmlCharacters(rawxml);
+                            }
+                        }
                         else
                         {
                             try
