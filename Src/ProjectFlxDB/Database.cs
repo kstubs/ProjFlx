@@ -1248,24 +1248,27 @@ namespace ProjectFlx.DB
         // TODO: consider an AWS caching service
         private void SaveCache(string Key, XmlNode BuilderDoc)
         {
-            if (_cache == null)
-                return;
-
-            CacheDependency cachedependency = null;
-            if (!String.IsNullOrEmpty(this._cachePath))
+            try
             {
-                //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
-                var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
-                if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+                if (_cache == null)
+                    return;
 
-                string depFile = Path.Combine(_cachePath, keypath + ".cache");
-                using (StreamWriter writer = new StreamWriter(depFile))
+                CacheDependency cachedependency = null;
+                if (!String.IsNullOrEmpty(this._cachePath))
                 {
-                    writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                    //string depFile = Path.Combine(_cachePath, System.IO.Path.GetRandomFileName() + ".cache");
+                    var keypath = string.Concat(Key.Split(Path.GetInvalidFileNameChars()));
+                    if (keypath.Length > 100) keypath = keypath.Substring(0, 100);
+
+                    string depFile = Path.Combine(_cachePath, keypath + ".cache");
+                    using (StreamWriter writer = new StreamWriter(depFile))
+                    {
+                        writer.WriteLine(DateTime.Now.ToString("yyyyMMddHHmmssffff"));
+                    }
+                    cachedependency = new CacheDependency(depFile);
                 }
-                cachedependency = new CacheDependency(depFile);
-            }
-            _cache.Insert(Key, BuilderDoc, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+                _cache.Insert(Key, BuilderDoc, cachedependency, DateTime.Now.AddMinutes(_cacheMinutes), System.Web.Caching.Cache.NoSlidingExpiration);
+            } catch { }
         }
 
         public void Clear()

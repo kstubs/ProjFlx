@@ -13,3 +13,4 @@ bin/*.*
 *.dll
 *.pdb
 bin/FLX.dll
+/Binaries2

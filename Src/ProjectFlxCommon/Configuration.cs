@@ -92,6 +92,11 @@ public class AppDictionaryCollection : IEnumerable<AppDictionary>
         }
     }
 
+    public void Clear()
+    {
+        _list.Clear();
+    }
+
     public void Add(Object Value)
     {
         throw new NotImplementedException();
@@ -119,24 +124,26 @@ public class Config
     {
         get
         {
+            var iscached = _appsettings.Contains("app_settings_cached");
             var result = _appsettings != null
                             && _appsettings.Count > 1
-                                && _appsettings.Contains("app_settings_cached");
+                                && iscached;
 
             if (result)
             {
                 int timeout = 0;
                 if (!int.TryParse(this["app_settings_cache_timeout_seconds"], out timeout))
                     timeout = 30;   // 0 = no timeout, but buffer to 5 seconds to allow multiple internal fetches to grab cache one time
+
                 // TODO: examine use here, this next line is failing, below this line is strictly debug code it seems
-                ////var totSeconds = DateTime.UtcNow.Subtract(Convert.ToDateTime(_appsettings["app_settings_cached"])).Duration().TotalSeconds;
-                ////if (totSeconds > timeout)
-                ////{
-                ////    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized FALSE after cache expired [{0}]", totSeconds);
-                ////    result = false;
-                ////}
-                ////else
-                ////    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized TRUE");
+                var totSeconds = DateTime.UtcNow.Subtract(Convert.ToDateTime(_appsettings["app_settings_cached"])).Duration().TotalSeconds;
+                if (totSeconds > timeout)
+                {
+                    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized FALSE after cache expired [{0}]", totSeconds);
+                    result = false;
+                }
+                else
+                    System.Diagnostics.Debug.WriteLine("ProjectFlxCommon app_settings_cached Initialized TRUE");
             }
 
             return result;
@@ -198,6 +205,11 @@ public class Config
 
             _appsettings.Add("app_settings_cached", DateTime.UtcNow);
         }
+    }
+
+    public void Reset()
+    {
+        _appsettings.Clear();
     }
 
     public T GetValue<T>(string Name, T DefaultValue)

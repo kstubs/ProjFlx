@@ -346,6 +346,7 @@ namespace ProjectFlx.DB.SchemaBased
                             int subindex = 0;
                             while (reader.NextResult())
                             {
+                                var tempname = reader.GetName(0);
 
                                 // original subquery code (1st next results query)
                                 if (subindex == 0 && query.subquery != null && query.subquery.fields != null && query.subquery.fields.Count > 0)
@@ -432,7 +433,6 @@ namespace ProjectFlx.DB.SchemaBased
             {
                 _command = _database.Connection.CreateCommand();
                 _command.CommandType = CommandType.Text;
-
                 _database.Open();
 
                 if (_database.WithTransaction)
@@ -493,8 +493,11 @@ namespace ProjectFlx.DB.SchemaBased
             ProjectFlx.Schema.result prevresult = new ProjectFlx.Schema.result();
 
             int readercount = 0;
+            var tempfieldcount = reader.FieldCount;
+            var temphasrows = reader.HasRows;
             while (reader.Read())
             {
+                var tempname = reader.GetName(0);
 
                 // enforce paging results
                 readercount++;
