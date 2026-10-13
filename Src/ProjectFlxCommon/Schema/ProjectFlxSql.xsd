@@ -107,6 +107,7 @@
 			<xs:attribute name="ForUpdate" type="xs:boolean" use="optional" default="true"/>
 			<xs:attribute name="ForDisplay" type="xs:boolean" use="optional" default="true"/>
 			<xs:attribute name="Locked" type="xs:boolean" use="optional" default="false"/>
+			<xs:attribute name="Constant" type="xs:boolean" use="optional" default="false"/>
 			<xs:attribute name="lookup" type="xs:NCName" use="optional"/>
 			<xs:attribute name="lookup_value" type="xs:NCName" use="optional"/>
 			<xs:attribute name="display" type="xs:string" use="optional"/>

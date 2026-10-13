@@ -1770,6 +1770,8 @@ namespace ProjectFlx.Schema {
         
         private bool lockedField;
         
+        private bool constantField;
+        
         private string lookupField;
         
         private string lookup_valueField;
@@ -1805,6 +1807,7 @@ namespace ProjectFlx.Schema {
             this.forUpdateField = true;
             this.forDisplayField = true;
             this.lockedField = false;
+            this.constantField = false;
             this.inoutField = inoutType.@in;
             this.blankIsNullField = true;
         }
@@ -1890,6 +1893,17 @@ namespace ProjectFlx.Schema {
             }
             set {
                 this.lockedField = value;
+            }
+        }
+        
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(false)]
+        public bool Constant {
+            get {
+                return this.constantField;
+            }
+            set {
+                this.constantField = value;
             }
         }
         
