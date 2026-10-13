@@ -1089,6 +1089,10 @@ namespace ProjectFlx.DB.SchemaBased
 
             foreach (var parm in XObject.SchemaQuery.parameters.parameter)
             {
+                // Locked keeps the XML value. A request value, including _isBlank, does not replace it.
+                if (parm.Locked)
+                    continue;
+
                 // First check for the explicit blank flag for this parameter
                 string blankKey = parm.name + IsBlankSuffix;
                 string blankFlag = null;
