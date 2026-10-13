@@ -240,7 +240,7 @@ namespace ProjectFlx
             //				"http://www.example.com");
             //			myPermissions.SetPermission(myWebPermission);
 
-
+            
             xslObj.Load(classXSLObjectSource, settings, new XmlUrlResolver());
 
             StringWriter sWrit = new StringWriter();

@@ -15,6 +15,11 @@ namespace ProjectFlx
         public HttpServerUtility Server;
         Utility.TimingCollection _timing;
 
+        /// <summary>
+        /// Set this to override default connection string setting
+        /// </summary>
+        public string ConnectionString = null;
+
         public Queries() { }
         public Queries(HttpContext Context, HttpServerUtility Server) : this(Context, Server, default(Utility.TimingCollection)) { }
         public Queries(HttpContext Context, HttpServerUtility Server, Utility.TimingCollection Timing)
@@ -49,6 +54,8 @@ namespace ProjectFlx
 
         private QueryPromise _promise = null;
         private int _scalar;
+
+        public int TimeOut { get; set; }
 
         public void ExecuteQuery(string Project, string QueryName)
         {
@@ -98,13 +105,13 @@ namespace ProjectFlx
         }
         public void ExecuteQuery(ProjectFlx.FlxTemplater TMPLT, string Project, string QueryName, ProjectFlx.Schema.projectResults Results, NameValueCollection Parms)
         {
-            _promise = null;
+            _promise = _promise ?? null;
             var x = new NameValueCollection();
 
             var QName = QueryName.Split('#');
             var queryname = QName[0];
 
-            using (var db = new DatabaseConnection())
+            using (var db = new DatabaseConnection(ConnectionString))
             using (var dq = new ProjectFlx.DB.SchemaBased.DatabaseQuery(db, Results))
             {
                 dq.Timing = _timing;

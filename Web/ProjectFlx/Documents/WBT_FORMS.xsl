@@ -122,6 +122,14 @@
 
 		<!-- todo: different edit options for each action (in calling template) -->
 
+		<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+		     This is one of the main entry points when a <wbt:query> appears in the client section
+		     (e.g. after wbtProjSql injects an update form query).
+		     It immediately does key('wbt:key_QueryResults', @query) — which only finds results whose @name
+		     matches the query name itself.
+		     When the update form uses lookupref, the actual data row lives under a different results/@name.
+		     This call therefore usually returns nothing useful for population.
+		-->
 		<xsl:apply-templates select="key('wbt:key_QueryResults', @query)" mode="wbt:edits">
 			<xsl:with-param name="project" select="$project"/>
 			<xsl:with-param name="query" select="$query"/>
@@ -135,6 +143,14 @@
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
 		<form method="post" name="form_{$query}" class="form-horizontal bg-light border p-1">
+			<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+			     This template is used when a client wbt:query with action=NonQuery (update form) is present.
+			     It blindly passes "descendant-or-self::row[1]" as the data-row.
+			     If the client wbt:query is "update_contact" but the actual data came from a separate
+			     <results name="lookup_contact"> (via lookupref), this row will be empty or wrong.
+			     There is no logic here that inspects the query's parameters for lookupref and redirects
+			     the data-row source to the named lookup result.
+			-->
 			<xsl:apply-templates select="$projSql/*[local-name() = $project]/query[@name = $query]//parameters/parameter" mode="wbt:edits">
 				<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
 				<xsl:with-param name="browser-vars" select="$wbt:browser-vars"/>
@@ -162,6 +178,14 @@
 							<xsl:value-of select="$form-action"/>
 						</xsl:attribute>
 					</xsl:if>
+					<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+					     When this template is called via key('wbt:key_QueryResults', @query) for an update action,
+					     the context is the results node whose @name matches the query name (e.g. "update_contact").
+					     The data-row is taken from that context's first row.
+					     If the real data lives in a separate results node named by lookupref (e.g. "lookup_contact"),
+					     this will be empty. There is no code that says:
+					     "If the query definition has lookupref='xxx', use key('wbt:key_QueryResults', 'xxx') instead."
+					-->
 					<xsl:apply-templates select="$project_sql/query[@name=$query]//parameters/parameter" mode="wbt:edits">
 						<xsl:with-param name="current" select="current()"/>
 						<xsl:with-param name="data-row" select="descendant-or-self::row[1]"/>
@@ -226,6 +250,14 @@
 		<xsl:variable name="param" select="."/>
 		<xsl:variable name="value">
 			<xsl:choose>
+				<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+				     This is the heart of the population logic.
+				     It only works if $data-row already contains the attributes from the dependent lookup result.
+				     The caller (above) is responsible for passing the correct $data-row.
+				     Currently, callers do not resolve lookupref → switch data source to the named lookup results node.
+				     Therefore, even when the C# side has correctly executed and included the lookup results,
+				     $data-row here is usually empty or from the wrong results set.
+				-->
 				<xsl:when test="normalize-space($data-row/@*[name(.) = $param/@lookup_value])">
 					<xsl:value-of select="$data-row/@*[name(.) = $param/@lookup_value]"/>
 				</xsl:when>

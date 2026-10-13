@@ -481,6 +481,21 @@ namespace ProjectFlx.Schema
                 else
                     return results;
             }
+            /// <summary>
+            /// Remove results from projResults which is useful if you don't want to persist them
+            /// </summary>
+            /// <param name="Results"></param>
+            /// <param name="Name"></param>
+            public static void RemoveResults(this projectResults Results, String Name)
+            {
+
+                var name = Name.Split('#')[0];      // name can come through as queryname#tag  
+
+                var results = Results.results.Where(w => w.name == name).LastOrDefault();
+                if (results == null) return;
+
+                Results.results.Remove(results);
+            }
 
             /// <summary>
             /// Returns the child result of the projectResults class
@@ -625,6 +640,24 @@ namespace ProjectFlx.Schema
                 _query.parameters = new ProjectFlx.Schema.parameters();
             }
 
+            /// <summary>
+            /// Convenience overload that populates parameters from a NameValueCollection
+            /// using the default BlankIsNull=true behavior (which now also includes
+            /// direct support for the xxx_isBlank="true" convention).
+            ///
+            /// This IS the primary method being used from the main client wbt:query
+            /// handling path (see FlxWebSite.cs wbtQuery + the Grok-Pseudo logic for
+            /// auto-executing dependent fetch queries when an update form declares
+            /// lookupref on its &lt;parameters&gt; element).
+            ///
+            /// Calls like:
+            ///     projsql.fillParms(Request.QueryString);
+            ///     fetchProjsql.fillParms(Request.Form);
+            /// resolve to this overload via the 'object' parameter.
+            ///
+            /// The two-parameter version exists for explicit control or legacy callers
+            /// that need to force BlankIsNull=false.
+            /// </summary>
             public void fillParms(object someObject)
             {
                 fillParms(someObject, true);
@@ -632,16 +665,39 @@ namespace ProjectFlx.Schema
 
             public void fillParms(object someObject, bool BlankIsNull = true)
             {
+                // IMPORTANT: This BlankIsNull parameter has *inverted* semantics...
+                // (see previous comments for details)
+                //
+                // ADDITION: We now also honor the _isBlank convention directly.
+                // If a key "SomeParam_isBlank" has value "true", we explicitly set
+                // the base parameter "SomeParam" to empty string "".
+                // Changed by GROK 2026-04-15 | Ref: GROK-202604-StateProgramBlank
                 var nv = (NameValueCollection)someObject;
 
                 for (int i = 0; i < nv.Keys.Count; i++)
                 {
-                    var val = nv[nv.Keys[i]];
-                    if (BlankIsNull && String.IsNullOrEmpty(val))
+                    string key = nv.Keys[i];
+                    string val = nv[key];
+
+                    // Detect _isBlank convention and force empty string
+                    if (key.EndsWith("_isBlank", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrEmpty(val) &&
+                        val.Equals("true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string baseName = key.Substring(0, key.Length - "_isBlank".Length);
+                        if (_query.parameters.parameter.Exists(p => p.name == baseName))
+                        {
+                            this.setParameter(baseName, string.Empty);
+                        }
+                        // GROK-202604-StateProgramBlank
+                        continue;
+                    }
+
+                    if (BlankIsNull && string.IsNullOrEmpty(val))
                         continue;
 
-                    if (_query.parameters.parameter.Exists(p => { return p.name == nv.Keys[i]; }))
-                        this.setParameter(nv.Keys[i], HttpContext.Current.Server.HtmlEncode(val));
+                    if (_query.parameters.parameter.Exists(p => p.name == key))
+                        this.setParameter(key, HttpContext.Current.Server.HtmlEncode(val));
                 }
             }
 

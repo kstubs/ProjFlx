@@ -441,49 +441,103 @@ namespace ProjectFlx
             if (Debugger != null)
                 Debugger(_xml, _xsltPath, _args2);
 
+            // TEMP XYZ_123
             try
             {
-                var xslt = new XslCompiledTransform();
-                //xslt = LoadTransformation(xslt);
-
-                // TODO: when we have bad Xslt code, the exception is not properly handled and causes IIS to die
-                // How to handle this exception?
-                System.Threading.Thread t = new System.Threading.Thread(() => xslt = LoadTransformation(xslt), 8 * 1024 * 1024);
-                t.Start();
-                t.Join();
-
-                XsltArgumentList xsltparms = DicToXsltParms();
-                using (var mem = new MemoryStream())
-                {
-                    _xml.Save(mem);
-                    mem.Flush();
-                    mem.Seek(0, SeekOrigin.Begin);
-
-                    var readersettings = new XmlReaderSettings();
-                    var reader = XmlReader.Create(mem, readersettings);
-
-                    using (_writer = new StringWriter())
-                    {
-                        xslt.Transform(reader, xsltparms, _writer);
-                    }
-                }
+                using (_writer = new StringWriter())
+                    _writer.Write(ProjectFlx.Utility.XmlXsl.TransformXmlSaxon(_xml, _xsltPath, _args2));
             }
-            catch (System.Xml.Xsl.XsltCompileException handled)
-            {
-                System.Diagnostics.Debug.WriteLine("Caught XsltCompileException");
-                System.Diagnostics.Debug.WriteLine(handled.Message);
-            }
-            //catch(System.Xml.Xsl.XslLoadException handled)
-            //{
-
-            //}
             catch (Exception unhandled)
             {
                 var ex = new Exception("Failed to Transform xml/xslt", unhandled);
                 ex.Source = "ProjectFlx.FlxTemplater.ProcessTemplate";
+
+                var msg = $"Exception Unhandled: {ex.Message}\n" +
+                          $"Source: {ex.Source}\n" +
+                          $"Unhandled Exception: {unhandled.Message}\n" +
+                          $"Inner Exception: {unhandled?.InnerException?.Message ?? "None"}";
+
+                System.Diagnostics.Debug.WriteLine(msg);
                 throw ex;
             }
         }
+        //////public virtual void ProcessTemplate()
+        //////{
+        //////    if (!XmlLoaded)
+        //////    {
+        //////        if (XmlStatus.Equals(LoadStatus.LOADING))
+        //////        {
+        //////            // this indicates an issue with the Xml we are trying to load
+        //////            // most likely BAD xml
+        //////            var args = new ProjectExceptionArgs($"Xml Loading Error - check your Xml!", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+        //////            throw new ProjectException(args);
+        //////        }
+        //////        else
+        //////            throw new ProjectException($"Could not load Xml, XmlStatus [{XmlStatus.ToString()}]");
+        //////    }
+
+        //////    if (!(XsltLoaded) || String.IsNullOrEmpty(_xsltPath))
+        //////    {
+        //////        var args = new ProjectExceptionArgs($"XSL Not Set, ProcessTemplate aborted", "WebTemplater", "ProcessTemplate", null, SeverityLevel.Critical, LogLevel.Event);
+        //////        throw new ProjectException(args);
+        //////    }
+
+        //////    //initialize xslt global param vars
+        //////    string doc_folder = httpC.Request.Path;
+
+        //////    //strip application name
+        //////    doc_folder = doc_folder.Substring(0, doc_folder.LastIndexOf("/") + 1);
+
+        //////    AddXslParameter("DOC_ACTION", httpC.Request.Path);
+        //////    AddXslParameter("DOC_FOLDER", doc_folder);
+
+        //////    // DEBUG: before load and transform - give debug a chance
+        //////    if (Debugger != null)
+        //////        Debugger(_xml, _xsltPath, _args2);
+
+        //////    try
+        //////    {
+        //////        var xslt = new XslCompiledTransform();
+        //////        //xslt = LoadTransformation(xslt);
+
+        //////        // TODO: when we have bad Xslt code, the exception is not properly handled and causes IIS to die
+        //////        // How to handle this exception?
+        //////        System.Threading.Thread t = new System.Threading.Thread(() => xslt = LoadTransformation(xslt), 8 * 1024 * 1024);
+        //////        t.Start();
+        //////        t.Join();
+
+        //////        XsltArgumentList xsltparms = DicToXsltParms();
+        //////        using (var mem = new MemoryStream())
+        //////        {
+        //////            _xml.Save(mem);
+        //////            mem.Flush();
+        //////            mem.Seek(0, SeekOrigin.Begin);
+
+        //////            var readersettings = new XmlReaderSettings();
+        //////            var reader = XmlReader.Create(mem, readersettings);
+
+        //////            using (_writer = new StringWriter())
+        //////            {
+        //////                xslt.Transform(reader, xsltparms, _writer);
+        //////            }
+        //////        }
+        //////    }
+        //////    catch (System.Xml.Xsl.XsltCompileException handled)
+        //////    {
+        //////        System.Diagnostics.Debug.WriteLine("Caught XsltCompileException");
+        //////        System.Diagnostics.Debug.WriteLine(handled.Message);
+        //////    }
+        //////    //catch(System.Xml.Xsl.XslLoadException handled)
+        //////    //{
+
+        //////    //}
+        //////    catch (Exception unhandled)
+        //////    {
+        //////        var ex = new Exception("Failed to Transform xml/xslt", unhandled);
+        //////        ex.Source = "ProjectFlx.FlxTemplater.ProcessTemplate";
+        //////        throw ex;
+        //////    }
+        //////}
 
         private XslCompiledTransform LoadTransformation(XslCompiledTransform xslt)
         {

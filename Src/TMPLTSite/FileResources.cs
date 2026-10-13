@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Serialization;
+using System.Xml;
+using System.Web.UI.WebControls;
 
 namespace ProjectFlx
 {
@@ -16,7 +19,9 @@ namespace ProjectFlx
     {
         protected string _source;
         protected string _root;
-        protected List<FileResource> _resources;
+
+        [XmlElement("Resources")]
+        public List<FileResource> _resources;
 
         /// <summary>
         /// Host - http://website.com
@@ -27,11 +32,13 @@ namespace ProjectFlx
             set { _source = value; }
         }
 
+        [XmlIgnore]
         public List<String> Resources
         {
             get
             {
-                return (from a in _resources select a.RelativeName).ToList<string>();
+                //return (from a in _resources select a.RelativeName).ToList<string>();
+                return _resources?.Select(a => a.RelativeName).ToList() ?? new List<string>();
             }
         }
 
@@ -43,6 +50,10 @@ namespace ProjectFlx
             get
             {
                 return _root;
+            }
+            set
+            {
+                _root = value;
             }
         }
 
@@ -61,6 +72,7 @@ namespace ProjectFlx
             return IndexOf > -1;
         }
 
+        [XmlIgnore]
         public FileResource FileResource
         {
             get
@@ -113,6 +125,7 @@ namespace ProjectFlx
     /// </summary>
     public class FileResources : FileResourcesAbstract
     {
+        public FileResources() { }
         /// <summary>
         /// Create new instance of FileResources with give Resources file
         /// </summary>
@@ -169,13 +182,17 @@ namespace ProjectFlx
         internal static void recurseResources(List<FileResource> resources, DirectoryObj DirObj, String Host)
         {
             foreach (var d in DirObj.DirectoryInfo.GetDirectories())
+            {
+                ProjectFlx.FlxMain.temp_writeDebug("Howdy_[0]", d.FullName);
                 recurseResources(resources, new DirectoryObj() { Root = DirObj.Root, DirectoryInfo = d }, Host);
+            }
 
             foreach (var f in DirObj.DirectoryInfo.GetFiles())
             {
                 int version = 0;
                 string name;
                 var regobj = Regex.Match(f.FullName, @"(\.\d{1,3})?(\.[a-zA-Z]{1,4})$");
+                string fullname=f.Name;
                 var newresource = new FileResource();
 
                 // Version + File Extension Match
@@ -257,15 +274,47 @@ namespace ProjectFlx
 
 
         public static string _base { get; set; }
+
+        public string Serialize()
+        {
+            var mgr = new XmlSerializerNamespaces();
+            mgr.Add(String.Empty, string.Empty);
+
+            using (var memoryStream = new MemoryStream())
+            {
+                var settings = new XmlWriterSettings();
+                settings.Indent = false;
+                settings.OmitXmlDeclaration = true;
+
+                var emptyNamespaces = new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty });
+                var serializer = new XmlSerializer(this.GetType());
+
+                using (var stream = new StringWriter())
+                using (var writer = XmlWriter.Create(stream, settings))
+                {
+                    serializer.Serialize(writer, this, emptyNamespaces);
+                    return stream.ToString();
+                }
+            }
+        }
+
+        public static ProjectFlx.FileResources Deserialize(string Source)
+        {
+            var serializer = new XmlSerializer(typeof(FileResources));
+            using (var reader = new StringReader(Source))
+            {
+                return ((FileResources)(serializer.Deserialize(System.Xml.XmlReader.Create(reader))));
+            }
+        }
     }
 
     public class FileResource
     {
-        internal string Host { get; set; }
-        internal string Name { get; set; }
-        internal string Extension { get; set; }
-        internal string RelativeName { get; set; }
-        internal int Version { get; set; }
+        public string Host { get; set; }
+        public string Name { get; set; }
+        public string Extension { get; set; }
+        public string RelativeName { get; set; }
+        public int Version { get; set; }
         internal string getPath()
         {
             if (RelativeName.LastIndexOf("/") > 0)
@@ -277,8 +326,8 @@ namespace ProjectFlx
 
     internal class DirectoryObj
     {
-        internal string Root { get; set; }
-        internal DirectoryInfo DirectoryInfo { get; set; }
+        public string Root { get; set; }
+        public DirectoryInfo DirectoryInfo { get; set; }
     }
 
 }

@@ -124,6 +124,14 @@ namespace ProjectFlx
             }
         }
 
+        public bool IsLocal
+        {
+            get
+            {
+                return Request.IsLocal;
+            }
+        }
+
         public FlxTemplater TMPLT;
 
         bool _exceptionInTerminate = false;
@@ -158,7 +166,6 @@ namespace ProjectFlx
                 // aborted thread should have be snuffed
                 catch (Exception e)
                 {
-                    TMPLT.AddException(e);
                     HandleUnHandledErrors(e);
                 }
                 finally
@@ -212,7 +219,7 @@ namespace ProjectFlx
             _cacheJscriptMinutes = GetConfigValue<int>("projectflx-jscript-caching-minutes", (int)(60 * 24 * 5));
 
             _useCdn = GetConfigValue<bool>("use-cdn", false);
-            _cdnSite = GetConfigValue("project-cdn-path", "");
+            _cdnSite = String.Concat("https://", GetConfigValue("project-cdn-bucket", ""));
             _clientFlxpath = GetConfigValue("projectFlxTemplates", "");
 
         }
@@ -773,7 +780,9 @@ namespace ProjectFlx
                 XmlNode current = null, context = null;
                 ResourceContentPath = getXmlResources(content, ref current);
 
+
                 TMPLT.AddXML("client-context", getXmlContext(content, current));
+
 
                 var newAtt = current.OwnerDocument.CreateAttribute("wbt", "loggedonuser", NSMGR.LookupNamespace("wbt"));
                 newAtt.Value = (current.SelectSingleNode("ancestor-or-self::content[@loggedonuser='true' or @loggedinuser='true' or @LoggedOnUser='true' or @LoggedInUser='true'] | ancestor-or-self::LoggedOn | ancestor-or-self::LoggedIn | ancestor-or-self::LoggedInUser") != null).ToString().ToLower();
@@ -912,7 +921,7 @@ namespace ProjectFlx
                 AssertValidCookies();
                 Timing.Stop("ProjectFlx.FlxMain.SITE_INIT.get-assert-roles-cookies");
             }
-            catch(Exception unhandled)
+            catch (Exception unhandled)
             {
                 HandleUnHandledErrors(unhandled);
                 throw;
@@ -1173,6 +1182,131 @@ namespace ProjectFlx
 
                 }
 
+                // Bind any incoming querystring values whose keys match parameter names declared on *this* query.
+                // This is required for GET navigation to update_* (NonQuery) queries via pencil:
+                // the <action type="update">/@queryPrimaryKey determines the QS key name used in the href.
+                // By filling here we capture e.g. p_stateprogramid=val (when action uses that) into the update
+                // query's parameters even though we will "continue" before the normal post-setQuery fill block.
+                // The bridge inside the lookupref fetch below then transfers the value to the fetch query's
+                // input parameter (which may have a different name, such as the legacy "id" for state_program_fetch).
+                projsql.fillParms(Request.QueryString);
+
+
+                // ====================================================================================
+                // Auto-execute dependent fetch for client update queries that declare lookupref
+                //
+                // When a client <wbt:query> (injected via wbtProjSql or embedded in the page) targets
+                // an update form (e.g. update_contact, update_governing_program, etc.) and that form
+                // definition in ProjectSql.xml has <parameters lookupref="some_fetch_query">, we
+                // automatically run the dependent fetch query on GET so the form can be pre-populated.
+                //
+                // Key points:
+                // - lookupref is read via raw XML attribute lookup (not available as a .NET property
+                //   on the deserialized parameters class in this schema model).
+                // - The fetch is populated from the incoming request (QueryString + Form) using the
+                //   normal fillParms path.
+                // - This runs before the NonQuery/Scalar guard, so update forms can hydrate their
+                //   data even though the main update query itself is typically NonQuery.
+                //
+                // Insertion point: immediately after setQuery() for the client wbt:query.
+                // ====================================================================================
+
+                var mainQuery = projsql.SchemaQuery;
+
+                // Attribute lookup for lookupref (user instruction: parameters.lookupref is not defined on the schema class in this model)
+                string fetchQueryName = null;
+                try
+                {
+                    // Use raw XML because the deserialized parameters class for SchemaQueryType does not expose the lookupref attribute
+                    var qnode = projsql.ProjSqlNode.SelectSingleNode($"descendant-or-self::query[@name='{q.Attributes["query"]?.Value}']");
+                    var pnode = qnode?.SelectSingleNode("parameters");
+                    fetchQueryName = pnode?.Attributes["lookupref"]?.Value;
+                }
+                catch { }
+
+                if (mainQuery != null &&
+                    mainQuery.parameters != null &&
+                    !string.IsNullOrEmpty(fetchQueryName))
+                {
+                    // Execute dependent fetch for client update queries that declare lookupref
+                    //
+                    // When the current client <wbt:query> is an update form (e.g. update_contact)
+                    // whose ProjectSql.xml definition has <parameters lookupref="xxx_fetch">,
+                    // we automatically run that fetch query here (populated from the request)
+                    // so the form can be pre-filled on GET.
+                    if (!string.IsNullOrEmpty(fetchQueryName))
+                    {
+                        // Execute the dependent fetch query using the proper sequence
+                        try
+                        {
+                            var fetchProjsql = new Schema.Extra.commonProj(projsqlpath);
+                            fetchProjsql.setProject(mainQuery.project);
+                            fetchProjsql.setQuery(fetchQueryName);
+
+                            // 2. Fill from the incoming request first (this is the key step)
+                            fetchProjsql.fillParms(Request.QueryString);
+
+                            // Bridge PK/search values from the main (update) query's lookup-declared parameters
+                            // into the fetch query's input parameters. This allows the update action in ProjectSql
+                            // to declare queryPrimaryKey using the update query's parameter name (e.g. "p_stateprogramid",
+                            // which aligns with the form field and the DB column via primaryKey/lookup_value on that param)
+                            // instead of forcing it to match the fetch query's internal <parameter name> (e.g. "id").
+                            // No hard-coded "id" anywhere; the bridge uses the declarative lookup= markers on the
+                            // update query's parameters (the same contract used by XSLT population).
+                            // Direct fillParms(QS) above still handles the "names happen to match" cases (contact, current governing).
+                            try
+                            {
+                                var mqParms = mainQuery.parameters?.parameter;
+                                if (mqParms != null)
+                                {
+                                    foreach (var up in mqParms)
+                                    {
+                                        if (string.IsNullOrEmpty(up.lookup)) continue;
+                                        string upVal = (up.Text != null && up.Text.Count > 0)
+                                            ? ProjectFlx.Schema.Helper.FlattenList(up.Text)
+                                            : null;
+                                        if (!string.IsNullOrEmpty(upVal) && upVal != "0")
+                                        {
+                                            var fqParms = fetchProjsql.SchemaQuery?.parameters?.parameter;
+                                            if (fqParms != null)
+                                            {
+                                                foreach (var fp in fqParms)
+                                                {
+                                                    string fVal = (fp.Text != null && fp.Text.Count > 0)
+                                                        ? ProjectFlx.Schema.Helper.FlattenList(fp.Text)
+                                                        : null;
+                                                    if (fp.required || string.IsNullOrEmpty(fVal) || fVal == "0")
+                                                    {
+                                                        fetchProjsql.setParameter(fp.name, upVal);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception bridgeEx)
+                            {
+                                // Non-fatal bridge failure; form may show blank or defaults, exception logged for diagnosis.
+                                TMPLT.AddException(new Exception("Non-fatal: PK bridge to dependent fetch '" + fetchQueryName + "' failed", bridgeEx));
+                            }
+
+                            fetchProjsql.checkInputParms();
+
+                            if (fetchProjsql.SchemaQuery.scripttimeoutSpecified)
+                                Server.ScriptTimeout = fetchProjsql.SchemaQuery.scripttimeout;
+
+                            dbq.Query(fetchProjsql);   // Results added under the fetch query name
+                        }
+                        catch (Exception depEx)
+                        {
+                            TMPLT.AddException(new Exception("Failed to auto-execute dependent fetch query '" + fetchQueryName + "' for update form", depEx));
+                        }
+                    }
+                }
+
+                // Continue with normal client wbt:query processing (the NonQuery/Scalar guard below
+                // will still skip the main update query itself on GET, which is correct).
 
                 // If NonQuery or Scalar querie continue
                 if ((projsql.SchemaQuery.command.action == Schema.actionType.NonQuery || projsql.SchemaQuery.command.action == Schema.actionType.Scalar))
@@ -1223,6 +1357,24 @@ namespace ProjectFlx
                         var exargs = new ProjectExceptionArgs("Protected Page Content: " + contentname.Value);
                         throw new ProjectException(exargs);
                     }
+                att = contentnode.Attributes["contenttype"];
+                if (att != null && att.Value == "true")
+                {
+                    var hasrole = false;
+                    var types = att.Value.Split(',').Select(x => Convert.ToInt32(x.Trim())).ToArray();
+                    foreach (var t in types)
+                    {
+                        if (UserRoles.Contains(t))
+                            hasrole = true;
+                    }
+
+                    if (!hasrole)
+                    {
+                        var exargs = new ProjectExceptionArgs("Protected Page Content, Missing Roles");
+                        throw new ProjectException(exargs);
+                    }
+
+                }
             }
         }
 
@@ -1329,7 +1481,6 @@ namespace ProjectFlx
             return result;
         }
 
-
         /// <summary>
         /// Resolves Xml Content for the current page request and returns the relative location where it was resolved
         /// </summary>
@@ -1390,26 +1541,19 @@ namespace ProjectFlx
                 string xslpath = null;
                 string localxmlpath = null;
 
-                void temp_writeDebug(string token, params object[] value)
-                {
-                    if (value != null)
-                    {
-                        var values = String.Join(", ", value);
-                        var msg = string.Format("{0}: {1}", token, values);
-                        System.Diagnostics.Debug.WriteLine(msg);
-                    }
-                    else
-                        System.Diagnostics.Debug.WriteLine(token);
-                }
-
                 bool resolveResource(int i, string path, string extension)
                 {
+                    temp_writeDebug("Howdy_001 [0] [1]", path, extension);
+                    if (String.IsNullOrEmpty(path))
+                        return false;
+
                     bool found = false;
                     string resourcePath;
 
                     resourcePath = String.Format("{0}/{1}.{2}", localxmlpath, _pageHeirarchy[_pageHeirarchy.Count - 1], extension);
 
-                    found = _resources.Exists(resourcePath);
+                    if (!String.IsNullOrEmpty(resourcePath))
+                        found = _resources.Exists(resourcePath);
 
                     if (!found)
                     {
@@ -1420,14 +1564,18 @@ namespace ProjectFlx
                         else if (i == 2)
                         {
                             resourcePath = String.Format("{0}/{1}.{2}.{3}", path, _pageHeirarchy[0], _pageHeirarchy[1], extension);
-                            found = _resources.Exists(resourcePath);
+                            if (!String.IsNullOrEmpty(resourcePath))
+                                found = _resources.Exists(resourcePath);
+
                             if (!found)
                                 resourcePath = String.Format("{0}/{2}.{3}", path, _pageHeirarchy[0], _pageHeirarchy[1], extension);
                         }
                         else
+                        {
                             resourcePath = String.Format("{0}/{1}.{2}", path, _pageHeirarchy[0], extension);
-
-                        found = found || _resources.Exists(resourcePath);
+                        }
+                        temp_writeDebug("Howdy_002 [0] - resourcePath: [1]", i, resourcePath);
+                        found = found || (String.IsNullOrEmpty(resourcePath) ? false : _resources.Exists(resourcePath));
                     }
 
                     return found;
@@ -1436,6 +1584,7 @@ namespace ProjectFlx
                 //burn down approach, looking for relative content
                 for (int x = _pageHeirarchy.Count; x > 0; x--)
                 {
+                    temp_writeDebug("Howdy_003");
                     localxmlpath = String.Join("/", _pageHeirarchy.ToArray(), 0, x);
 
                     if (!foundXml)
@@ -1487,6 +1636,7 @@ namespace ProjectFlx
 
                     if (!foundXsl)
                     {
+                        temp_writeDebug("Howdy_004");
                         for (int i = _pageHeirarchy.Count; i > 0; i--)
                         {
                             foundXsl = resolveResource(i, localxmlpath, "xsl");
@@ -1563,6 +1713,7 @@ namespace ProjectFlx
 
                 if (foundXml)
                 {
+                    temp_writeDebug("Howdy_005");
                     if (String.IsNullOrEmpty(xslpath))
                         TMPLT.setXslt(Path.Combine(_projectFlxPath, "Documents/WEB_DOCUMENT_TEMPLATE.xsl"));
                     else
@@ -1605,6 +1756,7 @@ namespace ProjectFlx
 
                 if (_projFlxUseCache)
                 {
+                    temp_writeDebug("Howdy_006");
                     if (!String.IsNullOrEmpty(mapResource))
                     {
                         // TODO: map this
@@ -1675,7 +1827,6 @@ namespace ProjectFlx
                 // aborted thread should be snuffed
                 catch (Exception unhandled)
                 {
-                    TMPLT.AddException(unhandled);
                     HandleUnHandledErrors(unhandled);
                 }
                 finally
@@ -1694,7 +1845,7 @@ namespace ProjectFlx
             foreach (var s in resources.collectResources(".xml"))
             {
                 var xm = Utility.Web.getWebResource(Utility.Paths.CombinePaths(_resources.Host, s));
-                if(xm != null)
+                if (xm != null)
                     TMPLT.AddXML(xm);
             }
         }
@@ -1983,7 +2134,7 @@ namespace ProjectFlx
                 }
             }
             // prevent IO Disk Collision
-            catch(IOException) { }
+            catch (IOException) { }
         }
 
         public virtual void PAGE_INIT()
@@ -2312,7 +2463,8 @@ namespace ProjectFlx
             foreach (var r in PageRoles)
             {
                 hasRole = hasRole && (_userRoles.IndexOf(r) > -1);
-            };
+            }
+            ;
 
             if (!hasRole)
                 throw new Exceptions.InvalidRolesException(String.Format("User roles do not meet page roles, expecting: {0}", String.Join(",", PageRoles.ToArray())));
@@ -2320,6 +2472,7 @@ namespace ProjectFlx
 
         private void getPageRoles()
         {
+            // TODO: examine use of here when we are dealing with page/content pages
             var xpath = "/flx/client/page[@name=/flx/client-context/page/@name]/pbt:Roles[not(preceding-sibling::*)]";
             var nodes = TMPLT.DOCxml.SelectNodes(xpath, NSMGR);
             foreach (XmlNode node in nodes)
@@ -2336,13 +2489,29 @@ namespace ProjectFlx
         private void InitializeQueries()
         {
             if (QueriesInitialized) return;
-                        
+
             if (_queries == null)
                 _queries = new Queries(Current, Server, Timing);
 
             QueriesInitialized = true;
         }
 
+        protected void SetConnectionString(string connectionString)
+        {
+            InitializeQueries();
+            _queries.ConnectionString = connectionString;
+        }
+
+
+        /// <summary>
+        /// This has not been implemented 100%
+        /// Use: script-timeout  attribute on command in ProjSql directly
+        /// </summary>
+        /// <param name="Timeout"></param>
+        protected void SetCommandTimeout(int Timeout)
+        {
+            _queries.TimeOut = Timeout;
+        }
         protected void ExecuteQuery(string Project, string QueryName, NameValueCollection Parms = null)
         {
             InitializeQueries();
@@ -2398,12 +2567,12 @@ namespace ProjectFlx
             InitializeQueries();
             _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select, Result, Parms);
         }
-        protected void ExecuteRawQuery( string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, Queries.FieldNameCollection Fields = null, NameValueCollection Parms = null)
+        protected void ExecuteRawQuery(string Project, string QueryName, string Select, ProjectFlx.Schema.projectResults Result = null, Queries.FieldNameCollection Fields = null, NameValueCollection Parms = null)
         {
             InitializeQueries();
             _queries.ExecuteRawQuery(TMPLT, Project, QueryName, Select, Result, Fields, Parms);
         }
-        
+
         protected ProjectFlx.Schema.result ExecuteQuery2(string Project, string QueryName, NameValueCollection Parms = null)
         {
             InitializeQueries();
@@ -2440,7 +2609,21 @@ namespace ProjectFlx
 
             var result = results.Lookup(QueryName);
             foreach (var row in result.row)
-                Result.row.Add(row);            
+                Result.row.Add(row);
+        }
+
+
+        public static void temp_writeDebug(string token, params object[] value)
+        {
+            if (value != null)
+            {
+                var values = String.Join(", ", value);
+                var msg = string.Format("{0}: {1}", token, values);
+                System.Diagnostics.Debug.WriteLine(msg);
+            }
+            else
+                System.Diagnostics.Debug.WriteLine(token);
         }
     }
+
 }

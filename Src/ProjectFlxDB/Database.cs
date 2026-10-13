@@ -305,6 +305,10 @@ namespace ProjectFlx.DB
             _command.CommandType = CommandType.StoredProcedure;
             SqlParameter parameter = null;
             ProjectExceptionArgs args = null;
+            var isout = false;
+
+            if (inout == "out")
+                isout = true;
 
             switch (valueType)
             {
@@ -334,7 +338,7 @@ namespace ProjectFlx.DB
                         _handler.Add(args);
                     }
                     break;
-                case ("varchar"):
+                case ("varchar"):   // not accessible, "varchar" not defined in XSD Schema (TODO: update schema)
                     parameter = _command.Parameters.Add(name, SqlDbType.VarChar);
                     try
                     {
@@ -352,7 +356,12 @@ namespace ProjectFlx.DB
                 default:
                     try
                     {
-                        if (size <= 0)
+                        if(isout)
+                        {
+                            parameter = _command.Parameters.Add(name, SqlDbType.VarChar);
+                            parameter.Size = (size <= 0) ? (-1) : size;
+                        }
+                        else if (size <= 0)
                         {
                             parameter = _command.Parameters.Add(name, SqlDbType.VarChar);
                             parameter.Size = -1;

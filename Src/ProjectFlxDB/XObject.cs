@@ -293,6 +293,11 @@ namespace ProjectFlx.DB
 
         public static System.Collections.Specialized.NameValueCollection FillParameters(System.Web.HttpContext httpContext, XObject _xobject)
         {
+            // NOTE: This older FillParameters path (used by classic XObject + ParameterFields) still
+            // does not do _isBlank detection itself (it just collects the raw posted values).
+            // Callers can still post the xxx_isBlank flags; they will be visible in the returned
+            // NameValueCollection and can be processed by higher-level fillParms or manually.
+            // Changed by GROK 2026-04-15 | Ref: GROK-202604-StateProgramBlank (comment only)
             System.Collections.Specialized.NameValueCollection namesvalues = new System.Collections.Specialized.NameValueCollection();
 
             foreach (DBParameterField fld in _xobject.ParameterFields)

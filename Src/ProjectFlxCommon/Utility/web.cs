@@ -28,18 +28,20 @@ namespace ProjectFlx.Utility
             #region Post Url + QueryString
             var bldr = new StringBuilder();
             bldr.Append(postUrl);
-            bldr.Append("?");
             var flgFirst = true;
-            foreach (var parm in Parms.AllKeys)
-            {
-                if (!flgFirst)
-                    bldr.Append("&");
+            if(Parms != null)
+                foreach (var parm in Parms?.AllKeys)
+                {
+                    if(flgFirst)
+                        bldr.Append("?");
+                    if (!flgFirst)
+                        bldr.Append("&");
 
-                var safeval = HttpUtility.UrlEncode(Parms[parm]);
-                bldr.AppendFormat("{0}={1}", parm, safeval);
+                    var safeval = HttpUtility.UrlEncode(Parms[parm]);
+                    bldr.AppendFormat("{0}={1}", parm, safeval);
 
-                flgFirst = false;
-            }
+                    flgFirst = false;
+                }
             #endregion
 
             var request = WebRequest.Create(bldr.ToString()) as HttpWebRequest;

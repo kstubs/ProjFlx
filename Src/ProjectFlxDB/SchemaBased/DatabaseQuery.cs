@@ -130,7 +130,7 @@ namespace ProjectFlx.DB.SchemaBased
 
                 ProjectFlx.Schema.results rslts;
                 _Projresults.results.Add(rslts = new ProjectFlx.Schema.results());
-                rslts.schema.Add(query);
+                    rslts.schema.Add(query);
                 rslts.name = query.name;
                 rslts.project = query.project;
                 rslts.Tag = query.Tag;
@@ -206,12 +206,38 @@ namespace ProjectFlx.DB.SchemaBased
                     // guarantee that we setup variable for out param types
                     bool isoutparm = parm.inout == ProjectFlx.Schema.inoutType.inout || parm.inout == ProjectFlx.Schema.inoutType.@out;
 
-                    // assume null parameter value if collection is length of 0
-                    // see _fillParmsWeb for implementation details on 
-                    // passing null and empty strings
+                    // ------------------------------------------------------------------------------------
+                    // blankIsNull / _isBlank support (the "clear a field to NULL/empty" mechanism)
+                    // Changed by GROK 2026-04-15 | Ref: GROK-202604-StateProgramBlank
+                    //
+                    // Contract:
+                    // - Schema default for parameter/@blankIsNull is true (see ProjectFlxSql.xsd + generated).
+                    // - When true (default): a parameter whose .Text is empty/Count==0 is *skipped* entirely
+                    //   for input parameters (see the "continue" below). This lets update SPs use
+                    //   ISNULL(@p_xxx, orig.xxx) or equivalent CASE '' logic to leave the DB value unchanged.
+                    // - When false: we force an empty string ("") into .Text so the parameter *is* sent to
+                    //   the SP/command with an explicit empty value. The SP can then treat '' as "clear".
+                    //
+                    // Who sets blankIsNull=false?
+                    // - Application layer code (e.g. MSO's SchemaBased.Base._fillParmsWeb) detects a posted
+                    //   "xxx_isBlank=true" flag (plus empty value for xxx) and mutates the parameter object
+                    //   before the IProject is passed to DatabaseQuery.Query(IProject).
+                    // - ProjFlx itself does NOT read Request.Form / _isBlank flags anywhere. All "fill from web"
+                    //   helpers (XObject.FillParameters, commonProj.fillParms, older XObject paths) are
+                    //   deliberately unaware of the convention.
+                    //
+                    // Roundtrips:
+                    // - Many IProject.SchemaQuery getters and parameters.Clone() do Serialize+Deserialize.
+                    //   A runtime blankIsNull=false mutation is preserved because it is written as an XML
+                    //   attribute on <parameter>.
+                    //
+                    // This injector runs for every parameter on every SP execution (NonQuery path).
+                    // ------------------------------------------------------------------------------------
                     if (!parm.blankIsNull && parm.Text.Count == 0)
-                        parm.Text.Add("");
+                        parm.Text.Add("");   // GROK-202604-StateProgramBlank
 
+                    // THIS IS RELATED TO PROSCORE NEW GUID 
+                    // in out parameters are ok to be set!
                     if (parm.Text.Count == 0 && !isoutparm)
                         continue;
 
@@ -341,7 +367,6 @@ namespace ProjectFlx.DB.SchemaBased
                                 SaveCache(key, rslts.result);
                             }
 
-
                             // include sub results (StoredProcedure returns more than one Result Set)
                             int subindex = 0;
                             while (reader.NextResult())
@@ -376,6 +401,42 @@ namespace ProjectFlx.DB.SchemaBased
                                 }
                             }
                         }
+                        //DO NOT DEPLOY THIS TRY CATCH -TEMP WRITE PARMS TO DISK
+                        ////try
+                        ////{
+                        ////    var temp_path = $@"D:\Temp\SqlParams_{Guid.NewGuid()}.txt";
+
+                        ////    var output = new System.Text.StringBuilder();
+
+                        ////    output.AppendLine("Command Text:");
+                        ////    output.AppendLine(_command.CommandText ?? "(no command text)");
+                        ////    output.AppendLine("");
+                        ////    output.AppendLine("Parameters:");
+                        ////    output.AppendLine(string.Join("\r\n",
+                        ////        _command.Parameters.Cast<System.Data.SqlClient.SqlParameter>()
+                        ////        .Select(p =>
+                        ////        {
+                        ////            var raw = p.Value;
+                        ////            string val;
+                        ////            if (raw == null || raw == DBNull.Value)
+                        ////            {
+                        ////                val = "-NULL-";
+                        ////            }
+                        ////            else if (raw is string s && s == "")
+                        ////            {
+                        ////                val = "-EMPTY-";
+                        ////            }
+                        ////            else
+                        ////            {
+                        ////                val = raw.ToString();
+                        ////            }
+                        ////            return $"{p.ParameterName,-30} = {val}";
+                        ////        })
+                        ////    ));
+
+                        ////    System.IO.File.WriteAllText(temp_path, output.ToString());
+                        ////}
+                        ////catch { }
                         break;
                     case ProjectFlx.Schema.actionType.Scalar:
                         Object objresult = _command.ExecuteScalar();
@@ -956,6 +1017,23 @@ namespace ProjectFlx.DB.SchemaBased
             }
 
             _schemaQuery = q;
+
+            // GROK-ASK ADDRESSED (user added in this file):
+            // The SchemaBased XObject path (used by Queries.ExecuteQuery) currently does not
+            // automatically execute dependent fetch queries when the loaded query has lookupref
+            // on its <parameters> element.
+            //
+            // Reason: This path is an *explicit* API (caller decides what to execute).
+            // The auto-dependent-fetch logic (Grok-Pseudo) is intentionally only in the
+            // implicit client <wbt:query> rendering path in FlxWebSite.cs wbtQuery(),
+            // where the update form needs to be pre-hydrated on GET without the page author
+            // having to declare both the update query *and* its dependent lookup.
+            //
+            // If we need the same auto behavior here in the future, we can add a similar
+            // raw attribute lookup on the schema XML + execution of the dependent query,
+            // modeled after the implementation in FlxWebSite.cs.
+            //
+            // For now, focus remains on making the main client wbt:query + update_contact path solid.
         }
 
         public void setParameter(String Name, object Value)
@@ -1002,10 +1080,32 @@ namespace ProjectFlx.DB.SchemaBased
         }
         public static void FillParameters(System.Web.HttpContext httpContext, XObject XObject, NameValueCollection NameValue = null)
         {
+            // Support for the _isBlank convention:
+            // If "paramname_isBlank" == "true", we directly set an explicit empty string ("")
+            // for that parameter. This matches the design intent that the flag means
+            // "pass empty string (special cased in SPROCs)" rather than NULL or omit.
+            // Changed by GROK 2026-04-15 | Ref: GROK-202604-StateProgramBlank
+            const string IsBlankSuffix = "_isBlank";
 
-            // TODO: consider how to pass null
             foreach (var parm in XObject.SchemaQuery.parameters.parameter)
             {
+                // First check for the explicit blank flag for this parameter
+                string blankKey = parm.name + IsBlankSuffix;
+                string blankFlag = null;
+
+                if (NameValue != null)
+                    blankFlag = NameValue[blankKey];
+                else if (httpContext != null)
+                    blankFlag = httpContext.Request[blankKey];   // checks Form then QueryString
+
+                if (!string.IsNullOrEmpty(blankFlag) &&
+                    blankFlag.Equals("true", StringComparison.OrdinalIgnoreCase))
+                {
+                    parm.Text = new List<string> { string.Empty };
+                    continue;   // GROK-202604-StateProgramBlank
+                }
+
+                // Normal value population
                 string val = null;
                 if (NameValue != null && NameValue[parm.name] != null)
                     val = NameValue[parm.name];
@@ -1102,6 +1202,8 @@ namespace ProjectFlx.DB.SchemaBased
         }
         public static void FillParameters(XObject XObject, NameValueCollection NameValue)
         {
+            // See the main overload — this version now also supports the _isBlank convention
+            // by directly forcing empty string values when the flag is present.
             FillParameters(null, XObject, NameValue);
         }
 

@@ -88,6 +88,13 @@
 	<xsl:key name="wbt:capable" match="capable/element" use="@name"/>
 
 	<!-- KEYS for Results -->
+	<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+	     The key below only indexes results by @name.
+	     When rendering an update form (NonQuery/Scalar action) that declares lookupref="some_fetch",
+	     the system looks for results named after the *update query* (e.g. "update_contact").
+	     It never automatically switches to the results node named by the lookupref value.
+	     This is the root cause why the dependent lookup data is present in TMPLT but not used for form population.
+	-->
 	<xsl:key name="wbt:key_QueryResults" match="wbt:app/projectResults/results" use="@name"/>
 	<xsl:key name="wbt:key_Results" match="results" use="@name"/>
 	<xsl:key name="wbt:key_ProjResults" match="results" use="concat(@project, '.', @name)"/>
@@ -97,6 +104,12 @@
 	<xsl:key name="wbt:key_SchemaParameters" match="parameters" use="ancestor::query/@name"/>
 
 	<!-- KEYS for edits -->
+	<!-- GROK-REVIEW-UPDATE-FORM-LOOKUPREF:
+	     This key indexes parameters that have @lookup_value.
+	     It is useful for finding which fields should be populated from a lookup result.
+	     However, it does not help with *finding the correct source row* when lookupref is used.
+	     The resolution of "which results node contains the data" is still missing in the form rendering pipeline.
+	-->
 	<xsl:key name="wbt:param-name-lookupval" match="parameter[@lookup_value]" use="@name"/>
 
 	<!-- KEYS for Tags -->

@@ -135,24 +135,31 @@
 							<xsl:value-of select="$query"/>
 						</a>
 					</li>
-					<xsl:choose>
-						<xsl:when test="$numrows = 1">
-							<xsl:for-each select="$actions/action[@type != 'link']">
-								<li role="presentation">
-									<a href="#edits_{@type}" aria-controls="home" role="tab" data-toggle="tab">
-										<xsl:choose>
-											<xsl:when test="text()">
-												<xsl:value-of select="text()"/>
-											</xsl:when>
-											<xsl:otherwise>
-												<xsl:value-of select="@type"/>
-											</xsl:otherwise>
-										</xsl:choose>
-									</a>
-								</li>
-							</xsl:for-each>
-						</xsl:when>
-					</xsl:choose>
+					<!-- 
+					     Core handling of ProjectSql <actions>/<action type="..."> for tabs:
+					     - Main query name tab always shown.
+					     - Insert actions: shown for any numrows (0,1,>1) because "add new" should be available for the collection/list view.
+					     - Update/delete: only when $numrows=1 (makes sense for operating on a specific fetched item).
+					     This addresses the need for insert to be available on lookups returning many results.
+					     The panes (below) are generated unconditionally for the actions.
+					     Custom overrides can still add more (e.g. always-visible inserts).
+					-->
+					<xsl:for-each select="$actions/action[@type != 'link']">
+						<xsl:if test="@type = 'insert' or $numrows = 1">
+							<li role="presentation">
+								<a href="#edits_{@type}" aria-controls="home" role="tab" data-toggle="tab">
+									<xsl:choose>
+										<xsl:when test="text()">
+											<xsl:value-of select="text()"/>
+										</xsl:when>
+										<xsl:otherwise>
+											<xsl:value-of select="@type"/>
+										</xsl:otherwise>
+									</xsl:choose>
+								</a>
+							</li>
+						</xsl:if>
+					</xsl:for-each>
 					<xsl:call-template name="wbt:query.custom-actions.tabs">
 						<xsl:with-param name="project" select="$project"/>
 						<xsl:with-param name="query" select="@query"/>
@@ -264,12 +271,20 @@
 		<xsl:param name="project"/>
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
+		<!-- GROK-REVIEW: See live WBT_TABLES.xsl (and User.xsl) for the active implementation + detailed review comments.
+		     This is the extension point called from wbt:query identity-translate.
+		     In live site (e.g. User.Admin + lookup_contact), User.xsl uses it to inject "Add Assignment" tab (for add_assg insert) in addition to ProjectSql actions.
+		     Core only provides the hook; no default tabs here. Related to TMPLT reviews for tabs from actions + customs.
+		-->
 	</xsl:template>
 
 	<xsl:template match="wbt:query" mode="wbt:query.custom-actions.tab-panes">
 		<xsl:param name="project"/>
 		<xsl:param name="query"/>
 		<xsl:param name="action"/>
+		<!-- GROK-REVIEW: See live WBT_TABLES.xsl (and User.xsl) for active impl + GROK comments.
+		     Companion to the named tabs template above. In practice (lookup_contact in TMPLT), the User override here emits the assignment insert pane.
+		-->
 	</xsl:template>
 
 	<xsl:template match="parameters" mode="wbt:default-table-search">
@@ -429,9 +444,10 @@
 							<xsl:if test="schema/query/actions/action[@type = 'link']">
 								<th>-</th>
 							</xsl:if>
-							<xsl:if test="schema/query/actions/action[@type[. = 'update' or . = 'insert' or . = 'delete']]">
+							<xsl:if test="schema/query/actions/action[@type = 'update' or @type = 'delete']">
 								<th>-</th>
 							</xsl:if>
+							<!-- Note: insert actions no longer trigger the per-row "edit" column (they are collection-level "add" via tabs, not per-item). Update/delete do for per-row ops. -->
 							<xsl:apply-templates select="." mode="wbt:row-prepend-header"/>
 							<xsl:apply-templates select="schema/query/fields/field" mode="wbt:default-table-multirow-header">
 								<xsl:with-param name="collapse-fields" select="$collapse-fields"/>
@@ -644,7 +660,7 @@
 			<xsl:if test="$action[@type = 'link']">
 				<xsl:apply-templates select="." mode="wbt:default-table-multirow.link"/>
 			</xsl:if>
-			<xsl:if test="$action[@type = 'update' or @type = 'delete' or @type = 'insert']">
+			<xsl:if test="$action[@type = 'update' or @type = 'delete']">
 				<xsl:apply-templates select="." mode="wbt:default-table-multirow.editable"/>
 			</xsl:if>
 			<xsl:choose>
@@ -681,10 +697,28 @@
 	</xsl:template>
 
 	<xsl:template match="row" mode="wbt:default-table-multirow.editable">
+		<xsl:variable name="result.project" select="ancestor::results/schema/query/@project"/>
+		<xsl:variable name="updateAction" select="ancestor::results/schema/query/actions/action[@type = 'update']"/>
 		<th>
-			<a href="#">
-				<i class="fa fa-pencil"/>
-			</a>
+			<xsl:choose>
+				<xsl:when test="$updateAction">
+					<xsl:variable name="action.link" select="concat('wbt_project=',$result.project, '&amp;wbt_query=', $updateAction/@query)"/>
+					<xsl:variable name="primary-id" select="@*[local-name() = $updateAction/@primaryKey]"/>
+					<a>
+						<xsl:attribute name="href">
+							<xsl:value-of select="concat('?', $action.link, '&amp;', $updateAction/@queryPrimaryKey, '=', $primary-id)"/>
+							<xsl:value-of select="concat('&amp;', 'LookupIndex=', $updateAction/@LookupIndex)"/>
+						</xsl:attribute>
+						<i class="fa fa-pencil"/>
+					</a>
+				</xsl:when>
+				<xsl:otherwise>
+					<!-- Fallback if no update action is defined -->
+					<a href="#">
+						<i class="fa fa-pencil"/>
+					</a>
+				</xsl:otherwise>
+			</xsl:choose>
 		</th>
 	</xsl:template>
 
