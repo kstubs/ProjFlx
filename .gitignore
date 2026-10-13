@@ -15,3 +15,5 @@ bin/
 *.pdb
 bin/FLX.dll
 /Binaries2
+Binaries2/
+MARK_DELETE_Binaries2/
